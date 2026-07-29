@@ -1,0 +1,53 @@
+# Root-level ignores
+.DS_Store
+Thumbs.db
+*.log
+*.env
+.env*
+.vscode/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Python/Django
+Backend/env/
+Backend/db.sqlite3
+Backend/__pycache__/
+Backend/*/__pycache__/
+Backend/*.pyc
+Backend/**/*.pyc
+Backend/*.pyo
+Backend/**/*.pyo
+Backend/*.pyd
+Backend/**/*.pyd
+Backend/*.sqlite3
+Backend/*.sqlite
+Backend/media/
+Backend/staticfiles/
+Backend/.pytest_cache/
+
+# Node/Vite frontend
+Frontend/SGCUB/node_modules/
+Frontend/SGCUB/dist/
+Frontend/SGCUB/build/
+Frontend/SGCUB/.vite/
+Frontend/SGCUB/npm-debug.log*
+Frontend/SGCUB/yarn-debug.log*
+Frontend/SGCUB/yarn-error.log*
+Frontend/SGCUB/pnpm-debug.log*
+
+# Logs and local env
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Optional IDE/editor folders
+.vscode/
+.idea/
