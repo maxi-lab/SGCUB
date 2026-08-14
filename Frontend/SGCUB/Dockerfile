@@ -1,5 +1,5 @@
 # /Frontend/SGCUB/Dockerfile
-FROM node:20-alpine
+FROM node:20.19.0-slim
 
 WORKDIR /app
 
