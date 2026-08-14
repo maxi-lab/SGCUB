@@ -75,12 +75,17 @@ WSGI_APPLICATION = 'SGCUB.wsgi.application'
 
 # Si existe la variable DB_HOST, asumimos que estamos en Docker usando Postgres
 if os.environ.get('DB_HOST'):
+    # Guardamos la contraseña y verificamos que exista
+    db_password = os.environ.get('DB_PASSWORD')
+    if not db_password:
+        raise ValueError("Error crítico: Faltó definir DB_PASSWORD en el archivo .env")
+
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
             'NAME': os.environ.get('DB_NAME', 'sgcub_db'),
             'USER': os.environ.get('DB_USER', 'sgcub_user'),
-            'PASSWORD': os.environ['DB_PASSWORD'],
+            'PASSWORD': db_password,
             'HOST': os.environ.get('DB_HOST', 'db'),
             'PORT': os.environ.get('DB_PORT', '5432'),
         }

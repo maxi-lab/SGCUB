@@ -38,7 +38,7 @@ services:
   frontend:
     build: ./Frontend/SGCUB
     container_name: sgcub_frontend
-    command: npm run dev -- --host  # El --host es CRÍTICO para que Vite funcione en Docker
+    command: sh -c "npm install && npm run dev -- --host"  # El --host es CRÍTICO para que Vite funcione en Docker
     volumes:
       - ./Frontend/SGCUB:/app
       - /app/node_modules # Evita sobreescribir los módulos de node
