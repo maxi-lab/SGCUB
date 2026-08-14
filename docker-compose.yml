@@ -4,13 +4,18 @@ services:
     container_name: sgcub_db
     restart: always
     environment:
-      POSTGRES_DB: sgcub_db
-      POSTGRES_USER: sgcub_user
-      POSTGRES_PASSWORD: sgcub_password
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   backend:
     build: ./Backend
@@ -27,7 +32,8 @@ services:
       - DB_HOST=db
       - DB_PORT=5432
     depends_on:
-      - db
+      - db:
+          condition: service_healthy
 
   frontend:
     build: ./Frontend/SGCUB
