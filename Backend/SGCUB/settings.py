@@ -80,7 +80,7 @@ if os.environ.get('DB_HOST'):
             'ENGINE': 'django.db.backends.postgresql',
             'NAME': os.environ.get('DB_NAME', 'sgcub_db'),
             'USER': os.environ.get('DB_USER', 'sgcub_user'),
-            'PASSWORD': os.environ.get('DB_PASSWORD', 'sgcub_password'),
+            'PASSWORD': os.environ['DB_PASSWORD'],
             'HOST': os.environ.get('DB_HOST', 'db'),
             'PORT': os.environ.get('DB_PORT', '5432'),
         }

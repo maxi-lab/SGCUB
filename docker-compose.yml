@@ -24,7 +24,7 @@ services:
     volumes:
       - ./Backend:/app
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     environment:
       DB_NAME: ${DB_NAME:-sgcub_db}
       DB_USER: ${DB_USER:-sgcub_user}
@@ -43,7 +43,7 @@ services:
       - ./Frontend/SGCUB:/app
       - /app/node_modules # Evita sobreescribir los módulos de node
     ports:
-      - "5173:5173"
+      - "127.0.0.1:5173:5173"
     environment:
       - CHOKIDAR_USEPOLLING=true # Ayuda al hot-reload en Windows
       - WATCHPACK_POLLING=true
