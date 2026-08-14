@@ -6,16 +6,16 @@ services:
     environment:
       POSTGRES_DB: ${DB_NAME:-sgcub_db}
       POSTGRES_USER: ${DB_USER:-sgcub_user}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-sgcub_password}
+      POSTGRES_PASSWORD: "${DB_PASSWORD:?Error: Falla de seguridad. Debes definir DB_PASSWORD en el archivo .env}"
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5433:5432" #Limitado a loopback para que no sea accesible desde fuera del host
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
 
   backend:
     build: ./Backend
@@ -26,11 +26,11 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - DB_NAME=${DB_NAME:-sgcub_db}
-      - DB_USER=${DB_USER:-sgcub_user}
-      - DB_PASSWORD=${DB_PASSWORD:-sgcub_password}
-      - DB_HOST=${DB_HOST:-db}
-      - DB_PORT=${DB_PORT:-5432}
+      DB_NAME: ${DB_NAME:-sgcub_db}
+      DB_USER: ${DB_USER:-sgcub_user}
+      DB_PASSWORD: "${DB_PASSWORD:?Error: Falla de seguridad. Debes definir DB_PASSWORD en el archivo .env}"
+      DB_HOST: ${DB_HOST:-db}
+      DB_PORT: ${DB_PORT:-5432}
     depends_on:
       db:
         condition: service_healthy
