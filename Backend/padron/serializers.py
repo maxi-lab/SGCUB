@@ -1,4 +1,6 @@
 from rest_framework import serializers
+from django.db import transaction
+from rest_framework.validators import UniqueValidator
 from .models import Persona, Socio, Categoria, Jugador, Docente
 
 
@@ -9,13 +11,50 @@ class PersonaSerializer(serializers.ModelSerializer):
         read_only_fields = ["persona_id"]
 
 
+
 class SocioSerializer(serializers.ModelSerializer):
+    nombre = serializers.CharField(source="persona.nombre")
+    apellido = serializers.CharField(source="persona.apellido")
+    dni = serializers.CharField(
+        source="persona.dni",
+        validators=[
+            UniqueValidator(
+                queryset=Persona.objects.all()
+            )
+        ]
+    )
+
     class Meta:
         model = Socio
-        fields = ["socio_id", "nombre", "apellido", "telefono"]
-        read_only_fields = ["socio_id"]
+        fields = [
+            "socio_id",
+            "nombre",
+            "apellido",
+            "dni",
+            "telefono",
+        ]
 
+    @transaction.atomic
+    def create(self, validated_data):
+        persona_data = validated_data.pop("persona")
+        persona = Persona.objects.create(**persona_data)
+        socio = Socio.objects.create(persona=persona, **validated_data)
+        return socio
 
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        persona_data = validated_data.pop("persona", None)
+
+        if persona_data:
+            persona = instance.persona
+            for attr, value in persona_data.items():
+                setattr(persona, attr, value)
+            persona.save()
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        return instance
 class CategoriaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Categoria
@@ -35,11 +74,8 @@ class JugadorSerializer(serializers.ModelSerializer):
 
 class DocenteSerializer(serializers.ModelSerializer):
     persona = serializers.PrimaryKeyRelatedField(queryset=Persona.objects.all())
-    jugador = serializers.PrimaryKeyRelatedField(
-        queryset=Jugador.objects.all(), allow_null=True, required=False
-    )
 
     class Meta:
         model = Docente
-        fields = ["docente_id", "persona", "jugador", "legajo"]
+        fields = ["docente_id", "persona", "legajo"]
         read_only_fields = ["docente_id"]

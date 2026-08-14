@@ -61,11 +61,18 @@ def socio_list_create(request):
         return Response(serializer.data)
 
     serializer = SocioSerializer(data=request.data)
+
     if serializer.is_valid():
         socio = serializer.save()
-        return Response(SocioSerializer(socio).data, status=status.HTTP_201_CREATED)
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            SocioSerializer(socio).data,
+            status=status.HTTP_201_CREATED
+        )
 
+    return Response(
+        serializer.errors,
+        status=status.HTTP_400_BAD_REQUEST
+    )
 
 @api_view(["GET", "PUT", "PATCH", "DELETE"])
 def socio_detail(request, pk):
