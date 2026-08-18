@@ -74,6 +74,46 @@ DB_PORT=5432
 > ⚠️ **Importante:** La variable `DB_PASSWORD` es obligatoria para Docker Compose.
 
 ---
+## 🐳 Despliegue con Docker Compose (Recomendado)
+
+Requisito: Tener instalado y en ejecución Docker Desktop.
+
+### 1. Construir y levantar los servicios
+Levanta la base de datos PostgreSQL, el backend en Django y el frontend en React:
+
+```bash
+docker compose up --build
+```
+
+*(Para ejecutarlo en segundo plano, añade el flag `-d`: `docker compose up --build -d`)*
+
+### 2. Aplicar migraciones en el contenedor
+Una vez que los contenedores estén corriendo y el servicio de base de datos esté listo (*healthy*):
+
+```bash
+docker compose exec backend python manage.py migrate
+```
+
+### 3. Crear superusuario (opcional)
+```bash
+docker compose exec backend python manage.py createsuperuser
+```
+
+### 4. Acceso a los servicios
+* **Frontend (React):** http://localhost:5173
+* **Backend API / Admin (Django):** http://localhost:8000
+* **PostgreSQL (Host):** `127.0.0.1:5433`
+
+### 5. Detener el entorno
+```bash
+# Detener contenedores conservando la base de datos
+docker compose down
+
+# Detener eliminando volúmenes (reinicio limpio de la BD)
+docker compose down -v
+```
+
+---
 
 ## ▶️ Levantamiento Local
 
