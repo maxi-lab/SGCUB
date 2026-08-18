@@ -4,6 +4,8 @@
 ![Proyecto Final](https://img.shields.io/badge/Proyecto-Final%202026-green.svg)
 ![Django](https://img.shields.io/badge/Backend-Django-092E20?style=flat&logo=django&logoColor=white)
 ![React](https://img.shields.io/badge/Frontend-React-61DAFB?style=flat&logo=react&logoColor=black)
+![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=flat&logo=docker&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-4169E1?style=flat&logo=postgresql&logoColor=white)
 
 Repositorio oficial del **Sistema de Gestión Integral para el Club Universitario de Berisso**, desarrollado como Proyecto Final de la carrera de Ingeniería en Sistemas de Información de la **Universidad Tecnológica Nacional - Facultad Regional La Plata (UTN FRLP)**.
 
@@ -35,7 +37,9 @@ Desarrollar e implementar un sistema de información integral para la gestión d
 
 * **Backend:** Python / Django
 * **Frontend:** React
-* **Base de Datos:** SQLite / PostgreSQL (adaptado para despliegue local según restricciones de hardware del cliente)
+* **Base de Datos:** SQLite / PostgreSQL (adaptado para 
+despliegue local según restricciones de hardware del cliente)
+* **Infraestructura:** Docker & Docker Compose
 * **Control de Versiones:** Git & GitHub
 
 ---
@@ -54,6 +58,20 @@ Desarrollar e implementar un sistema de información integral para la gestión d
 Dado que el club posee restricciones operativas (ej. una única PC administrativa principal), el sistema se proyecta bajo premisas de **eficiencia de recursos y soberanía de datos**:
 * **Despliegue Local:** Optimizado para ejecutarse en el hardware existente del club, eliminando costos innecesarios de hosting externo.
 * **Migración de Datos:** Incluye procesos ETL y scripts de limpieza para trasladar registros históricos desde planillas y archivos en papel hacia la nueva base de datos relacional.
+
+---
+## ⚙️ Configuración Inicial de Variables de Entorno
+
+Antes de ejecutar el proyecto, crea un archivo `.env` en la raíz del repositorio:
+
+```env
+DB_NAME=sgcub_db
+DB_USER=sgcub_user
+DB_PASSWORD=tu_contraseña_segura_aqui
+DB_HOST=db
+DB_PORT=5432
+```
+> ⚠️ **Importante:** La variable `DB_PASSWORD` es obligatoria para Docker Compose.
 
 ---
 
