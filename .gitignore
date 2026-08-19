@@ -3,7 +3,6 @@
 Thumbs.db
 *.log
 *.env
-.env*
 .vscode/
 .idea/
 *.suo

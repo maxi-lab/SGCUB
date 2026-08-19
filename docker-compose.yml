@@ -1,0 +1,52 @@
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: sgcub_db
+    restart: always
+    environment:
+      POSTGRES_DB: ${DB_NAME:-sgcub_db}
+      POSTGRES_USER: ${DB_USER:-sgcub_user}
+      POSTGRES_PASSWORD: "${DB_PASSWORD:?Error: Falla de seguridad. Debes definir DB_PASSWORD en el archivo .env}"
+    ports:
+      - "127.0.0.1:5433:5432" #Limitado a loopback para que no sea accesible desde fuera del host
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./Backend
+    container_name: sgcub_backend
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - ./Backend:/app
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      DB_NAME: ${DB_NAME:-sgcub_db}
+      DB_USER: ${DB_USER:-sgcub_user}
+      DB_PASSWORD: "${DB_PASSWORD:?Error: Falla de seguridad. Debes definir DB_PASSWORD en el archivo .env}"
+      DB_HOST: ${DB_HOST:-db}
+      DB_PORT: ${DB_PORT:-5432}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build: ./Frontend/SGCUB
+    container_name: sgcub_frontend
+    command: sh -c "npm install && npm run dev -- --host"  # Usamos install y no ci para evitar que se borre la caché de node_modules en cada reinicio, host vital para que Vite funcione correctamente en contenedores
+    volumes:
+      - ./Frontend/SGCUB:/app
+      - /app/node_modules # Evita sobreescribir los módulos de node
+    ports:
+      - "127.0.0.1:5173:5173"
+    environment:
+      - CHOKIDAR_USEPOLLING=true # Ayuda al hot-reload en Windows
+      - WATCHPACK_POLLING=true
+
+volumes:
+  postgres_data:
