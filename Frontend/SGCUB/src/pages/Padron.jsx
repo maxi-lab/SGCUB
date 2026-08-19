@@ -1,6 +1,9 @@
 import SociosTable from '../components/SociosTable'
+import useSocio from '../hooks/useSocio'
 
 function Padron() {
+  const { socios, isLoading, error } = useSocio()
+
   return (
     <>
       <p className="eyebrow">Club Universitario Berisso</p>
@@ -10,7 +13,7 @@ function Padron() {
       </p>
       <h2>Socios</h2>
       <section className="padron-table-section" aria-label="Socios y jugadores">
-        <SociosTable />
+        <SociosTable data={socios} isLoading={isLoading} error={error} />
       </section>
     </>
   )

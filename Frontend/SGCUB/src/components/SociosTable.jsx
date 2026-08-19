@@ -3,24 +3,7 @@ import { ActionIcon, Button, Group, Text } from '@mantine/core'
 import { IconEdit, IconEye, IconPlus, IconTrash } from '@tabler/icons-react'
 import { MantineReactTable, useMantineReactTable } from 'mantine-react-table'
 
-const defaultData = [
-  {
-    id: 1,
-    nombre: 'Juan',
-    apellido: 'Perez',
-    dni: '12345678',
-    telefono: '123456789',
-  },
-  {
-    id: 2,
-    nombre: 'Maria',
-    apellido: 'Gonzalez',
-    dni: '23456789',
-    telefono: '987654321',
-  },
-]
-
-function SociosTable({ data = defaultData, onAdd, onEdit, onDelete, onInspect }) {
+function SociosTable({ data, isLoading, error, onAdd, onEdit, onDelete, onInspect }) {
   const columns = useMemo(
     () => [
       {
@@ -45,7 +28,8 @@ function SociosTable({ data = defaultData, onAdd, onEdit, onDelete, onInspect })
 
   const table = useMantineReactTable({
     columns,
-    data,
+    data: data ?? [],
+    state: { isLoading },
     enableColumnActions: false,
     enableColumnFilters: false,
     enableDensityToggle: false,
@@ -102,7 +86,7 @@ function SociosTable({ data = defaultData, onAdd, onEdit, onDelete, onInspect })
     },
     renderEmptyRowsFallback: () => (
       <Text align="center" py="xl">
-        No hay socios o jugadores cargados.
+        {error ? 'No se pudieron cargar los socios.' : 'No hay socios cargados.'}
       </Text>
     ),
   })
