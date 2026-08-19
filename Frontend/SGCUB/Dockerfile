@@ -1,0 +1,3 @@
+FROM node:20.19.0-slim
+WORKDIR /app
+EXPOSE 5173

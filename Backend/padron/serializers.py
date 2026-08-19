@@ -1,6 +1,5 @@
 from rest_framework import serializers
 from django.db import transaction
-from rest_framework.validators import UniqueValidator
 from .models import Persona, Socio, Categoria, Jugador, Docente
 
 
@@ -15,14 +14,7 @@ class PersonaSerializer(serializers.ModelSerializer):
 class SocioSerializer(serializers.ModelSerializer):
     nombre = serializers.CharField(source="persona.nombre")
     apellido = serializers.CharField(source="persona.apellido")
-    dni = serializers.CharField(
-        source="persona.dni",
-        validators=[
-            UniqueValidator(
-                queryset=Persona.objects.all()
-            )
-        ]
-    )
+    dni = serializers.CharField(source="persona.dni")
 
     class Meta:
         model = Socio
@@ -33,6 +25,18 @@ class SocioSerializer(serializers.ModelSerializer):
             "dni",
             "telefono",
         ]
+
+    def validate_dni(self, value):
+        persona = getattr(self.instance, "persona", None)
+        personas = Persona.objects.filter(dni=value)
+
+        if persona is not None:
+            personas = personas.exclude(pk=persona.pk)
+
+        if personas.exists():
+            raise serializers.ValidationError("persona with this dni already exists.")
+
+        return value
 
     @transaction.atomic
     def create(self, validated_data):
