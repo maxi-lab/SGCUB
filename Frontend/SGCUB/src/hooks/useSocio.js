@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { getSocios, postSocio } from '../api/socios'
+import { deleteSocio, getSocios, postSocio, putSocio } from '../api/socios'
 
 function useSocio() {
   const [socios, setSocios] = useState([])
@@ -26,11 +26,30 @@ function useSocio() {
     return socioCreado
   }, [cargarSocios])
 
+  const modificarSocio = useCallback(async (socioId, socio) => {
+    const socioModificado = await putSocio(socioId, socio)
+    await cargarSocios()
+    return socioModificado
+  }, [cargarSocios])
+
+  const eliminarSocio = useCallback(async (socioId) => {
+    await deleteSocio(socioId)
+    await cargarSocios()
+  }, [cargarSocios])
+
   useEffect(() => {
     cargarSocios()
   }, [cargarSocios])
 
-  return { socios, isLoading, error, recargarSocios: cargarSocios, crearSocio }
+  return {
+    socios,
+    isLoading,
+    error,
+    recargarSocios: cargarSocios,
+    crearSocio,
+    modificarSocio,
+    eliminarSocio,
+  }
 }
 
 export default useSocio

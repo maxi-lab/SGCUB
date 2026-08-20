@@ -4,8 +4,16 @@ import SociosTable from '../components/SociosTable'
 import useSocio from '../hooks/useSocio'
 
 function Padron() {
-  const { socios, isLoading, error, crearSocio } = useSocio()
+  const {
+    socios,
+    isLoading,
+    error,
+    crearSocio,
+    modificarSocio,
+    eliminarSocio,
+  } = useSocio()
   const [modalAbierto, setModalAbierto] = useState(false)
+  const [socioEnEdicion, setSocioEnEdicion] = useState(null)
   const [formulario, setFormulario] = useState({
     nombre: '',
     apellido: '',
@@ -17,6 +25,20 @@ function Padron() {
 
   const abrirModal = () => {
     setErrorGuardado('')
+    setSocioEnEdicion(null)
+    setFormulario({ nombre: '', apellido: '', dni: '', telefono: '' })
+    setModalAbierto(true)
+  }
+
+  const abrirEdicion = (socio) => {
+    setErrorGuardado('')
+    setSocioEnEdicion(socio)
+    setFormulario({
+      nombre: socio.nombre,
+      apellido: socio.apellido,
+      dni: socio.dni,
+      telefono: socio.telefono,
+    })
     setModalAbierto(true)
   }
 
@@ -39,15 +61,39 @@ function Padron() {
     setErrorGuardado('')
 
     try {
-      await crearSocio(formulario)
+      if (socioEnEdicion) {
+        await modificarSocio(socioEnEdicion.socio_id, formulario)
+      } else {
+        await crearSocio(formulario)
+      }
       setFormulario({ nombre: '', apellido: '', dni: '', telefono: '' })
+      setSocioEnEdicion(null)
       setModalAbierto(false)
     } catch (requestError) {
       setErrorGuardado(
-        requestError.response?.data?.dni?.[0] || 'No se pudo agregar el socio.',
+        requestError.response?.data?.dni?.[0] ||
+          (socioEnEdicion
+            ? 'No se pudo modificar el socio.'
+            : 'No se pudo agregar el socio.'),
       )
     } finally {
       setGuardando(false)
+    }
+  }
+
+  const borrarSocio = async (socio) => {
+    const nombreCompleto = `${socio.nombre} ${socio.apellido}`.trim()
+
+    if (!window.confirm(`¿Seguro que querés eliminar a ${nombreCompleto}?`)) {
+      return
+    }
+
+    try {
+      await eliminarSocio(socio.socio_id)
+    } catch (requestError) {
+      window.alert(
+        requestError.response?.data?.detail || 'No se pudo eliminar el socio.',
+      )
     }
   }
 
@@ -65,6 +111,8 @@ function Padron() {
           isLoading={isLoading}
           error={error}
           onAdd={abrirModal}
+          onEdit={abrirEdicion}
+          onDelete={borrarSocio}
         />
       </section>
 
@@ -76,6 +124,7 @@ function Padron() {
         onChange={actualizarCampo}
         loading={guardando}
         error={errorGuardado}
+        editing={Boolean(socioEnEdicion)}
       />
     </>
   )

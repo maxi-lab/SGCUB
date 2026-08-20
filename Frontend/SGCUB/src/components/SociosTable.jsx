@@ -52,14 +52,7 @@ function SociosTable({ data, isLoading, error, onAdd, onEdit, onDelete, onInspec
     ),
     renderRowActions: ({ row }) => (
       <Group spacing="xs" noWrap>
-        <ActionIcon
-          color="blue"
-          variant="subtle"
-          aria-label={`Inspeccionar ${row.original.nombre}`}
-          onClick={() => onInspect?.(row.original)}
-        >
-          <IconEye size={18} />
-        </ActionIcon>
+        
         <ActionIcon
           color="teal"
           variant="subtle"

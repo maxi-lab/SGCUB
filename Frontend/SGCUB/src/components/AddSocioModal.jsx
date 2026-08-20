@@ -8,9 +8,10 @@ function AddSocioModal({
   onChange,
   loading,
   error,
+  editing = false,
 }) {
   return (
-    <Modal opened={opened} onClose={onClose} title="Agregar socio">
+    <Modal opened={opened} onClose={onClose} title={editing ? 'Modificar socio' : 'Agregar socio'}>
       <form onSubmit={onSubmit}>
         <Stack>
           <TextInput
@@ -43,7 +44,7 @@ function AddSocioModal({
               Cancelar
             </Button>
             <Button type="submit" loading={loading}>
-              Guardar
+              {editing ? 'Modificar' : 'Guardar'}
             </Button>
           </Group>
         </Stack>
