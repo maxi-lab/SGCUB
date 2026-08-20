@@ -9,6 +9,7 @@ from .serializers import (
     SocioSerializer,
     CategoriaSerializer,
     JugadorSerializer,
+    JugadorSerializerDitail,
     DocenteSerializer,
 )
 
@@ -159,18 +160,18 @@ def jugador_detail(request, pk):
     jugador = get_object_or_404(Jugador, pk=pk)
 
     if request.method == "GET":
-        serializer = JugadorSerializer(jugador)
+        serializer = JugadorSerializerDitail(jugador)
         return Response(serializer.data)
 
     if request.method == "PUT":
-        serializer = JugadorSerializer(jugador, data=request.data, partial=True)
+        serializer = JugadorSerializerDitail(jugador, data=request.data, partial=True)
         if serializer.is_valid():
             jugador = serializer.save()
             return Response(JugadorSerializer(jugador).data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     if request.method == "PATCH":
-        serializer = JugadorSerializer(jugador, data=request.data, partial=True)
+        serializer = JugadorSerializerDetail(jugador, data=request.data, partial=True)
         if serializer.is_valid():
             jugador = serializer.save()
             return Response(JugadorSerializer(jugador).data)

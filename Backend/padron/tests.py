@@ -1,5 +1,6 @@
 from rest_framework import status
 from rest_framework.test import APITestCase
+from padron.serializers import SocioSerializer 
 
 from .models import Categoria, Docente, Jugador, Persona, Socio
 
@@ -313,7 +314,7 @@ class PadronViewTests(APITestCase):
         jugador = self.crear_jugador_orm()
         response = self.client.get(f"/api/padron/jugador/{jugador.jugador_id}/", format="json")
         self.assertEqual(status.HTTP_200_OK, response.status_code)
-        self.assertEqual(jugador.socio.socio_id, response.data["socio"])
+        self.assertEqual(SocioSerializer(jugador.socio).data, response.data["socio"])
 
     def test_jugador_get_detail_no_existe(self):
         response = self.client.get("/api/padron/jugador/9999/", format="json")

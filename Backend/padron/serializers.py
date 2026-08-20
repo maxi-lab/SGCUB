@@ -67,12 +67,20 @@ class CategoriaSerializer(serializers.ModelSerializer):
 
 
 class JugadorSerializer(serializers.ModelSerializer):
-    socio = serializers.PrimaryKeyRelatedField(queryset=Socio.objects.all())
+    """Para create/update: recibe y devuelve IDs planos"""
+    class Meta:
+        model = Jugador
+        fields = ['jugador_id', 'socio', 'categoria']
+
+
+class JugadorSerializerDitail(serializers.ModelSerializer):
+    socio = SocioSerializer(read_only=True)
+    socio_id = serializers.PrimaryKeyRelatedField(queryset=Socio.objects.all(), source="socio", write_only=True)
     categoria = serializers.PrimaryKeyRelatedField(queryset=Categoria.objects.all())
 
     class Meta:
         model = Jugador
-        fields = ["jugador_id", "socio", "categoria"]
+        fields = ["jugador_id", "socio", "socio_id", "categoria"]
         read_only_fields = ["jugador_id"]
 
 
