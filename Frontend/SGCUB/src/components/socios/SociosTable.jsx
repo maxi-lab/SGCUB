@@ -1,9 +1,9 @@
 import { useMemo } from 'react'
 import { ActionIcon, Button, Group, Text } from '@mantine/core'
-import { IconEdit, IconEye, IconPlus, IconTrash } from '@tabler/icons-react'
+import { IconEdit, IconPlus, IconTrash } from '@tabler/icons-react'
 import { MantineReactTable, useMantineReactTable } from 'mantine-react-table'
 
-function SociosTable({ data, isLoading, error, onAdd, onEdit, onDelete, onInspect }) {
+function SociosTable({ data, isLoading, error, onAdd, onEdit, onDelete }) {
   const columns = useMemo(
     () => [
       {
@@ -52,7 +52,6 @@ function SociosTable({ data, isLoading, error, onAdd, onEdit, onDelete, onInspec
     ),
     renderRowActions: ({ row }) => (
       <Group spacing="xs" noWrap>
-        
         <ActionIcon
           color="teal"
           variant="subtle"

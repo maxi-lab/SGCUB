@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import AddSocioModal from '../components/AddSocioModal'
-import SociosTable from '../components/SociosTable'
+import AddSocioModal from '../components/socios/AddSocioModal'
+import SociosTable from '../components/socios/SociosTable'
 import useSocio from '../hooks/useSocio'
 
 function Padron() {
