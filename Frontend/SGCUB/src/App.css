@@ -75,6 +75,7 @@
   width: min(100% - 96px, 850px);
   margin: 0 auto;
   padding: 110px 0;
+  text-align: center;
 }
 
 .eyebrow {
@@ -92,6 +93,8 @@
 
 .intro {
   max-width: 540px;
+  margin-right: auto;
+  margin-left: auto;
   font-size: 20px;
 }
 
