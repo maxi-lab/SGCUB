@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import AddSocioModal from '../components/socios/AddSocioModal'
+import DeleteSocioModal from '../components/socios/DeleteSocioModal'
 import SociosTable from '../components/socios/SociosTable'
 import useSocio from '../hooks/useSocio'
 
@@ -13,6 +14,9 @@ function Padron() {
     eliminarSocio,
   } = useSocio()
   const [modalAbierto, setModalAbierto] = useState(false)
+  const [socioAEliminar, setSocioAEliminar] = useState(null)
+  const [eliminando, setEliminando] = useState(false)
+  const [errorEliminacion, setErrorEliminacion] = useState('')
   const [socioEnEdicion, setSocioEnEdicion] = useState(null)
   const [formulario, setFormulario] = useState({
     nombre: '',
@@ -82,18 +86,23 @@ function Padron() {
   }
 
   const borrarSocio = async (socio) => {
-    const nombreCompleto = `${socio.nombre} ${socio.apellido}`.trim()
+    setErrorEliminacion('')
+    setSocioAEliminar(socio)
+  }
 
-    if (!window.confirm(`¿Seguro que querés eliminar a ${nombreCompleto}?`)) {
-      return
-    }
+  const confirmarEliminacion = async () => {
+    setEliminando(true)
+    setErrorEliminacion('')
 
     try {
-      await eliminarSocio(socio.socio_id)
+      await eliminarSocio(socioAEliminar.socio_id)
+      setSocioAEliminar(null)
     } catch (requestError) {
-      window.alert(
+      setErrorEliminacion(
         requestError.response?.data?.detail || 'No se pudo eliminar el socio.',
       )
+    } finally {
+      setEliminando(false)
     }
   }
 
@@ -125,6 +134,19 @@ function Padron() {
         loading={guardando}
         error={errorGuardado}
         editing={Boolean(socioEnEdicion)}
+      />
+
+      <DeleteSocioModal
+        opened={Boolean(socioAEliminar)}
+        onClose={() => {
+          if (!eliminando) {
+            setSocioAEliminar(null)
+          }
+        }}
+        onConfirm={confirmarEliminacion}
+        socio={socioAEliminar}
+        loading={eliminando}
+        error={errorEliminacion}
       />
     </>
   )
