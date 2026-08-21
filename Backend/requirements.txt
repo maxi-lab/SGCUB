@@ -1,6 +1,7 @@
 asgiref==3.12.1
 Django==5.2.16
 djangorestframework==3.17.1
+django-cors-headers==4.7.0
 sqlparse==0.5.5
 tzdata==2026.3
 psycopg2-binary>=2.9.12
