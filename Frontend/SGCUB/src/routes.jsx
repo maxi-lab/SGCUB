@@ -1,21 +1,29 @@
+import { createBrowserRouter } from 'react-router-dom'
+import MainLayout from './layouts/MainLayout'
+import AdminLayout from './layouts/AdminLayout'
 import Padron from './pages/Padron'
-import Principal from './pages/Principal'
 
-export const routes = [
+export const router = createBrowserRouter([
   {
     path: '/',
-    component: Principal,
+    element: <MainLayout />,
     label: 'Inicio',
     showInNavigation: false,
   },
   {
-    path: '/padron',
-    component: Padron,
-    label: 'Padrón',
+    path: '/admin',
+    element: <AdminLayout />,
+    children: [
+      {
+        index: true,
+        element: <Padron />,
+      },
+    ],
+    label: 'Admin',
     showInNavigation: true,
   },
-]
-
-export function getRoute(pathname) {
-  return routes.find((route) => route.path === pathname) ?? routes[0]
-}
+  {
+    path: '*',
+    element: <h1>404 - Página no encontrada</h1>,
+  }
+])
