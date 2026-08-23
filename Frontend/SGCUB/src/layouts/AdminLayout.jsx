@@ -1,14 +1,14 @@
-import {Outlet} from 'react-router-dom'
+import { Outlet } from 'react-router-dom'
+import Sidebar from '../components/main/Sidebar'
+import '../App.css'
 
 export default function AdminLayout() {
   return (
-    <div className="admin-container" style={{ display: 'flex' }}>
-      {/* <Sidebar /> */}
-      <div className="main-content" style={{ flex: 1 }}>
-        {/*<Topbar />*/}
-        {/* <Outlet /> es el "agujero" donde renderizarán las Pages */}
-        <main style={{ padding: '20px' }}>
-          <Outlet /> 
+    <div className="admin-container">
+      {/*<AdminSidebar />*/}
+      <div className="admin-content">
+        <main className="admin-main">
+          <Outlet />
         </main>
       </div>
     </div>

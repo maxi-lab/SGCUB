@@ -1,12 +1,20 @@
 import { createBrowserRouter } from 'react-router-dom'
 import MainLayout from './layouts/MainLayout'
 import AdminLayout from './layouts/AdminLayout'
-import Padron from './pages/Padron'
+import Principal from './pages/Principal'
+import AdminPage from './pages/AdminPage'
 
 export const router = createBrowserRouter([
   {
     path: '/',
     element: <MainLayout />,
+    children: [
+      {
+        index: true,
+        element: <Principal />,
+      },
+    ],
+
     label: 'Inicio',
     showInNavigation: false,
   },
@@ -16,7 +24,7 @@ export const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: <Padron />,
+        element: <AdminPage />,
       },
     ],
     label: 'Admin',

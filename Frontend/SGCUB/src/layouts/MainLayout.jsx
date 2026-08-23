@@ -1,6 +1,6 @@
 import { NavLink, Link, Outlet } from "react-router-dom";
 import "../App.css";
-import Principal from "../pages/Principal";
+import Sidebar from "../components/main/Sidebar";
 
 export default function MainLayout() {
   const navLinks = [
@@ -30,10 +30,12 @@ export default function MainLayout() {
           ))}
         </nav>
       </header>
-
-      <main className="main-content">
-        <Principal />
-      </main>
+      <div className="page-layout">
+        <Sidebar />
+        <main className="main-content">
+          <Outlet />
+        </main>
+      </div>
 
       <footer className="site-footer">
         <span>Sistema Gestión Club Universitario Berisso</span>
