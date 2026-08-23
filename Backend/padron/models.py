@@ -6,6 +6,8 @@ class Persona(models.Model):
     nombre = models.CharField(max_length=50, default="")
     apellido = models.CharField(max_length=50, default="")
     dni = models.CharField(max_length=20, unique=True, default="")
+    telefono = models.CharField(max_length=20, default="")
+    email = models.EmailField(max_length=100, unique=True, default="")
 
     class Meta:
         db_table = "persona"
@@ -21,7 +23,6 @@ class Socio(models.Model):
         on_delete=models.CASCADE,
         related_name="socio"
     )
-    telefono = models.CharField(max_length=20, default="")
 
     class Meta:
         db_table = "socio"
@@ -43,6 +44,9 @@ class Categoria(models.Model):
 
 class Jugador(models.Model):
     jugador_id = models.AutoField(primary_key=True)
+    obra_social = models.CharField(max_length=50, default="")
+    tallaIndumentaria = models.CharField(max_length=10, default="")
+    contactoEmergencia = models.CharField(max_length=50, default="")
     socio = models.ForeignKey(
         Socio,
         on_delete=models.CASCADE,
