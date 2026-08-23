@@ -4,9 +4,17 @@ import "./sidebar.css";
 function Sidebar() {
   const links = [
     {
-      to: "/padron",
-      label: "Padrón",
-      icon: "bi-box-seam",
+      to: "/padron/socios",
+      label: "Socios",
+      icon: "bi-people",
+      nested: true,
+      active: true,
+    },
+    {
+      to: "/padron/jugadores",
+      label: "Jugadores",
+      icon: "bi-person-badge",
+      nested: true,
       active: true,
     },
   ];
@@ -17,14 +25,14 @@ function Sidebar() {
         <h2 className="admin-sidebar-title">Gestión del club</h2>
       </div>
       <nav className="admin-nav">
-        {/*<h2>Admin Panel</h2>*/}
+        <p className="sidebar-group-title">Padrón</p>
         <ul className="sidebar-links">
           {links.map((link) => (
             <li key={link.to}>
               <NavLink
                 to={link.to}
                 className={({ isActive }) =>
-                  `sidebar-link ${isActive ? "sidebar-link--active" : ""} ${!link.active ? "sidebar-link--disabled" : ""}`
+                  `sidebar-link ${link.nested ? "sidebar-link--nested" : ""} ${isActive ? "sidebar-link--active" : ""} ${!link.active ? "sidebar-link--disabled" : ""}`
                 }
                 onClick={(e) => !link.active && e.preventDefault()}
               >

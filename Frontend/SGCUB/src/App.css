@@ -88,6 +88,9 @@
 .page-layout .main-content {
   flex: 1;
   min-width: 0;
+  width: auto;
+  margin: 0;
+  padding: 36px 48px 56px;
   box-sizing: border-box;
 }
 
@@ -187,8 +190,8 @@
   }
 
   .page-layout .main-content {
-    width: min(100% - 40px, 850px);
-    padding: 52px 0;
+    width: 100%;
+    padding: 28px 20px 44px;
     text-align: center;
   }
 

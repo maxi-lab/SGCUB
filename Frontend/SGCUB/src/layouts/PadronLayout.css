@@ -1,0 +1,64 @@
+.padron-layout {
+  width: 100%;
+  max-width: 1080px;
+  margin: 0 auto;
+  text-align: left;
+}
+
+.padron-header {
+  margin-bottom: 26px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--border);
+}
+
+.padron-header .eyebrow {
+  margin-bottom: 8px;
+}
+
+.padron-header h1 {
+  margin: 0 0 4px;
+  font-size: clamp(28px, 3vw, 38px);
+}
+
+.padron-section-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--accent);
+  font-family: var(--sans);
+  font-size: 0.72em;
+  font-weight: 400;
+}
+
+.padron-section-name::before {
+  width: 1px;
+  height: 0.8em;
+  background: var(--border);
+  content: '';
+}
+
+.padron-description {
+  max-width: 620px;
+  color: var(--text);
+  font-size: 16px;
+}
+
+.padron-layout h2 {
+  margin: 0 0 12px;
+  font-size: 21px;
+}
+
+@media (max-width: 600px) {
+  .padron-header {
+    margin-bottom: 20px;
+    padding-bottom: 14px;
+  }
+
+  .padron-header h1 {
+    font-size: 30px;
+  }
+
+  .padron-description {
+    font-size: 16px;
+  }
+}
