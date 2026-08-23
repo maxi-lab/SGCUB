@@ -1,9 +1,10 @@
 import { useMemo } from 'react'
+import { Button, Text } from '@mantine/core'
+import { IconPlus } from '@tabler/icons-react'
 import { MantineReactTable, useMantineReactTable } from 'mantine-react-table'
-import { Text } from '@mantine/core'
 import '../shared/quiet-table.css'
 
-function JugadoresTable({ data, isLoading, error }) {
+function JugadoresTable({ data, isLoading, error, onAdd }) {
   const columns = useMemo(
     () => [
       {
@@ -56,6 +57,11 @@ function JugadoresTable({ data, isLoading, error }) {
     initialState: {
       density: 'compact',
     },
+    renderTopToolbarCustomActions: () => (
+      <Button leftIcon={<IconPlus size={16} />} onClick={onAdd}>
+        Agregar
+      </Button>
+    ),
     mantineTableProps: {
       className: 'quiet-table',
       striped: true,

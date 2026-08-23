@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { getJugadores } from '../api/jugadores'
+import { getJugadores, postJugador } from '../api/jugadores'
 
 function useJugadores() {
   const [jugadores, setJugadores] = useState([])
@@ -19,11 +19,17 @@ function useJugadores() {
     }
   }, [])
 
+  const crearJugador = useCallback(async (jugador) => {
+    const jugadorCreado = await postJugador(jugador)
+    await cargarJugadores()
+    return jugadorCreado
+  }, [cargarJugadores])
+
   useEffect(() => {
     cargarJugadores()
   }, [cargarJugadores])
 
-  return { jugadores, isLoading, error }
+  return { jugadores, isLoading, error, crearJugador }
 }
 
 export default useJugadores

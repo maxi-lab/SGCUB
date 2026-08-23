@@ -6,3 +6,8 @@ export const getJugadores = async () => {
   const response = await api.get(jugadoresEndpoint)
   return response.data
 }
+
+export const postJugador = async (jugador) => {
+  const response = await api.post(jugadoresEndpoint, jugador)
+  return response.data
+}

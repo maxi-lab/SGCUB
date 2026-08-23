@@ -73,7 +73,14 @@ class JugadorSerializer(serializers.ModelSerializer):
     """Para create/update: recibe y devuelve IDs planos"""
     class Meta:
         model = Jugador
-        fields = ['jugador_id', 'socio', 'categoria']
+        fields = [
+            'jugador_id',
+            'socio',
+            'categoria',
+            'obra_social',
+            'tallaIndumentaria',
+            'contactoEmergencia',
+        ]
 
 
 class JugadorListSerializer(serializers.ModelSerializer):
