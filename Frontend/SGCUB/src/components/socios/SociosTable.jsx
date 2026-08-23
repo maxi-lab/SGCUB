@@ -20,7 +20,8 @@ function SociosTable({ data, isLoading, error, onAdd, onEdit, onDelete }) {
         header: 'DNI',
       },
       {
-        accessorKey: 'telefono',
+        id: 'telefono',
+        accessorFn: (row) => row.telefono ?? row.persona?.telefono ?? '',
         header: 'Teléfono',
       },
     ],

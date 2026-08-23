@@ -38,6 +38,13 @@ function AddSocioModal({
             onChange={(event) => onChange('telefono', event.currentTarget.value)}
             required
           />
+          <TextInput
+            label="Email"
+            type="email"
+            value={formulario.email}
+            onChange={(event) => onChange('email', event.currentTarget.value)}
+            required
+          />
           {error && <Text color="red" size="sm">{error}</Text>}
           <Group position="right" mt="md">
             <Button type="button" variant="default" onClick={onClose} disabled={loading}>

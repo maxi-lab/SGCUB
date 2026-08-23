@@ -23,6 +23,7 @@ function Padron() {
     apellido: '',
     dni: '',
     telefono: '',
+    email: '',
   })
   const [guardando, setGuardando] = useState(false)
   const [errorGuardado, setErrorGuardado] = useState('')
@@ -30,7 +31,7 @@ function Padron() {
   const abrirModal = () => {
     setErrorGuardado('')
     setSocioEnEdicion(null)
-    setFormulario({ nombre: '', apellido: '', dni: '', telefono: '' })
+    setFormulario({ nombre: '', apellido: '', dni: '', telefono: '', email: '' })
     setModalAbierto(true)
   }
 
@@ -42,6 +43,7 @@ function Padron() {
       apellido: socio.apellido,
       dni: socio.dni,
       telefono: socio.telefono,
+      email: socio.email,
     })
     setModalAbierto(true)
   }
@@ -70,7 +72,7 @@ function Padron() {
       } else {
         await crearSocio(formulario)
       }
-      setFormulario({ nombre: '', apellido: '', dni: '', telefono: '' })
+      setFormulario({ nombre: '', apellido: '', dni: '', telefono: '', email: '' })
       setSocioEnEdicion(null)
       setModalAbierto(false)
     } catch (requestError) {
