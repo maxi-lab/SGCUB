@@ -1,10 +1,10 @@
 import { useMemo } from 'react'
-import { ActionIcon, Button, Text } from '@mantine/core'
-import { IconPlus, IconTrash } from '@tabler/icons-react'
+import { ActionIcon, Button, Group, Text } from '@mantine/core'
+import { IconEdit, IconPlus, IconTrash } from '@tabler/icons-react'
 import { MantineReactTable, useMantineReactTable } from 'mantine-react-table'
 import '../shared/quiet-table.css'
 
-function JugadoresTable({ data, isLoading, error, onAdd, onDelete }) {
+function JugadoresTable({ data, isLoading, error, onAdd, onEdit, onDelete }) {
   const columns = useMemo(
     () => [
       {
@@ -71,14 +71,24 @@ function JugadoresTable({ data, isLoading, error, onAdd, onDelete }) {
       </Button>
     ),
     renderRowActions: ({ row }) => (
-      <ActionIcon
-        color="red"
-        variant="subtle"
-        aria-label={`Eliminar jugador de ${row.original.socio?.nombre ?? 'este socio'}`}
-        onClick={() => onDelete?.(row.original)}
-      >
-        <IconTrash size={18} />
-      </ActionIcon>
+      <Group spacing="xs" noWrap>
+        <ActionIcon
+          color="teal"
+          variant="subtle"
+          aria-label={`Editar jugador de ${row.original.socio?.nombre ?? 'este socio'}`}
+          onClick={() => onEdit?.(row.original)}
+        >
+          <IconEdit size={18} />
+        </ActionIcon>
+        <ActionIcon
+          color="red"
+          variant="subtle"
+          aria-label={`Eliminar jugador de ${row.original.socio?.nombre ?? 'este socio'}`}
+          onClick={() => onDelete?.(row.original)}
+        >
+          <IconTrash size={18} />
+        </ActionIcon>
+      </Group>
     ),
     mantineTableProps: {
       className: 'quiet-table',

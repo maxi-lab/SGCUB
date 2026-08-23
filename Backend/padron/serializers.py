@@ -125,8 +125,30 @@ class JugadorSerializerDitail(serializers.ModelSerializer):
 
     class Meta:
         model = Jugador
-        fields = ["jugador_id", "socio", "socio_id", "categoria"]
+        fields = [
+            "jugador_id",
+            "socio",
+            "socio_id",
+            "categoria",
+            "obra_social",
+            "tallaIndumentaria",
+            "contactoEmergencia",
+        ]
         read_only_fields = ["jugador_id"]
+
+    def validate_socio_id(self, value):
+        jugador = getattr(self, "instance", None)
+        jugadores = Jugador.objects.filter(socio=value)
+
+        if jugador is not None:
+            jugadores = jugadores.exclude(pk=jugador.pk)
+
+        if jugadores.exists():
+            raise serializers.ValidationError(
+                "Este socio ya tiene un jugador asociado."
+            )
+
+        return value
 
 
 class DocenteSerializer(serializers.ModelSerializer):

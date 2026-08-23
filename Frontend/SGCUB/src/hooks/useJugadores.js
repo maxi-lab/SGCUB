@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
-import { deleteJugador, getJugadores, postJugador } from '../api/jugadores'
+import {
+  deleteJugador,
+  getJugadores,
+  patchJugador,
+  postJugador,
+} from '../api/jugadores'
 
 function useJugadores() {
   const [jugadores, setJugadores] = useState([])
@@ -25,6 +30,12 @@ function useJugadores() {
     return jugadorCreado
   }, [cargarJugadores])
 
+  const editarJugador = useCallback(async (jugadorId, jugador) => {
+    const jugadorEditado = await patchJugador(jugadorId, jugador)
+    await cargarJugadores()
+    return jugadorEditado
+  }, [cargarJugadores])
+
   const eliminarJugador = useCallback(async (jugadorId) => {
     await deleteJugador(jugadorId)
     await cargarJugadores()
@@ -34,7 +45,14 @@ function useJugadores() {
     cargarJugadores()
   }, [cargarJugadores])
 
-  return { jugadores, isLoading, error, crearJugador, eliminarJugador }
+  return {
+    jugadores,
+    isLoading,
+    error,
+    crearJugador,
+    editarJugador,
+    eliminarJugador,
+  }
 }
 
 export default useJugadores

@@ -12,6 +12,11 @@ export const postJugador = async (jugador) => {
   return response.data
 }
 
+export const patchJugador = async (jugadorId, jugador) => {
+  const response = await api.patch(`${jugadoresEndpoint}${jugadorId}/`, jugador)
+  return response.data
+}
+
 export const deleteJugador = async (jugadorId) => {
   await api.delete(`${jugadoresEndpoint}${jugadorId}/`)
 }
