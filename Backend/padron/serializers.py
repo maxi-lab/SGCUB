@@ -6,7 +6,7 @@ from .models import Persona, Socio, Categoria, Jugador, Docente
 class PersonaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Persona
-        fields = ["persona_id", "nombre", "apellido", "dni"]
+        fields = ["persona_id", "nombre", "apellido", "dni", "telefono", "email"]
         read_only_fields = ["persona_id"]
 
 
@@ -15,6 +15,8 @@ class SocioSerializer(serializers.ModelSerializer):
     nombre = serializers.CharField(source="persona.nombre")
     apellido = serializers.CharField(source="persona.apellido")
     dni = serializers.CharField(source="persona.dni")
+    telefono = serializers.CharField(source="persona.telefono")
+    email = serializers.EmailField(source="persona.email")
 
     class Meta:
         model = Socio
@@ -24,6 +26,7 @@ class SocioSerializer(serializers.ModelSerializer):
             "apellido",
             "dni",
             "telefono",
+            "email"
         ]
 
     def validate_dni(self, value):
