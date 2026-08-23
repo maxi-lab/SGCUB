@@ -76,6 +76,22 @@ class JugadorSerializer(serializers.ModelSerializer):
         fields = ['jugador_id', 'socio', 'categoria']
 
 
+class JugadorListSerializer(serializers.ModelSerializer):
+    socio = SocioSerializer(read_only=True)
+    categoria = CategoriaSerializer(read_only=True)
+
+    class Meta:
+        model = Jugador
+        fields = [
+            'jugador_id',
+            'socio',
+            'categoria',
+            'obra_social',
+            'tallaIndumentaria',
+            'contactoEmergencia',
+        ]
+
+
 class JugadorSerializerDitail(serializers.ModelSerializer):
     socio = SocioSerializer(read_only=True)
     socio_id = serializers.PrimaryKeyRelatedField(queryset=Socio.objects.all(), source="socio", write_only=True)

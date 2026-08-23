@@ -1,6 +1,6 @@
 .padron-layout {
   width: 100%;
-  max-width: 1080px;
+  max-width: none;
   margin: 0 auto;
   text-align: left;
 }

@@ -90,7 +90,7 @@
   min-width: 0;
   width: auto;
   margin: 0;
-  padding: 36px 48px 56px;
+  padding: 32px 24px 48px;
   box-sizing: border-box;
 }
 
@@ -191,7 +191,7 @@
 
   .page-layout .main-content {
     width: 100%;
-    padding: 28px 20px 44px;
+    padding: 24px 16px 40px;
     text-align: center;
   }
 

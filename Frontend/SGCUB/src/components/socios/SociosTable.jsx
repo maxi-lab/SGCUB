@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { ActionIcon, Button, Group, Text } from '@mantine/core'
 import { IconEdit, IconPlus, IconTrash } from '@tabler/icons-react'
 import { MantineReactTable, useMantineReactTable } from 'mantine-react-table'
+import '../shared/quiet-table.css'
 
 function SociosTable({ data, isLoading, error, onAdd, onEdit, onDelete }) {
   const columns = useMemo(
@@ -71,10 +72,23 @@ function SociosTable({ data, isLoading, error, onAdd, onEdit, onDelete }) {
       </Group>
     ),
     mantineTableProps: {
+      className: 'quiet-table',
       striped: true,
       highlightOnHover: true,
       withBorder: true,
       withColumnBorders: true,
+    },
+    mantineTableHeadCellProps: {
+      style: {
+        fontSize: '11px',
+        padding: '9px 12px',
+      },
+    },
+    mantineTableBodyCellProps: {
+      style: {
+        fontSize: '13px',
+        padding: '9px 12px',
+      },
     },
     renderEmptyRowsFallback: () => (
       <Text align="center" py="xl">

@@ -1,9 +1,18 @@
+import JugadoresTable from '../components/jugadores/JugadoresTable'
+import useJugadores from '../hooks/useJugadores'
+
 function Jugadores() {
+  const { jugadores, isLoading, error } = useJugadores()
+
   return (
     <section className="padron-section">
-      <p className="intro">
-        La gestión de jugadores se encuentra en desarrollo.
-      </p>
+      <section className="padron-table-section" aria-label="Jugadores">
+        <JugadoresTable
+          data={jugadores}
+          isLoading={isLoading}
+          error={error}
+        />
+      </section>
     </section>
   )
 }
