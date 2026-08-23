@@ -11,3 +11,7 @@ export const postJugador = async (jugador) => {
   const response = await api.post(jugadoresEndpoint, jugador)
   return response.data
 }
+
+export const deleteJugador = async (jugadorId) => {
+  await api.delete(`${jugadoresEndpoint}${jugadorId}/`)
+}

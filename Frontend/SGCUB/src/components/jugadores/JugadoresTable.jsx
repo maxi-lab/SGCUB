@@ -1,10 +1,10 @@
 import { useMemo } from 'react'
-import { Button, Text } from '@mantine/core'
-import { IconPlus } from '@tabler/icons-react'
+import { ActionIcon, Button, Text } from '@mantine/core'
+import { IconPlus, IconTrash } from '@tabler/icons-react'
 import { MantineReactTable, useMantineReactTable } from 'mantine-react-table'
 import '../shared/quiet-table.css'
 
-function JugadoresTable({ data, isLoading, error, onAdd }) {
+function JugadoresTable({ data, isLoading, error, onAdd, onDelete }) {
   const columns = useMemo(
     () => [
       {
@@ -54,6 +54,14 @@ function JugadoresTable({ data, isLoading, error, onAdd }) {
     enableSorting: true,
     enableColumnResizing: true,
     columnResizeMode: 'onChange',
+    enableRowActions: true,
+    positionActionsColumn: 'last',
+    displayColumnDefOptions: {
+      'mrt-row-actions': {
+        header: 'Acciones',
+        size: 80,
+      },
+    },
     initialState: {
       density: 'compact',
     },
@@ -61,6 +69,16 @@ function JugadoresTable({ data, isLoading, error, onAdd }) {
       <Button leftIcon={<IconPlus size={16} />} onClick={onAdd}>
         Agregar
       </Button>
+    ),
+    renderRowActions: ({ row }) => (
+      <ActionIcon
+        color="red"
+        variant="subtle"
+        aria-label={`Eliminar jugador de ${row.original.socio?.nombre ?? 'este socio'}`}
+        onClick={() => onDelete?.(row.original)}
+      >
+        <IconTrash size={18} />
+      </ActionIcon>
     ),
     mantineTableProps: {
       className: 'quiet-table',

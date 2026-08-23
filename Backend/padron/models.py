@@ -47,7 +47,7 @@ class Jugador(models.Model):
     obra_social = models.CharField(max_length=50, default="")
     tallaIndumentaria = models.CharField(max_length=10, default="")
     contactoEmergencia = models.CharField(max_length=50, default="")
-    socio = models.ForeignKey(
+    socio = models.OneToOneField(
         Socio,
         on_delete=models.CASCADE,
         related_name="jugadores"

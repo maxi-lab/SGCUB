@@ -71,6 +71,11 @@ class CategoriaSerializer(serializers.ModelSerializer):
 
 class JugadorSerializer(serializers.ModelSerializer):
     """Para create/update: recibe y devuelve IDs planos"""
+    socio = serializers.PrimaryKeyRelatedField(
+        queryset=Socio.objects.all(),
+        validators=[],
+    )
+
     class Meta:
         model = Jugador
         fields = [
@@ -81,6 +86,20 @@ class JugadorSerializer(serializers.ModelSerializer):
             'tallaIndumentaria',
             'contactoEmergencia',
         ]
+
+    def validate_socio(self, value):
+        jugador = getattr(self, 'instance', None)
+        jugadores = Jugador.objects.filter(socio=value)
+
+        if jugador is not None:
+            jugadores = jugadores.exclude(pk=jugador.pk)
+
+        if jugadores.exists():
+            raise serializers.ValidationError(
+                'Este socio ya tiene un jugador asociado.'
+            )
+
+        return value
 
 
 class JugadorListSerializer(serializers.ModelSerializer):
