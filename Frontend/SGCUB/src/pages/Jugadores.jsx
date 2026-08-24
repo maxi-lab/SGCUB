@@ -47,6 +47,14 @@ function Jugadores() {
 
   const abrirModal = () => {
     setErrorGuardado('')
+    setFormulario({
+      socio: null,
+      categoria: null,
+      estado: null,
+      obra_social: '',
+      tallaIndumentaria: '',
+      contactoEmergencia: '',
+    })
     setModalAbierto(true)
   }
 
