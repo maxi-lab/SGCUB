@@ -3,11 +3,12 @@ from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
-from .models import Persona, Socio, Categoria, Jugador, Docente
+from .models import Persona, Socio, Categoria, Jugador, Docente, EstadoDeportivo
 from .serializers import (
     PersonaSerializer,
     SocioSerializer,
     CategoriaSerializer,
+    EstadoDeportivoSerializer,
     JugadorSerializer,
     JugadorListSerializer,
     JugadorSerializerDetail,
@@ -139,6 +140,46 @@ def categoria_detail(request, pk):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     categoria.delete()
+    return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@api_view(["GET", "POST"])
+def estado_list_create(request):
+    if request.method == "GET":
+        estados = EstadoDeportivo.objects.all()
+        serializer = EstadoDeportivoSerializer(estados, many=True)
+        return Response(serializer.data)
+
+    serializer = EstadoDeportivoSerializer(data=request.data)
+    if serializer.is_valid():
+        estado = serializer.save()
+        return Response(EstadoDeportivoSerializer(estado).data, status=status.HTTP_201_CREATED)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(["GET", "PUT", "PATCH", "DELETE"])
+def estado_detail(request, pk):
+    estado = get_object_or_404(EstadoDeportivo, pk=pk)
+
+    if request.method == "GET":
+        serializer = EstadoDeportivoSerializer(estado)
+        return Response(serializer.data)
+
+    if request.method == "PUT":
+        serializer = EstadoDeportivoSerializer(estado, data=request.data, partial=True)
+        if serializer.is_valid():
+            estado = serializer.save()
+            return Response(EstadoDeportivoSerializer(estado).data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    if request.method == "PATCH":
+        serializer = EstadoDeportivoSerializer(estado, data=request.data, partial=True)
+        if serializer.is_valid():
+            estado = serializer.save()
+            return Response(EstadoDeportivoSerializer(estado).data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    estado.delete()
     return Response(status=status.HTTP_204_NO_CONTENT)
 
 
