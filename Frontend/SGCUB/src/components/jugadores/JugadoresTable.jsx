@@ -14,28 +14,47 @@ function JugadoresTable({ data, isLoading, error, onAdd, onEdit, onDelete }) {
             .filter(Boolean)
             .join(' '),
         header: 'Socio',
+        size: 180,
+        minSize: 140,
       },
       {
         id: 'dni',
         accessorFn: (row) => row.socio?.dni ?? '',
         header: 'DNI',
+        size: 110,
+        minSize: 90,
       },
       {
         id: 'categoria',
         accessorFn: (row) => row.categoria?.nombre ?? '',
         header: 'Categoría',
+        size: 130,
+        minSize: 100,
+      },
+      {
+        id: 'estado',
+        accessorFn: (row) => row.estado?.nombre ?? '',
+        header: 'Estado',
+        size: 120,
+        minSize: 90,
       },
       {
         accessorKey: 'obra_social',
         header: 'Obra social',
+        size: 130,
+        minSize: 100,
       },
       {
         accessorKey: 'tallaIndumentaria',
         header: 'Talla',
+        size: 90,
+        minSize: 70,
       },
       {
         accessorKey: 'contactoEmergencia',
         header: 'Contacto de emergencia',
+        size: 180,
+        minSize: 140,
       },
     ],
     [],
@@ -59,7 +78,8 @@ function JugadoresTable({ data, isLoading, error, onAdd, onEdit, onDelete }) {
     displayColumnDefOptions: {
       'mrt-row-actions': {
         header: 'Acciones',
-        size: 80,
+        size: 70,
+        minSize: 60,
       },
     },
     initialState: {
@@ -99,14 +119,19 @@ function JugadoresTable({ data, isLoading, error, onAdd, onEdit, onDelete }) {
     },
     mantineTableHeadCellProps: {
       style: {
-        fontSize: '11px',
-        padding: '9px 12px',
+        fontSize: '10px',
+        padding: '6px 8px',
+        whiteSpace: 'normal',
+        lineHeight: 1.15,
       },
     },
     mantineTableBodyCellProps: {
       style: {
-        fontSize: '13px',
-        padding: '9px 12px',
+        fontSize: '12px',
+        padding: '6px 8px',
+        whiteSpace: 'normal',
+        wordBreak: 'break-word',
+        lineHeight: 1.2,
       },
     },
     renderEmptyRowsFallback: () => (

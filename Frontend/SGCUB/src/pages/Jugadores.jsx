@@ -4,6 +4,7 @@ import DeleteJugadorModal from '../components/jugadores/DeleteJugadorModal'
 import EditJugadorModal from '../components/jugadores/EditJugadorModal'
 import JugadoresTable from '../components/jugadores/JugadoresTable'
 import useCategorias from '../hooks/useCategorias'
+import useEstados from '../hooks/useEstados'
 import useJugadores from '../hooks/useJugadores'
 import useSocio from '../hooks/useSocio'
 
@@ -18,6 +19,7 @@ function Jugadores() {
   } = useJugadores()
   const { socios } = useSocio()
   const { categorias } = useCategorias()
+  const { estados } = useEstados()
   const [modalAbierto, setModalAbierto] = useState(false)
   const [guardando, setGuardando] = useState(false)
   const [errorGuardado, setErrorGuardado] = useState('')
@@ -30,6 +32,7 @@ function Jugadores() {
   const [formulario, setFormulario] = useState({
     socio: null,
     categoria: null,
+    estado: null,
     obra_social: '',
     tallaIndumentaria: '',
     contactoEmergencia: '',
@@ -53,6 +56,7 @@ function Jugadores() {
     setFormulario({
       socio: String(jugador.socio?.socio_id ?? ''),
       categoria: String(jugador.categoria?.categoria_id ?? ''),
+      estado: String(jugador.estado?.estado_id ?? ''),
       obra_social: jugador.obra_social ?? '',
       tallaIndumentaria: jugador.tallaIndumentaria ?? '',
       contactoEmergencia: jugador.contactoEmergencia ?? '',
@@ -81,6 +85,7 @@ function Jugadores() {
       setFormulario({
         socio: null,
         categoria: null,
+        estado: null,
         obra_social: '',
         tallaIndumentaria: '',
         contactoEmergencia: '',
@@ -89,6 +94,8 @@ function Jugadores() {
     } catch (requestError) {
       setErrorGuardado(
         requestError.response?.data?.socio?.[0] ||
+          requestError.response?.data?.categoria?.[0] ||
+          requestError.response?.data?.estado?.[0] ||
           requestError.response?.data?.detail ||
           'No se pudo agregar el jugador.',
       )
@@ -104,8 +111,9 @@ function Jugadores() {
 
     try {
       await editarJugador(jugadorAEditar.jugador_id, {
-        socio_id: formulario.socio,
+        socio: formulario.socio,
         categoria: formulario.categoria,
+        estado: formulario.estado,
         obra_social: formulario.obra_social,
         tallaIndumentaria: formulario.tallaIndumentaria,
         contactoEmergencia: formulario.contactoEmergencia,
@@ -114,6 +122,8 @@ function Jugadores() {
     } catch (requestError) {
       setErrorEdicion(
         requestError.response?.data?.socio_id?.[0] ||
+          requestError.response?.data?.estado?.[0] ||
+          requestError.response?.data?.categoria?.[0] ||
           requestError.response?.data?.socio?.[0] ||
           requestError.response?.data?.detail ||
           'No se pudo editar el jugador.',
@@ -159,6 +169,7 @@ function Jugadores() {
         onChange={actualizarCampo}
         socios={socios}
         categorias={categorias}
+        estados={estados}
         loading={guardando}
         error={errorGuardado}
       />
@@ -170,6 +181,7 @@ function Jugadores() {
         onChange={actualizarCampo}
         socios={socios}
         categorias={categorias}
+        estados={estados}
         loading={editando}
         error={errorEdicion}
       />

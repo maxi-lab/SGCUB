@@ -8,6 +8,7 @@ function AddJugadorModal({
   onChange,
   socios,
   categorias,
+  estados,
   loading,
   error,
 }) {
@@ -18,6 +19,10 @@ function AddJugadorModal({
   const categoriasOptions = categorias.map((categoria) => ({
     value: String(categoria.categoria_id),
     label: categoria.nombre,
+  }))
+  const estadosOptions = estados.map((estado) => ({
+    value: String(estado.estado_id),
+    label: estado.nombre,
   }))
 
   return (
@@ -40,6 +45,14 @@ function AddJugadorModal({
             data={categoriasOptions}
             value={formulario.categoria}
             onChange={(value) => onChange('categoria', value)}
+            required
+          />
+          <Select
+            label="Estado deportivo"
+            placeholder="Seleccioná el estado deportivo"
+            data={estadosOptions}
+            value={formulario.estado}
+            onChange={(value) => onChange('estado', value)}
             required
           />
           <TextInput
