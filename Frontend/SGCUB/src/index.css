@@ -5,6 +5,7 @@
   --surface: #ffffff;
   --border: #dce4df;
   --accent: #176b58;
+  --accent-soft: #e8f1ed;
   --sans: 'Trebuchet MS', 'Segoe UI', sans-serif;
   --heading: Georgia, 'Times New Roman', serif;
 
@@ -28,9 +29,9 @@ body {
 }
 
 #root {
-  width: 1126px;
-  max-width: 100%;
-  margin: 0 auto;
+  width: 100%;
+  max-width: none;
+  margin: 0;
   text-align: center;
   min-height: 100svh;
   display: flex;

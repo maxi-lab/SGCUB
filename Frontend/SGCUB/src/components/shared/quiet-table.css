@@ -1,0 +1,21 @@
+.quiet-table {
+  font-size: 13px;
+}
+
+.quiet-table thead th {
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.quiet-table tbody td {
+  color: var(--text-h);
+  font-size: 13px;
+}
+
+.quiet-table th,
+.quiet-table td {
+  padding: 9px 12px;
+}

@@ -6,6 +6,8 @@ class Persona(models.Model):
     nombre = models.CharField(max_length=50, default="")
     apellido = models.CharField(max_length=50, default="")
     dni = models.CharField(max_length=20, unique=True, default="")
+    telefono = models.CharField(max_length=20, default="")
+    email = models.EmailField(max_length=100, unique=True, default="")
 
     class Meta:
         db_table = "persona"
@@ -21,7 +23,6 @@ class Socio(models.Model):
         on_delete=models.CASCADE,
         related_name="socio"
     )
-    telefono = models.CharField(max_length=20, default="")
 
     class Meta:
         db_table = "socio"
@@ -41,25 +42,64 @@ class Categoria(models.Model):
         return self.nombre
 
 
+def get_default_categoria():
+    categoria, _ = Categoria.objects.get_or_create(nombre="No asignado")
+    return categoria.pk
+
+
+
+class EstadoDeportivo(models.Model):
+    estado_id = models.AutoField(primary_key=True)
+    nombre = models.CharField(max_length=50)
+
+    class Meta:
+        db_table = "estado_deportivo"
+
+    def __str__(self):
+        return self.nombre
+
+
+def get_default_estado_deportivo():
+    estado, _ = EstadoDeportivo.objects.get_or_create(nombre="Activo")
+    return estado.pk
+
+
 class Jugador(models.Model):
     jugador_id = models.AutoField(primary_key=True)
-    socio = models.ForeignKey(
+    obra_social = models.CharField(max_length=50, default="")
+    tallaIndumentaria = models.CharField(max_length=10, default="")
+    contactoEmergencia = models.CharField(max_length=50, default="")
+    socio = models.OneToOneField(
         Socio,
         on_delete=models.CASCADE,
-        related_name="jugadores"
+        related_name="jugador"
     )
+
     categoria = models.ForeignKey(
         Categoria,
-        on_delete=models.CASCADE,
-        related_name="jugadores"
+        on_delete=models.PROTECT,
+        related_name="jugadores",
+        null=False,
+        blank=False,
+        default=get_default_categoria,
+    )
+
+    estado = models.ForeignKey(
+        EstadoDeportivo,
+        on_delete=models.PROTECT,
+        related_name="jugadores",
+        null=False,
+        blank=False,
+        default=get_default_estado_deportivo,
     )
 
     class Meta:
         db_table = "jugador"
+        verbose_name = "Jugador"
+        verbose_name_plural = "Jugadores"
 
     def __str__(self):
-        return f"Jugador {self.jugador_id}"
-
+        return f"{self.socio.persona.nombre} {self.socio.persona.apellido} - Socio ID: {self.socio.socio_id}"
 
 class Docente(models.Model):
     docente_id = models.AutoField(primary_key=True)
