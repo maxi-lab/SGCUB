@@ -10,7 +10,7 @@ from .serializers import (
     CategoriaSerializer,
     JugadorSerializer,
     JugadorListSerializer,
-    JugadorSerializerDitail,
+    JugadorSerializerDetail,
     DocenteSerializer,
 )
 
@@ -152,7 +152,7 @@ def jugador_list_create(request):
     serializer = JugadorSerializer(data=request.data)
     if serializer.is_valid():
         jugador = serializer.save()
-        return Response(JugadorSerializer(jugador).data, status=status.HTTP_201_CREATED)
+        return Response(JugadorSerializerDetail(jugador).data, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -161,21 +161,21 @@ def jugador_detail(request, pk):
     jugador = get_object_or_404(Jugador, pk=pk)
 
     if request.method == "GET":
-        serializer = JugadorSerializerDitail(jugador)
+        serializer = JugadorSerializerDetail(jugador)
         return Response(serializer.data)
 
     if request.method == "PUT":
-        serializer = JugadorSerializerDitail(jugador, data=request.data, partial=True)
+        serializer = JugadorSerializer(jugador, data=request.data, partial=False)
         if serializer.is_valid():
             jugador = serializer.save()
-            return Response(JugadorSerializer(jugador).data)
+            return Response(JugadorSerializerDetail(jugador).data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     if request.method == "PATCH":
-        serializer = JugadorSerializerDitail(jugador, data=request.data, partial=True)
+        serializer = JugadorSerializer(jugador, data=request.data, partial=True)
         if serializer.is_valid():
             jugador = serializer.save()
-            return Response(JugadorSerializer(jugador).data)
+            return Response(JugadorSerializerDetail(jugador).data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     jugador.delete()

@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.db import transaction
-from .models import Persona, Socio, Categoria, Jugador, Docente
+from .models import Persona, Socio, Categoria, Jugador, Docente, EstadoDeportivo
 
 
 class PersonaSerializer(serializers.ModelSerializer):
@@ -69,11 +69,28 @@ class CategoriaSerializer(serializers.ModelSerializer):
         read_only_fields = ["categoria_id"]
 
 
+class EstadoDeportivoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EstadoDeportivo
+        fields = ["estado_id", "nombre"]
+        read_only_fields = ["estado_id"]
+
+
 class JugadorSerializer(serializers.ModelSerializer):
     """Para create/update: recibe y devuelve IDs planos"""
     socio = serializers.PrimaryKeyRelatedField(
         queryset=Socio.objects.all(),
         validators=[],
+    )
+    categoria = serializers.PrimaryKeyRelatedField(
+        queryset=Categoria.objects.all(),
+        allow_null=True,
+        required=False,
+    )
+    estado = serializers.PrimaryKeyRelatedField(
+        queryset=EstadoDeportivo.objects.all(),
+        allow_null=True,
+        required=False,
     )
 
     class Meta:
@@ -85,6 +102,7 @@ class JugadorSerializer(serializers.ModelSerializer):
             'obra_social',
             'tallaIndumentaria',
             'contactoEmergencia',
+            'estado',
         ]
 
     def validate_socio(self, value):
@@ -105,6 +123,7 @@ class JugadorSerializer(serializers.ModelSerializer):
 class JugadorListSerializer(serializers.ModelSerializer):
     socio = SocioSerializer(read_only=True)
     categoria = CategoriaSerializer(read_only=True)
+    estado = EstadoDeportivoSerializer(read_only=True)
 
     class Meta:
         model = Jugador
@@ -115,40 +134,27 @@ class JugadorListSerializer(serializers.ModelSerializer):
             'obra_social',
             'tallaIndumentaria',
             'contactoEmergencia',
+            'estado',
         ]
 
 
-class JugadorSerializerDitail(serializers.ModelSerializer):
+class JugadorSerializerDetail(serializers.ModelSerializer):
     socio = SocioSerializer(read_only=True)
-    socio_id = serializers.PrimaryKeyRelatedField(queryset=Socio.objects.all(), source="socio", write_only=True)
-    categoria = serializers.PrimaryKeyRelatedField(queryset=Categoria.objects.all())
+    categoria = CategoriaSerializer(read_only=True)
+    estado = EstadoDeportivoSerializer(read_only=True)
 
     class Meta:
         model = Jugador
         fields = [
             "jugador_id",
             "socio",
-            "socio_id",
             "categoria",
             "obra_social",
             "tallaIndumentaria",
             "contactoEmergencia",
+            "estado",
         ]
         read_only_fields = ["jugador_id"]
-
-    def validate_socio_id(self, value):
-        jugador = getattr(self, "instance", None)
-        jugadores = Jugador.objects.filter(socio=value)
-
-        if jugador is not None:
-            jugadores = jugadores.exclude(pk=jugador.pk)
-
-        if jugadores.exists():
-            raise serializers.ValidationError(
-                "Este socio ya tiene un jugador asociado."
-            )
-
-        return value
 
 
 class DocenteSerializer(serializers.ModelSerializer):
