@@ -42,6 +42,18 @@ class Categoria(models.Model):
         return self.nombre
 
 
+
+class EstadoDeportivo(models.Model):
+    estado_id = models.AutoField(primary_key=True)
+    nombre = models.CharField(max_length=50)
+
+    class Meta:
+        db_table = "estado_deportivo"
+
+    def __str__(self):
+        return self.nombre
+
+
 class Jugador(models.Model):
     jugador_id = models.AutoField(primary_key=True)
     obra_social = models.CharField(max_length=50, default="")
@@ -50,20 +62,30 @@ class Jugador(models.Model):
     socio = models.OneToOneField(
         Socio,
         on_delete=models.CASCADE,
-        related_name="jugadores"
+        related_name="jugador"
     )
+
     categoria = models.ForeignKey(
         Categoria,
-        on_delete=models.CASCADE,
-        related_name="jugadores"
+        on_delete=models.SET_NULL,
+        related_name="jugadores",
+        null=True,
+    )
+
+    estado = models.ForeignKey(
+        EstadoDeportivo,
+        on_delete=models.SET_NULL,
+        related_name="jugadores",
+        null=True,
     )
 
     class Meta:
         db_table = "jugador"
+        verbose_name = "Jugador"
+        verbose_name_plural = "Jugadores"
 
     def __str__(self):
-        return f"Jugador {self.jugador_id}"
-
+        return f"{self.socio.persona.nombre} {self.socio.persona.apellido} - Socio ID: {self.socio.socio_id}"
 
 class Docente(models.Model):
     docente_id = models.AutoField(primary_key=True)
