@@ -84,13 +84,13 @@ class JugadorSerializer(serializers.ModelSerializer):
     )
     categoria = serializers.PrimaryKeyRelatedField(
         queryset=Categoria.objects.all(),
-        allow_null=True,
-        required=False,
+        allow_null=False,
+        required=True,
     )
     estado = serializers.PrimaryKeyRelatedField(
         queryset=EstadoDeportivo.objects.all(),
-        allow_null=True,
-        required=False,
+        allow_null=False,
+        required=True,
     )
 
     class Meta:

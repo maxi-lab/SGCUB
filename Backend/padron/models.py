@@ -42,6 +42,11 @@ class Categoria(models.Model):
         return self.nombre
 
 
+def get_default_categoria():
+    categoria, _ = Categoria.objects.get_or_create(nombre="No asignado")
+    return categoria.pk
+
+
 
 class EstadoDeportivo(models.Model):
     estado_id = models.AutoField(primary_key=True)
@@ -52,6 +57,11 @@ class EstadoDeportivo(models.Model):
 
     def __str__(self):
         return self.nombre
+
+
+def get_default_estado_deportivo():
+    estado, _ = EstadoDeportivo.objects.get_or_create(nombre="Activo")
+    return estado.pk
 
 
 class Jugador(models.Model):
@@ -67,16 +77,20 @@ class Jugador(models.Model):
 
     categoria = models.ForeignKey(
         Categoria,
-        on_delete=models.SET_NULL,
+        on_delete=models.PROTECT,
         related_name="jugadores",
-        null=True,
+        null=False,
+        blank=False,
+        default=get_default_categoria,
     )
 
     estado = models.ForeignKey(
         EstadoDeportivo,
-        on_delete=models.SET_NULL,
+        on_delete=models.PROTECT,
         related_name="jugadores",
-        null=True,
+        null=False,
+        blank=False,
+        default=get_default_estado_deportivo,
     )
 
     class Meta:
