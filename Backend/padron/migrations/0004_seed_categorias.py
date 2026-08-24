@@ -3,11 +3,13 @@ from django.db import migrations
 
 CATEGORIAS_INICIALES = [
     'Primera',
-    'Segunda',
-    'Novena',
-    'Octava',
-    'Septima',
+    'Reserva',
+    'Cuarta',
+    'Quinta',
     'Sexta',
+    'Septima',
+    'Octava',
+    'Novena',
 ]
 
 
