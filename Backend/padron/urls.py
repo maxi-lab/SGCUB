@@ -13,6 +13,8 @@ from .views import (
     persona_list_create,
     socio_detail,
     socio_list_create,
+    contacto_emergencia_list_create,
+    contacto_emergencia_detail,
 )
 
 urlpatterns = [
@@ -28,4 +30,6 @@ urlpatterns = [
     path("jugador/<int:pk>/", jugador_detail, name="jugador_detail"),
     path("docente/", docente_list_create, name="docente_list_create"),
     path("docente/<int:pk>/", docente_detail, name="docente_detail"),
+    path("contacto-emergencia/", contacto_emergencia_list_create, name="contacto_emergencia_list_create"),
+    path("contacto-emergencia/<int:pk>/", contacto_emergencia_detail, name="contacto_emergencia_detail"),
 ]
