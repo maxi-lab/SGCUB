@@ -50,12 +50,6 @@ function JugadoresTable({ data, isLoading, error, onAdd, onEdit, onDelete }) {
         size: 90,
         minSize: 70,
       },
-      {
-        accessorKey: 'contactoEmergencia',
-        header: 'Contacto de emergencia',
-        size: 180,
-        minSize: 140,
-      },
     ],
     [],
   )

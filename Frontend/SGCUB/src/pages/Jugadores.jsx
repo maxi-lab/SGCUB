@@ -1,22 +1,24 @@
 import { useState } from 'react'
 import AddJugadorModal from '../components/jugadores/AddJugadorModal'
-import DeleteJugadorModal from '../components/jugadores/DeleteJugadorModal'
 import EditJugadorModal from '../components/jugadores/EditJugadorModal'
+import DeleteJugadorModal from '../components/jugadores/DeleteJugadorModal'
 import JugadoresTable from '../components/jugadores/JugadoresTable'
 import useCategorias from '../hooks/useCategorias'
 import useEstados from '../hooks/useEstados'
 import useJugadores from '../hooks/useJugadores'
 import useSocio from '../hooks/useSocio'
 
+const formularioInicial = () => ({
+  socio: null,
+  categoria: null,
+  estado: null,
+  obra_social: '',
+  tallaIndumentaria: '',
+  contactos_emergencia: [],
+})
+
 function Jugadores() {
-  const {
-    jugadores,
-    isLoading,
-    error,
-    crearJugador,
-    editarJugador,
-    eliminarJugador,
-  } = useJugadores()
+  const { jugadores, isLoading, error, crearJugador, editarJugador, eliminarJugador } = useJugadores()
   const { socios } = useSocio()
   const { categorias } = useCategorias()
   const { estados } = useEstados()
@@ -29,32 +31,13 @@ function Jugadores() {
   const [jugadorAEliminar, setJugadorAEliminar] = useState(null)
   const [eliminando, setEliminando] = useState(false)
   const [errorEliminacion, setErrorEliminacion] = useState('')
-  const [formulario, setFormulario] = useState({
-    socio: null,
-    categoria: null,
-    estado: null,
-    obra_social: '',
-    tallaIndumentaria: '',
-    contactoEmergencia: '',
-  })
+  const [formulario, setFormulario] = useState(formularioInicial)
 
-  const actualizarCampo = (campo, valor) => {
-    setFormulario((formularioActual) => ({
-      ...formularioActual,
-      [campo]: valor,
-    }))
-  }
+  const actualizarCampo = (campo, valor) => setFormulario((actual) => ({ ...actual, [campo]: valor }))
 
   const abrirModal = () => {
     setErrorGuardado('')
-    setFormulario({
-      socio: null,
-      categoria: null,
-      estado: null,
-      obra_social: '',
-      tallaIndumentaria: '',
-      contactoEmergencia: '',
-    })
+    setFormulario(formularioInicial())
     setModalAbierto(true)
   }
 
@@ -67,46 +50,20 @@ function Jugadores() {
       estado: String(jugador.estado?.estado_id ?? ''),
       obra_social: jugador.obra_social ?? '',
       tallaIndumentaria: jugador.tallaIndumentaria ?? '',
-      contactoEmergencia: jugador.contactoEmergencia ?? '',
+      contactos_emergencia: jugador.contactos_emergencia ?? [],
     })
-  }
-
-  const cerrarModalEdicion = () => {
-    if (!editando) {
-      setJugadorAEditar(null)
-    }
-  }
-
-  const cerrarModal = () => {
-    if (!guardando) {
-      setModalAbierto(false)
-    }
   }
 
   const guardarJugador = async (event) => {
     event.preventDefault()
     setGuardando(true)
     setErrorGuardado('')
-
     try {
       await crearJugador(formulario)
-      setFormulario({
-        socio: null,
-        categoria: null,
-        estado: null,
-        obra_social: '',
-        tallaIndumentaria: '',
-        contactoEmergencia: '',
-      })
+      setFormulario(formularioInicial())
       setModalAbierto(false)
     } catch (requestError) {
-      setErrorGuardado(
-        requestError.response?.data?.socio?.[0] ||
-          requestError.response?.data?.categoria?.[0] ||
-          requestError.response?.data?.estado?.[0] ||
-          requestError.response?.data?.detail ||
-          'No se pudo agregar el jugador.',
-      )
+      setErrorGuardado(Object.values(requestError.response?.data || {}).flat().join(' ') || 'No se pudo agregar el jugador.')
     } finally {
       setGuardando(false)
     }
@@ -116,26 +73,11 @@ function Jugadores() {
     event.preventDefault()
     setEditando(true)
     setErrorEdicion('')
-
     try {
-      await editarJugador(jugadorAEditar.jugador_id, {
-        socio: formulario.socio,
-        categoria: formulario.categoria,
-        estado: formulario.estado,
-        obra_social: formulario.obra_social,
-        tallaIndumentaria: formulario.tallaIndumentaria,
-        contactoEmergencia: formulario.contactoEmergencia,
-      })
+      await editarJugador(jugadorAEditar.jugador_id, formulario)
       setJugadorAEditar(null)
     } catch (requestError) {
-      setErrorEdicion(
-        requestError.response?.data?.socio_id?.[0] ||
-          requestError.response?.data?.estado?.[0] ||
-          requestError.response?.data?.categoria?.[0] ||
-          requestError.response?.data?.socio?.[0] ||
-          requestError.response?.data?.detail ||
-          'No se pudo editar el jugador.',
-      )
+      setErrorEdicion(Object.values(requestError.response?.data || {}).flat().join(' ') || 'No se pudo editar el jugador.')
     } finally {
       setEditando(false)
     }
@@ -144,14 +86,11 @@ function Jugadores() {
   const confirmarEliminacion = async () => {
     setEliminando(true)
     setErrorEliminacion('')
-
     try {
       await eliminarJugador(jugadorAEliminar.jugador_id)
       setJugadorAEliminar(null)
     } catch (requestError) {
-      setErrorEliminacion(
-        requestError.response?.data?.detail || 'No se pudo eliminar el jugador.',
-      )
+      setErrorEliminacion(requestError.response?.data?.detail || 'No se pudo eliminar el jugador.')
     } finally {
       setEliminando(false)
     }
@@ -160,53 +99,16 @@ function Jugadores() {
   return (
     <section className="padron-section">
       <section className="padron-table-section" aria-label="Jugadores">
-        <JugadoresTable
-          data={jugadores}
-          isLoading={isLoading}
-          error={error}
-          onAdd={abrirModal}
-          onEdit={abrirModalEdicion}
-          onDelete={setJugadorAEliminar}
-        />
+        <JugadoresTable data={jugadores} isLoading={isLoading} error={error} onAdd={abrirModal} onEdit={abrirModalEdicion} onDelete={setJugadorAEliminar} />
       </section>
-      <AddJugadorModal
-        opened={modalAbierto}
-        onClose={cerrarModal}
-        onSubmit={guardarJugador}
-        formulario={formulario}
-        onChange={actualizarCampo}
-        socios={socios}
-        categorias={categorias}
-        estados={estados}
-        loading={guardando}
-        error={errorGuardado}
-      />
-      <EditJugadorModal
-        opened={Boolean(jugadorAEditar)}
-        onClose={cerrarModalEdicion}
-        onSubmit={guardarEdicion}
-        formulario={formulario}
-        onChange={actualizarCampo}
-        socios={socios}
-        categorias={categorias}
-        estados={estados}
-        loading={editando}
-        error={errorEdicion}
-      />
-      <DeleteJugadorModal
-        opened={Boolean(jugadorAEliminar)}
-        onClose={() => {
-          if (!eliminando) {
-            setJugadorAEliminar(null)
-          }
-        }}
-        onConfirm={confirmarEliminacion}
-        jugador={jugadorAEliminar}
-        loading={eliminando}
-        error={errorEliminacion}
-      />
+      <AddJugadorModal opened={modalAbierto} onClose={() => !guardando && setModalAbierto(false)} onSubmit={guardarJugador} formulario={formulario} onChange={actualizarCampo} socios={socios} categorias={categorias} estados={estados} loading={guardando} error={errorGuardado} />
+      <EditJugadorModal opened={Boolean(jugadorAEditar)} onClose={() => !editando && setJugadorAEditar(null)} onSubmit={guardarEdicion} formulario={formulario} onChange={actualizarCampo} socios={socios} categorias={categorias} estados={estados} loading={editando} error={errorEdicion} />
+      <DeleteJugadorModal opened={Boolean(jugadorAEliminar)} onClose={() => !eliminando && setJugadorAEliminar(null)} onConfirm={confirmarEliminacion} jugador={jugadorAEliminar} loading={eliminando} error={errorEliminacion} />
     </section>
   )
 }
 
 export default Jugadores
+
+
+
