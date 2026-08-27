@@ -66,7 +66,7 @@ function ContactoEmergenciaForm({ contactos = [], onChange }) {
               }
               required 
             />
-            <TextInput label="Telefono" value={contacto.persona?.telefono ?? ''} onChange={(event) => cambiarContacto(indice, 'persona', { telefono: event.currentTarget.value })} />
+            <TextInput label="Telefono" value={contacto.persona?.telefono ?? ''} onChange={(event) => cambiarContacto(indice, 'persona', { telefono: event.currentTarget.value })} required />
           </Group>
           <Group grow>
             <TextInput label="Nombre" value={contacto.persona?.nombre ?? ''} onChange={(event) => cambiarContacto(indice, 'persona', { nombre: event.currentTarget.value })} required />

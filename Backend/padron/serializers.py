@@ -89,6 +89,12 @@ class ContactoEmergenciaSerializer(serializers.ModelSerializer):
         model = ContactoEmergencia
         fields = ['contacto_emergencia_id', 'persona', 'jugador', 'responsable_legal', 'relacion']
 
+    def validate(self, attrs):
+        persona_data = attrs.get('persona', {})
+        if not persona_data.get('telefono'):
+            raise serializers.ValidationError({'persona': {'telefono': 'El teléfono es obligatorio para los contactos de emergencia.'}})
+        return attrs
+
     @transaction.atomic
     def create(self, validated_data):
         persona_data = validated_data.pop("persona")
@@ -124,7 +130,12 @@ class JugadorSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         for contacto in attrs.get('contactos_emergencia', []):
-            dni = contacto.get('persona', {}).get('dni')
+            persona_data = contacto.get('persona', {})
+            telefono = persona_data.get('telefono')
+            if not telefono:
+                raise serializers.ValidationError({'contactos_emergencia': 'El teléfono es obligatorio para los contactos de emergencia.'})
+
+            dni = persona_data.get('dni')
             if not dni:
                 continue
             
