@@ -8,6 +8,7 @@ class Persona(models.Model):
     dni = models.CharField(max_length=20, unique=True, default="")
     telefono = models.CharField(max_length=20, default="")
     email = models.EmailField(max_length=100, unique=True, default="")
+    fecha_nacimiento=models.DateField()
 
     class Meta:
         db_table = "persona"
