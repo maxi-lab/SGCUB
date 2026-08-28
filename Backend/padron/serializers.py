@@ -17,6 +17,7 @@ class SocioSerializer(serializers.ModelSerializer):
     dni = serializers.CharField(source="persona.dni")
     telefono = serializers.CharField(source="persona.telefono")
     email = serializers.EmailField(source="persona.email")
+    fecha_nacimiento=serializers.DateField(source="persona.fecha_nacimiento")
 
     class Meta:
         model = Socio
@@ -26,7 +27,8 @@ class SocioSerializer(serializers.ModelSerializer):
             "apellido",
             "dni",
             "telefono",
-            "email"
+            "email",
+            "fecha_nacimiento"
         ]
 
     def validate_dni(self, value):
