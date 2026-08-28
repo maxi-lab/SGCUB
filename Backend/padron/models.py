@@ -34,6 +34,9 @@ class Socio(models.Model):
 class Categoria(models.Model):
     categoria_id = models.AutoField(primary_key=True)
     nombre = models.CharField(max_length=50)
+    anio_vigente = models.IntegerField()
+    edad_minima = models.IntegerField()
+    edad_maxima=models.IntegerField()
 
     class Meta:
         db_table = "categoria"
