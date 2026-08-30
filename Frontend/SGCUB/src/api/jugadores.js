@@ -7,6 +7,11 @@ export const getJugadores = async () => {
   return response.data
 }
 
+export const getJugador = async (jugadorId) => {
+  const response = await api.get(`${jugadoresEndpoint}${jugadorId}/`)
+  return response.data
+}
+
 export const postJugador = async (jugador) => {
   const response = await api.post(jugadoresEndpoint, jugador)
   return response.data

@@ -1,10 +1,12 @@
 import { useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { ActionIcon, Button, Group, Text } from '@mantine/core'
 import { IconEdit, IconPlus, IconTrash } from '@tabler/icons-react'
 import { MantineReactTable, useMantineReactTable } from 'mantine-react-table'
 import '../shared/quiet-table.css'
 
 function JugadoresTable({ data, isLoading, error, onAdd, onEdit, onDelete }) {
+  const navigate = useNavigate()
   const columns = useMemo(
     () => [
       {
@@ -79,6 +81,14 @@ function JugadoresTable({ data, isLoading, error, onAdd, onEdit, onDelete }) {
     initialState: {
       density: 'compact',
     },
+    mantineTableBodyRowProps: ({ row }) => ({
+      onClick: () => {
+        navigate(`/padron/jugadores/${row.original.jugador_id}`)
+      },
+      sx: {
+        cursor: 'pointer',
+      },
+    }),
     renderTopToolbarCustomActions: () => (
       <Button leftIcon={<IconPlus size={16} />} onClick={onAdd}>
         Agregar
@@ -90,7 +100,10 @@ function JugadoresTable({ data, isLoading, error, onAdd, onEdit, onDelete }) {
           color="teal"
           variant="subtle"
           aria-label={`Editar jugador de ${row.original.socio?.nombre ?? 'este socio'}`}
-          onClick={() => onEdit?.(row.original)}
+          onClick={(event) => {
+            event.stopPropagation()
+            onEdit?.(row.original)
+          }}
         >
           <IconEdit size={18} />
         </ActionIcon>
@@ -98,7 +111,10 @@ function JugadoresTable({ data, isLoading, error, onAdd, onEdit, onDelete }) {
           color="red"
           variant="subtle"
           aria-label={`Eliminar jugador de ${row.original.socio?.nombre ?? 'este socio'}`}
-          onClick={() => onDelete?.(row.original)}
+          onClick={(event) => {
+            event.stopPropagation()
+            onDelete?.(row.original)
+          }}
         >
           <IconTrash size={18} />
         </ActionIcon>

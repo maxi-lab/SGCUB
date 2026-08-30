@@ -8,7 +8,7 @@ function DeleteJugadorModal({ opened, onClose, onConfirm, jugador, loading, erro
   return (
     <Modal opened={opened} onClose={onClose} title="Eliminar jugador" centered>
       <Text>
-        ¿Seguro que querés eliminar el jugador de <strong>{nombreCompleto}</strong>?
+        ¿Seguro que querés eliminar al jugador <strong>{nombreCompleto}</strong>?
       </Text>
       {error && (
         <Text color="red" size="sm" mt="md">
