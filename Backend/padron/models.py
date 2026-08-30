@@ -67,7 +67,7 @@ def get_default_estado_deportivo():
 class Jugador(models.Model):
     jugador_id = models.AutoField(primary_key=True)
     obra_social = models.CharField(max_length=50, default="", blank=True)
-    tallaIndumentaria = models.CharField(max_length=10, default="", blank=True)
+    tallaIndumentaria = models.CharField(max_length=50, default="", blank=True)
     socio = models.OneToOneField(
         Socio,
         on_delete=models.CASCADE,
