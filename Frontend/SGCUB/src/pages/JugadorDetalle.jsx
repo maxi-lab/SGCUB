@@ -143,7 +143,6 @@ function JugadorDetalle() {
 
     const payload = {
       socio: formulario.socio,
-      nuevo_socio: formulario.nuevo_socio,
       categoria: formulario.categoria,
       estado: formulario.estado,
       obra_social: formulario.obra_social,

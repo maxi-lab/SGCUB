@@ -27,22 +27,7 @@ function EditJugadorModal({
   loading,
   error,
 }) {
-  // Filtrar socios disponibles (los que no tienen jugador + el socio actualmente asignado a este jugador)
-  const sociosDisponiblesOptions = useMemo(() => {
-    const socioActualId = String(formulario.socio || '')
-    const sociosOcupadosIds = new Set(
-      (jugadores || [])
-        .map((j) => String(j.socio?.socio_id))
-        .filter((id) => id && id !== socioActualId),
-    )
 
-    return socios
-      .filter((s) => !sociosOcupadosIds.has(String(s.socio_id)))
-      .map((socio) => ({
-        value: String(socio.socio_id),
-        label: `${socio.nombre} ${socio.apellido} - DNI ${socio.dni}`,
-      }))
-  }, [socios, jugadores, formulario.socio])
 
   const categoriasOptions = useMemo(
     () =>
@@ -66,76 +51,16 @@ function EditJugadorModal({
     <Modal opened={opened} onClose={onClose} title="Editar jugador" size="lg">
       <form onSubmit={onSubmit}>
         <Stack spacing="md">
-          {/* Reasignar socio */}
-          <Select
-            label="Socio asignado"
-            placeholder="Seleccione el socio"
-            searchable
-            nothingFound="No se encontraron socios disponibles"
-            data={sociosDisponiblesOptions}
-            value={formulario.socio}
-            onChange={(value) => onChange('socio', value)}
-            required
+          <TextInput
+            label="Socio vinculado"
+            value={
+              socios.find((s) => String(s.socio_id) === String(formulario.socio))
+                ? `${socios.find((s) => String(s.socio_id) === String(formulario.socio)).nombre} ${socios.find((s) => String(s.socio_id) === String(formulario.socio)).apellido} - DNI ${socios.find((s) => String(s.socio_id) === String(formulario.socio)).dni}`
+                : 'Cargando socio...'
+            }
+            readOnly
+            disabled
           />
-
-          {/* Opcional: Modificar datos personales del socio directamente */}
-          {formulario.nuevo_socio && (
-            <Paper p="sm" withBorder radius="md" style={{ backgroundColor: 'var(--bg)' }}>
-              <Stack spacing="xs">
-                <Text weight={600} size="sm">
-                  Datos personales del socio vinculado
-                </Text>
-                <Group grow>
-                  <TextInput
-                    label="Nombre"
-                    value={formulario.nuevo_socio?.nombre || ''}
-                    onChange={(e) =>
-                      onChange('nuevo_socio', {
-                        ...formulario.nuevo_socio,
-                        nombre: e.currentTarget.value,
-                      })
-                    }
-                    required
-                  />
-                  <TextInput
-                    label="Apellido"
-                    value={formulario.nuevo_socio?.apellido || ''}
-                    onChange={(e) =>
-                      onChange('nuevo_socio', {
-                        ...formulario.nuevo_socio,
-                        apellido: e.currentTarget.value,
-                      })
-                    }
-                    required
-                  />
-                </Group>
-                <Group grow>
-                  <TextInput
-                    label="Teléfono"
-                    value={formulario.nuevo_socio?.telefono || ''}
-                    onChange={(e) =>
-                      onChange('nuevo_socio', {
-                        ...formulario.nuevo_socio,
-                        telefono: e.currentTarget.value,
-                      })
-                    }
-                    required
-                  />
-                  <TextInput
-                    label="Email"
-                    type="email"
-                    value={formulario.nuevo_socio?.email || ''}
-                    onChange={(e) =>
-                      onChange('nuevo_socio', {
-                        ...formulario.nuevo_socio,
-                        email: e.currentTarget.value,
-                      })
-                    }
-                  />
-                </Group>
-              </Stack>
-            </Paper>
-          )}
 
           <Divider label="Información deportiva" labelPosition="center" my="xs" />
 

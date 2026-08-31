@@ -15,6 +15,15 @@ class PersonaSerializer(serializers.ModelSerializer):
     def _get_current_persona(self):
         persona = getattr(self.instance, "persona", None) or self.instance
         if not persona and self.parent:
+            if hasattr(self.parent, "initial_data") and self.parent.initial_data.get("socio"):
+                try:
+                    from .models import Socio
+                    socio_id = self.parent.initial_data.get("socio")
+                    socio = Socio.objects.get(pk=socio_id)
+                    return socio.persona
+                except Exception:
+                    pass
+
             parent_inst = getattr(self.parent, "instance", None)
             if parent_inst:
                 if hasattr(parent_inst, "persona") and parent_inst.persona:
@@ -63,6 +72,15 @@ class SocioSerializer(serializers.ModelSerializer):
     def _get_current_persona(self):
         persona = getattr(self.instance, "persona", None)
         if not persona and self.parent:
+            if hasattr(self.parent, "initial_data") and self.parent.initial_data.get("socio"):
+                try:
+                    from .models import Socio
+                    socio_id = self.parent.initial_data.get("socio")
+                    socio = Socio.objects.get(pk=socio_id)
+                    return socio.persona
+                except Exception:
+                    pass
+
             parent_instance = getattr(self.parent, "instance", None)
             if parent_instance:
                 if hasattr(parent_instance, "socio") and parent_instance.socio:
