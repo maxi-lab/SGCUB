@@ -76,12 +76,20 @@ function Padron() {
       setSocioEnEdicion(null)
       setModalAbierto(false)
     } catch (requestError) {
-      setErrorGuardado(
-        requestError.response?.data?.dni?.[0] ||
-          (socioEnEdicion
-            ? 'No se pudo modificar el socio.'
-            : 'No se pudo agregar el socio.'),
-      )
+      const errorData = requestError.response?.data
+      let errorMsg = socioEnEdicion ? 'No se pudo modificar el socio.' : 'No se pudo agregar el socio.'
+      if (errorData) {
+        if (typeof errorData === 'string') {
+          errorMsg = errorData
+        } else if (errorData.detail) {
+          errorMsg = errorData.detail
+        } else {
+          errorMsg = Object.entries(errorData)
+            .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(' ') : typeof v === 'object' ? JSON.stringify(v) : v}`)
+            .join(' | ')
+        }
+      }
+      setErrorGuardado(errorMsg)
     } finally {
       setGuardando(false)
     }

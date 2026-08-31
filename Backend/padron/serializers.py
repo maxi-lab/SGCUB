@@ -27,6 +27,9 @@ class PersonaSerializer(serializers.ModelSerializer):
         if not value:
             return None
         persona = self._get_current_persona()
+        if not persona and hasattr(self, "initial_data") and self.initial_data.get("dni"):
+            persona = Persona.objects.filter(dni=self.initial_data.get("dni")).first()
+
         if self.parent is None or persona:
             personas = Persona.objects.filter(email=value)
             if persona is not None:
@@ -72,6 +75,9 @@ class SocioSerializer(serializers.ModelSerializer):
         if not value:
             return None
         persona = self._get_current_persona()
+        if not persona and hasattr(self, "initial_data") and self.initial_data.get("dni"):
+            persona = Persona.objects.filter(dni=self.initial_data.get("dni")).first()
+
         personas = Persona.objects.filter(email=value)
         if persona is not None:
             personas = personas.exclude(pk=persona.pk)

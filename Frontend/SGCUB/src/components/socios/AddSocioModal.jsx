@@ -1,4 +1,17 @@
-import { Button, Group, Modal, Stack, Text, TextInput } from '@mantine/core'
+import { useState, useEffect } from 'react'
+import {
+  ActionIcon,
+  Badge,
+  Button,
+  Group,
+  Modal,
+  Stack,
+  Text,
+  TextInput,
+  Tooltip,
+} from '@mantine/core'
+import { IconCheck, IconSearch } from '@tabler/icons-react'
+import { api } from '../../api/conf'
 
 function AddSocioModal({
   opened,
@@ -10,10 +23,68 @@ function AddSocioModal({
   error,
   editing = false,
 }) {
+  const [buscandoPersona, setBuscandoPersona] = useState(false)
+  const [personaEncontrada, setPersonaEncontrada] = useState(null)
+
+  // Reseteamos el estado de búsqueda al abrir/cerrar el modal
+  useEffect(() => {
+    if (!opened) {
+      setPersonaEncontrada(null)
+    }
+  }, [opened])
+
+  const buscarPersonaPorDNI = async (dni) => {
+    if (!dni) return
+    setBuscandoPersona(true)
+    setPersonaEncontrada(null)
+    try {
+      const response = await api.get(`padron/persona/?dni=${dni}`)
+      if (response.data && response.data.length > 0) {
+        const p = response.data[0]
+        onChange('nombre', p.nombre)
+        onChange('apellido', p.apellido)
+        onChange('telefono', p.telefono)
+        onChange('email', p.email || '')
+        setPersonaEncontrada(p)
+      } else {
+        setPersonaEncontrada(false)
+      }
+    } catch (err) {
+      console.error('Error al buscar persona:', err)
+    } finally {
+      setBuscandoPersona(false)
+    }
+  }
+
   return (
-    <Modal opened={opened} onClose={onClose} title={editing ? 'Modificar socio' : 'Agregar socio'}>
+    <Modal opened={opened} onClose={onClose} title={editing ? 'Editar socio' : 'Agregar socio'}>
       <form onSubmit={onSubmit}>
         <Stack>
+          {!editing && personaEncontrada && (
+            <Badge color="teal" size="sm" leftSection={<IconCheck size={12} />}>
+              Persona encontrada en padrón
+            </Badge>
+          )}
+
+          <TextInput
+            label="DNI"
+            placeholder="Ej: 38123456"
+            value={formulario.dni}
+            onChange={(event) => onChange('dni', event.currentTarget.value)}
+            rightSection={
+              !editing ? (
+                <Tooltip label="Buscar persona existente por DNI" withArrow position="top">
+                  <ActionIcon
+                    loading={buscandoPersona}
+                    onClick={() => buscarPersonaPorDNI(formulario.dni)}
+                  >
+                    <IconSearch size={16} />
+                  </ActionIcon>
+                </Tooltip>
+              ) : null
+            }
+            required
+          />
           <TextInput
             label="Nombre"
             value={formulario.nombre}
@@ -24,12 +95,6 @@ function AddSocioModal({
             label="Apellido"
             value={formulario.apellido}
             onChange={(event) => onChange('apellido', event.currentTarget.value)}
-            required
-          />
-          <TextInput
-            label="DNI"
-            value={formulario.dni}
-            onChange={(event) => onChange('dni', event.currentTarget.value)}
             required
           />
           <TextInput
@@ -50,8 +115,8 @@ function AddSocioModal({
             <Button type="button" variant="default" onClick={onClose} disabled={loading}>
               Cancelar
             </Button>
-            <Button type="submit" loading={loading}>
-              {editing ? 'Modificar' : 'Guardar'}
+            <Button type="submit" loading={loading} color={editing ? 'teal' : undefined}>
+              {editing ? 'Guardar cambios' : 'Guardar'}
             </Button>
           </Group>
         </Stack>
