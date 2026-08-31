@@ -29,17 +29,25 @@ import {
   IconUser,
   IconUsers,
 } from '@tabler/icons-react'
-import { getJugador, patchJugador, deleteJugador } from '../api/jugadores'
-import EditJugadorModal from '../components/jugadores/EditJugadorModal'
+import { deleteJugador, getJugador, patchJugador } from '../api/jugadores'
 import DeleteJugadorModal from '../components/jugadores/DeleteJugadorModal'
+import EditJugadorModal from '../components/jugadores/EditJugadorModal'
 import useCategorias from '../hooks/useCategorias'
 import useEstados from '../hooks/useEstados'
+import useJugadores from '../hooks/useJugadores'
 import useSocio from '../hooks/useSocio'
 
 const formularioInicial = (jugador) => {
   if (!jugador) {
     return {
       socio: '',
+      nuevo_socio: {
+        nombre: '',
+        apellido: '',
+        dni: '',
+        telefono: '',
+        email: '',
+      },
       categoria: '',
       estado: '',
       obra_social: '',
@@ -50,6 +58,13 @@ const formularioInicial = (jugador) => {
 
   return {
     socio: String(jugador.socio?.socio_id ?? ''),
+    nuevo_socio: {
+      nombre: jugador.socio?.nombre ?? '',
+      apellido: jugador.socio?.apellido ?? '',
+      dni: jugador.socio?.dni ?? '',
+      telefono: jugador.socio?.telefono ?? '',
+      email: jugador.socio?.email ?? '',
+    },
     categoria: String(jugador.categoria?.categoria_id ?? ''),
     estado: String(jugador.estado?.estado_id ?? ''),
     obra_social: jugador.obra_social ?? '',
@@ -79,6 +94,7 @@ function JugadorDetalle() {
 
   // Opciones para edición
   const { socios } = useSocio()
+  const { jugadores } = useJugadores()
   const { categorias } = useCategorias()
   const { estados } = useEstados()
 
@@ -124,16 +140,45 @@ function JugadorDetalle() {
     event.preventDefault()
     setGuardandoEdicion(true)
     setErrorEdicion('')
+
+    const payload = {
+      socio: formulario.socio,
+      nuevo_socio: formulario.nuevo_socio,
+      categoria: formulario.categoria,
+      estado: formulario.estado,
+      obra_social: formulario.obra_social,
+      tallaIndumentaria: formulario.tallaIndumentaria,
+      contactos_emergencia: formulario.contactos_emergencia,
+    }
+
     try {
-      const actualizado = await patchJugador(jugador.jugador_id, formulario)
+      const actualizado = await patchJugador(jugador.jugador_id, payload)
       setJugador(actualizado)
       setModalEdicionAbierto(false)
     } catch (requestError) {
-      setErrorEdicion(
-        Object.values(requestError.response?.data || {})
-          .flat()
-          .join(' ') || 'No se pudo editar el jugador.',
-      )
+      const errorData = requestError.response?.data
+      let errorMsg = 'No se pudo editar el jugador.'
+      if (errorData) {
+        if (typeof errorData === 'string') {
+          errorMsg = errorData
+        } else if (errorData.detail) {
+          errorMsg = errorData.detail
+        } else {
+          errorMsg = Object.entries(errorData)
+            .map(
+              ([k, v]) =>
+                `${k}: ${
+                  Array.isArray(v)
+                    ? v.join(' ')
+                    : typeof v === 'object'
+                      ? JSON.stringify(v)
+                      : v
+                }`,
+            )
+            .join(' | ')
+        }
+      }
+      setErrorEdicion(errorMsg)
     } finally {
       setGuardandoEdicion(false)
     }
@@ -256,7 +301,9 @@ function JugadorDetalle() {
               <Badge
                 size="lg"
                 variant="filled"
-                color={jugador.estado.nombre.toLowerCase().includes('activo') ? 'teal' : 'gray'}
+                color={
+                  jugador.estado.nombre.toLowerCase().includes('activo') ? 'teal' : 'gray'
+                }
               >
                 {jugador.estado.nombre}
               </Badge>
@@ -397,12 +444,17 @@ function JugadorDetalle() {
             </Group>
             <Divider mb="md" />
 
-            {(!jugador.contactos_emergencia || jugador.contactos_emergencia.length === 0) ? (
+            {!jugador.contactos_emergencia ||
+            jugador.contactos_emergencia.length === 0 ? (
               <Text color="dimmed" size="sm" align="center" py="md">
                 No hay contactos de emergencia registrados para este jugador.
               </Text>
             ) : (
-              <SimpleGrid cols={2} breakpoints={[{ maxWidth: 'sm', cols: 1 }]} spacing="md">
+              <SimpleGrid
+                cols={2}
+                breakpoints={[{ maxWidth: 'sm', cols: 1 }]}
+                spacing="md"
+              >
                 {jugador.contactos_emergencia.map((contacto, idx) => (
                   <Paper
                     key={contacto.contacto_emergencia_id ?? idx}
@@ -480,6 +532,7 @@ function JugadorDetalle() {
         formulario={formulario}
         onChange={actualizarCampo}
         socios={socios}
+        jugadores={jugadores}
         categorias={categorias}
         estados={estados}
         loading={guardandoEdicion}
@@ -500,4 +553,3 @@ function JugadorDetalle() {
 }
 
 export default JugadorDetalle
-
