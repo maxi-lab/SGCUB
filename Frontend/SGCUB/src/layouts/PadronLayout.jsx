@@ -3,7 +3,12 @@ import './PadronLayout.css'
 
 export default function PadronLayout() {
   const { pathname } = useLocation()
-  const sectionName = pathname.includes('/jugadores') ? 'Jugadores' : 'Socios'
+  let sectionName = 'Socios'
+  if (pathname.includes('/jugadores')) {
+    sectionName = 'Jugadores'
+  } else if (pathname.includes('/personas')) {
+    sectionName = 'Personas'
+  }
 
   return (
     <section className="padron-layout">
