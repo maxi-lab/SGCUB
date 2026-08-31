@@ -69,14 +69,33 @@ function AddJugadorModal({
     [estados],
   )
 
+  const [errorBuscador, setErrorBuscador] = useState('')
+
   const buscarPersonaPorDNI = async (dni) => {
     if (!dni) return
     setBuscandoPersona(true)
     setPersonaEncontrada(null)
+    setErrorBuscador('')
     try {
       const response = await api.get(`padron/persona/?dni=${dni}`)
       if (response.data && response.data.length > 0) {
         const p = response.data[0]
+        
+        const socioExistente = socios.find((s) => s.dni === p.dni)
+        if (socioExistente) {
+          if (sociosConJugadorIds.has(String(socioExistente.socio_id))) {
+            setErrorBuscador('Esta persona ya tiene un jugador asignado.')
+          } else {
+            setErrorBuscador('Esta persona ya es socio. Cambiando a pestaña existente...')
+            setTimeout(() => {
+              onChange('modo_socio', 'existente')
+              onChange('socio', String(socioExistente.socio_id))
+              setErrorBuscador('')
+            }, 2500)
+          }
+          return
+        }
+
         onChange('nuevo_socio', {
           ...formulario.nuevo_socio,
           nombre: p.nombre,
@@ -149,6 +168,12 @@ function AddJugadorModal({
                   )}
                 </Group>
 
+                {errorBuscador && (
+                  <Alert color="yellow" p="xs" title="Atención" mb="xs">
+                    {errorBuscador}
+                  </Alert>
+                )}
+
                 <Group grow align="flex-start">
                   <TextInput
                     label="DNI"
@@ -212,7 +237,7 @@ function AddJugadorModal({
                 </Group>
 
                 <TextInput
-                  label="Email (opcional)"
+                  label="Email"
                   type="email"
                   placeholder="ejemplo@email.com"
                   value={formulario.nuevo_socio?.email || ''}
@@ -222,6 +247,7 @@ function AddJugadorModal({
                       email: e.currentTarget.value,
                     })
                   }
+                  required
                 />
               </Stack>
             </Paper>
