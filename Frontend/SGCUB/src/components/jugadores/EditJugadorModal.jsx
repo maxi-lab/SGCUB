@@ -10,6 +10,7 @@ import {
   Stack,
   Text,
   TextInput,
+  Accordion,
 } from '@mantine/core'
 import { IconAlertCircle } from '@tabler/icons-react'
 import ContactoEmergenciaForm from './ContactoEmergenciaForm'
@@ -96,12 +97,19 @@ function EditJugadorModal({
             />
           </Group>
 
-          <Divider label="Contactos de emergencia" labelPosition="center" my="xs" />
-
-          <ContactoEmergenciaForm
-            contactos={formulario.contactos_emergencia || []}
-            onChange={(value) => onChange('contactos_emergencia', value)}
-          />
+          <Accordion variant="separated">
+            <Accordion.Item value="contactos">
+              <Accordion.Control>
+                <Text weight={600} size="sm">Contactos de Emergencia</Text>
+              </Accordion.Control>
+              <Accordion.Panel>
+                <ContactoEmergenciaForm
+                  contactos={formulario.contactos_emergencia || []}
+                  onChange={(value) => onChange('contactos_emergencia', value)}
+                />
+              </Accordion.Panel>
+            </Accordion.Item>
+          </Accordion>
 
           {error && (
             <Alert icon={<IconAlertCircle size={16} />} title="Atención" color="red" variant="filled">

@@ -4,6 +4,8 @@ import DeleteSocioModal from '../components/socios/DeleteSocioModal'
 import SociosTable from '../components/socios/SociosTable'
 import useSocio from '../hooks/useSocio'
 import { api } from '../api/conf'
+import useGeneros from '../hooks/useGeneros'
+import useLocalidades from '../hooks/useLocalidades'
 
 function Padron() {
   const {
@@ -14,18 +16,22 @@ function Padron() {
     modificarSocio,
     eliminarSocio,
   } = useSocio()
+  
+  const { generos } = useGeneros()
+  const { localidades } = useLocalidades()
+
   const [modalAbierto, setModalAbierto] = useState(false)
   const [socioAEliminar, setSocioAEliminar] = useState(null)
   const [eliminando, setEliminando] = useState(false)
   const [errorEliminacion, setErrorEliminacion] = useState('')
   const [socioEnEdicion, setSocioEnEdicion] = useState(null)
-  const [formulario, setFormulario] = useState({
-    nombre: '',
-    apellido: '',
-    dni: '',
-    telefono: '',
-    email: '',
-  })
+  const formInicial = {
+    nombre: '', apellido: '', dni: '', telefono: '', email: '', estado_socio: '',
+    fecha_nacimiento: '', genero: '', genero_otro: '',
+    domicilio_calle: '', domicilio_numero: '', domicilio_entre_calle_1: '', 
+    domicilio_entre_calle_2: '', domicilio_barrio: '', domicilio_localidad: ''
+  }
+  const [formulario, setFormulario] = useState(formInicial)
   const [guardando, setGuardando] = useState(false)
   const [errorGuardado, setErrorGuardado] = useState('')
 
@@ -38,7 +44,7 @@ function Padron() {
   const abrirModal = () => {
     setErrorGuardado('')
     setSocioEnEdicion(null)
-    setFormulario({ nombre: '', apellido: '', dni: '', telefono: '', email: '', estado_socio: '' })
+    setFormulario({ ...formInicial })
     setModalAbierto(true)
   }
 
@@ -46,12 +52,21 @@ function Padron() {
     setErrorGuardado('')
     setSocioEnEdicion(socio)
     setFormulario({
-      nombre: socio.nombre,
-      apellido: socio.apellido,
-      dni: socio.dni,
-      telefono: socio.telefono,
+      nombre: socio.nombre || '',
+      apellido: socio.apellido || '',
+      dni: socio.dni || '',
+      telefono: socio.telefono || '',
       email: socio.email || '',
       estado_socio: socio.estado_socio ? String(socio.estado_socio) : '',
+      fecha_nacimiento: socio.fecha_nacimiento || '',
+      genero: socio.genero ? String(socio.genero) : '',
+      genero_otro: socio.genero_otro || '',
+      domicilio_calle: socio.domicilio_calle || '',
+      domicilio_numero: socio.domicilio_numero || '',
+      domicilio_entre_calle_1: socio.domicilio_entre_calle_1 || '',
+      domicilio_entre_calle_2: socio.domicilio_entre_calle_2 || '',
+      domicilio_barrio: socio.domicilio_barrio || '',
+      domicilio_localidad: socio.domicilio_localidad ? String(socio.domicilio_localidad) : ''
     })
     setModalAbierto(true)
   }
@@ -150,8 +165,10 @@ function Padron() {
         onChange={actualizarCampo}
         loading={guardando}
         error={errorGuardado}
-        editing={Boolean(socioEnEdicion)}
+        editing={!!socioEnEdicion}
         estadosSocio={estadosSocio}
+        generos={generos}
+        localidades={localidades}
       />
 
       <DeleteSocioModal

@@ -7,16 +7,17 @@ import useCategorias from '../hooks/useCategorias'
 import useEstados from '../hooks/useEstados'
 import useJugadores from '../hooks/useJugadores'
 import useSocio from '../hooks/useSocio'
+import useGeneros from '../hooks/useGeneros'
+import useLocalidades from '../hooks/useLocalidades'
 
 const formularioInicial = () => ({
   modo_socio: 'nuevo',
   socio: null,
   nuevo_socio: {
-    nombre: '',
-    apellido: '',
-    dni: '',
-    telefono: '',
-    email: '',
+    nombre: '', apellido: '', dni: '', telefono: '', email: '',
+    fecha_nacimiento: '', genero: '', genero_otro: '',
+    domicilio_calle: '', domicilio_numero: '', domicilio_entre_calle_1: '', 
+    domicilio_entre_calle_2: '', domicilio_barrio: '', domicilio_localidad: ''
   },
   categoria: null,
   estado: null,
@@ -30,6 +31,8 @@ function Jugadores() {
   const { socios } = useSocio()
   const { categorias } = useCategorias()
   const { estados } = useEstados()
+  const { generos } = useGeneros()
+  const { localidades } = useLocalidades()
   const [modalAbierto, setModalAbierto] = useState(false)
   const [guardando, setGuardando] = useState(false)
   const [errorGuardado, setErrorGuardado] = useState('')
@@ -185,6 +188,8 @@ function Jugadores() {
         jugadores={jugadores}
         categorias={categorias}
         estados={estados}
+        generos={generos}
+        localidades={localidades}
         loading={guardando}
         error={errorGuardado}
       />

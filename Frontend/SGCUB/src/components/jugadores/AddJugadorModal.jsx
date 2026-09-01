@@ -14,6 +14,8 @@ import {
   Text,
   TextInput,
   Tooltip,
+  Grid,
+  Accordion,
 } from '@mantine/core'
 import { IconAlertCircle, IconCheck, IconSearch, IconUserPlus } from '@tabler/icons-react'
 import ContactoEmergenciaForm from './ContactoEmergenciaForm'
@@ -29,6 +31,8 @@ function AddJugadorModal({
   jugadores = [],
   categorias = [],
   estados = [],
+  generos = [],
+  localidades = [],
   loading,
   error,
 }) {
@@ -159,7 +163,7 @@ function AddJugadorModal({
               <Stack spacing="xs">
                 <Group position="apart">
                   <Text weight={600} size="sm">
-                    Datos del nuevo socio / persona
+                    Datos del nuevo socio
                   </Text>
                   {personaEncontrada && (
                     <Badge color="teal" size="sm" leftSection={<IconCheck size={12} />}>
@@ -174,81 +178,136 @@ function AddJugadorModal({
                   </Alert>
                 )}
 
-                <Group grow align="flex-start">
-                  <TextInput
-                    label="DNI"
-                    placeholder="Ej: 38123456"
-                    value={formulario.nuevo_socio?.dni || ''}
-                    onChange={(e) =>
-                      onChange('nuevo_socio', {
-                        ...formulario.nuevo_socio,
-                        dni: e.currentTarget.value,
-                      })
-                    }
-                    rightSection={
-                      <Tooltip label="Buscar persona existente por DNI" withArrow position="top">
-                        <ActionIcon
-                          loading={buscandoPersona}
-                          onClick={() => buscarPersonaPorDNI(formulario.nuevo_socio?.dni)}
-                        >
-                          <IconSearch size={16} />
-                        </ActionIcon>
-                      </Tooltip>
-                    }
-                    required
-                  />
-                  <TextInput
-                    label="Teléfono"
-                    placeholder="Ej: 2214567890"
-                    value={formulario.nuevo_socio?.telefono || ''}
-                    onChange={(e) =>
-                      onChange('nuevo_socio', {
-                        ...formulario.nuevo_socio,
-                        telefono: e.currentTarget.value,
-                      })
-                    }
-                    required
-                  />
-                </Group>
+                <Grid>
+                  <Grid.Col span={12} sm={6}>
+                    <TextInput
+                      label="DNI"
+                      placeholder="Ej: 38123456"
+                      value={formulario.nuevo_socio?.dni || ''}
+                      onChange={(e) => onChange('nuevo_socio', { ...formulario.nuevo_socio, dni: e.currentTarget.value })}
+                      rightSection={
+                        <Tooltip label="Buscar persona existente por DNI" withArrow position="top">
+                          <ActionIcon loading={buscandoPersona} onClick={() => buscarPersonaPorDNI(formulario.nuevo_socio?.dni)}>
+                            <IconSearch size={16} />
+                          </ActionIcon>
+                        </Tooltip>
+                      }
+                      required
+                    />
+                  </Grid.Col>
+                  <Grid.Col span={12} sm={6}>
+                    <TextInput
+                      label="Fecha de Nacimiento"
+                      type="date"
+                      value={formulario.nuevo_socio?.fecha_nacimiento || ''}
+                      onChange={(e) => onChange('nuevo_socio', { ...formulario.nuevo_socio, fecha_nacimiento: e.currentTarget.value })}
+                      required
+                    />
+                  </Grid.Col>
+                  <Grid.Col span={12} sm={6}>
+                    <TextInput
+                      label="Nombre"
+                      value={formulario.nuevo_socio?.nombre || ''}
+                      onChange={(e) => onChange('nuevo_socio', { ...formulario.nuevo_socio, nombre: e.currentTarget.value })}
+                      required
+                    />
+                  </Grid.Col>
+                  <Grid.Col span={12} sm={6}>
+                    <TextInput
+                      label="Apellido"
+                      value={formulario.nuevo_socio?.apellido || ''}
+                      onChange={(e) => onChange('nuevo_socio', { ...formulario.nuevo_socio, apellido: e.currentTarget.value })}
+                      required
+                    />
+                  </Grid.Col>
+                  <Grid.Col span={12} sm={6}>
+                    <Select
+                      label="Género"
+                      data={generos.map(g => ({ value: String(g.genero_id), label: g.nombre }))}
+                      value={formulario.nuevo_socio?.genero || ''}
+                      onChange={(val) => onChange('nuevo_socio', { ...formulario.nuevo_socio, genero: val })}
+                      required
+                    />
+                  </Grid.Col>
+                  {formulario.nuevo_socio?.genero === String(generos.find(g => g.nombre === 'Otro')?.genero_id) && (
+                    <Grid.Col span={12} sm={6}>
+                      <TextInput
+                        label="Especifique (Otro)"
+                        value={formulario.nuevo_socio?.genero_otro || ''}
+                        onChange={(e) => onChange('nuevo_socio', { ...formulario.nuevo_socio, genero_otro: e.currentTarget.value })}
+                      />
+                    </Grid.Col>
+                  )}
+                  <Grid.Col span={12} sm={6}>
+                    <TextInput
+                      label="Teléfono"
+                      value={formulario.nuevo_socio?.telefono || ''}
+                      onChange={(e) => onChange('nuevo_socio', { ...formulario.nuevo_socio, telefono: e.currentTarget.value })}
+                      required
+                    />
+                  </Grid.Col>
+                  <Grid.Col span={12} sm={6}>
+                    <TextInput
+                      label="Email"
+                      type="email"
+                      value={formulario.nuevo_socio?.email || ''}
+                      onChange={(e) => onChange('nuevo_socio', { ...formulario.nuevo_socio, email: e.currentTarget.value })}
+                      required
+                    />
+                  </Grid.Col>
+                </Grid>
 
-                <Group grow>
-                  <TextInput
-                    label="Nombre"
-                    value={formulario.nuevo_socio?.nombre || ''}
-                    onChange={(e) =>
-                      onChange('nuevo_socio', {
-                        ...formulario.nuevo_socio,
-                        nombre: e.currentTarget.value,
-                      })
-                    }
-                    required
-                  />
-                  <TextInput
-                    label="Apellido"
-                    value={formulario.nuevo_socio?.apellido || ''}
-                    onChange={(e) =>
-                      onChange('nuevo_socio', {
-                        ...formulario.nuevo_socio,
-                        apellido: e.currentTarget.value,
-                      })
-                    }
-                    required
-                  />
-                </Group>
-
-                <TextInput
-                  label="Email"
-                  type="email"
-                  placeholder="ejemplo@email.com"
-                  value={formulario.nuevo_socio?.email || ''}
-                  onChange={(e) =>
-                    onChange('nuevo_socio', {
-                      ...formulario.nuevo_socio,
-                      email: e.currentTarget.value,
-                    })
-                  }
-                  required
-                />
+                <Text weight={600} size="sm" mt="sm">
+                  Domicilio
+                </Text>
+                <Grid>
+                  <Grid.Col span={8} sm={9}>
+                    <TextInput
+                      label="Calle"
+                      value={formulario.nuevo_socio?.domicilio_calle || ''}
+                      onChange={(e) => onChange('nuevo_socio', { ...formulario.nuevo_socio, domicilio_calle: e.currentTarget.value })}
+                      required
+                    />
+                  </Grid.Col>
+                  <Grid.Col span={4} sm={3}>
+                    <TextInput
+                      label="Número"
+                      value={formulario.nuevo_socio?.domicilio_numero || ''}
+                      onChange={(e) => onChange('nuevo_socio', { ...formulario.nuevo_socio, domicilio_numero: e.currentTarget.value })}
+                      required
+                    />
+                  </Grid.Col>
+                  <Grid.Col span={12} sm={6}>
+                    <TextInput
+                      label="Entre calle 1"
+                      value={formulario.nuevo_socio?.domicilio_entre_calle_1 || ''}
+                      onChange={(e) => onChange('nuevo_socio', { ...formulario.nuevo_socio, domicilio_entre_calle_1: e.currentTarget.value })}
+                    />
+                  </Grid.Col>
+                  <Grid.Col span={12} sm={6}>
+                    <TextInput
+                      label="Entre calle 2"
+                      value={formulario.nuevo_socio?.domicilio_entre_calle_2 || ''}
+                      onChange={(e) => onChange('nuevo_socio', { ...formulario.nuevo_socio, domicilio_entre_calle_2: e.currentTarget.value })}
+                    />
+                  </Grid.Col>
+                  <Grid.Col span={12} sm={6}>
+                    <TextInput
+                      label="Barrio"
+                      value={formulario.nuevo_socio?.domicilio_barrio || ''}
+                      onChange={(e) => onChange('nuevo_socio', { ...formulario.nuevo_socio, domicilio_barrio: e.currentTarget.value })}
+                    />
+                  </Grid.Col>
+                  <Grid.Col span={12} sm={6}>
+                    <Select
+                      label="Localidad"
+                      data={localidades.map(l => ({ value: String(l.localidad_id), label: l.nombre }))}
+                      value={formulario.nuevo_socio?.domicilio_localidad || ''}
+                      onChange={(val) => onChange('nuevo_socio', { ...formulario.nuevo_socio, domicilio_localidad: val })}
+                      required
+                    />
+                  </Grid.Col>
+                </Grid>
               </Stack>
             </Paper>
           )}
@@ -289,12 +348,19 @@ function AddJugadorModal({
             />
           </Group>
 
-          <Divider label="Contactos de emergencia" labelPosition="center" my="xs" />
-
-          <ContactoEmergenciaForm
-            contactos={formulario.contactos_emergencia || []}
-            onChange={(value) => onChange('contactos_emergencia', value)}
-          />
+          <Accordion variant="separated">
+            <Accordion.Item value="contactos">
+              <Accordion.Control>
+                <Text weight={600} size="sm">Contactos de Emergencia</Text>
+              </Accordion.Control>
+              <Accordion.Panel>
+                <ContactoEmergenciaForm
+                  contactos={formulario.contactos_emergencia || []}
+                  onChange={(value) => onChange('contactos_emergencia', value)}
+                />
+              </Accordion.Panel>
+            </Accordion.Item>
+          </Accordion>
 
           {error && (
             <Alert icon={<IconAlertCircle size={16} />} title="Atención" color="red" variant="filled">
