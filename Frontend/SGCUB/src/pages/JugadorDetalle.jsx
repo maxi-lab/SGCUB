@@ -36,6 +36,8 @@ import useCategorias from '../hooks/useCategorias'
 import useEstados from '../hooks/useEstados'
 import useJugadores from '../hooks/useJugadores'
 import useSocio from '../hooks/useSocio'
+import useGeneros from '../hooks/useGeneros'
+import useLocalidades from '../hooks/useLocalidades'
 
 const formularioInicial = (jugador) => {
   if (!jugador) {
@@ -97,6 +99,8 @@ function JugadorDetalle() {
   const { jugadores } = useJugadores()
   const { categorias } = useCategorias()
   const { estados } = useEstados()
+  const { generos } = useGeneros()
+  const { localidades } = useLocalidades()
 
   // Estados de modales
   const [modalEdicionAbierto, setModalEdicionAbierto] = useState(false)
@@ -367,6 +371,41 @@ function JugadorDetalle() {
                     {jugador.socio?.email || 'No registrado'}
                   </Text>
                 </Group>
+              </Group>
+              
+              <Group position="apart">
+                <Text size="sm" color="dimmed">
+                  Nacimiento:
+                </Text>
+                <Text size="sm" weight={500}>
+                  {jugador.socio?.fecha_nacimiento 
+                    ? `${new Date(jugador.socio.fecha_nacimiento + 'T00:00:00').toLocaleDateString('es-AR')} (${Math.floor((new Date() - new Date(jugador.socio.fecha_nacimiento)) / 3.15576e+10)} años)` 
+                    : 'No registrado'}
+                </Text>
+              </Group>
+
+              <Group position="apart">
+                <Text size="sm" color="dimmed">
+                  Género:
+                </Text>
+                <Text size="sm" weight={500}>
+                  {jugador.socio?.genero
+                    ? generos.find((g) => g.genero_id === jugador.socio.genero)?.nombre === 'Otro'
+                      ? jugador.socio.genero_otro || 'Otro'
+                      : generos.find((g) => g.genero_id === jugador.socio.genero)?.nombre || 'Registrado'
+                    : 'No registrado'}
+                </Text>
+              </Group>
+
+              <Group position="apart">
+                <Text size="sm" color="dimmed">
+                  Domicilio:
+                </Text>
+                <Text size="sm" weight={500} align="right">
+                  {jugador.socio?.domicilio_calle
+                    ? `${jugador.socio.domicilio_calle} ${jugador.socio.domicilio_numero || ''}${jugador.socio.domicilio_barrio ? `, B° ${jugador.socio.domicilio_barrio}` : ''}${jugador.socio.domicilio_localidad ? ` - ${localidades.find(l => l.localidad_id === jugador.socio.domicilio_localidad)?.nombre || ''}` : ''}`
+                    : 'No registrado'}
+                </Text>
               </Group>
             </Stack>
           </Card>

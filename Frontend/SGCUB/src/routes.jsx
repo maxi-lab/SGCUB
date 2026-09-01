@@ -6,6 +6,7 @@ import AdminPage from './pages/AdminPage'
 import Padron from './pages/Padron'
 import Jugadores from './pages/Jugadores'
 import JugadorDetalle from './pages/JugadorDetalle'
+import SocioDetalle from './pages/SocioDetalle'
 import PadronLayout from './layouts/PadronLayout'
 
 export const router = createBrowserRouter([
@@ -28,6 +29,10 @@ export const router = createBrowserRouter([
           {
             path: 'socios',
             element: <Padron />,
+          },
+          {
+            path: 'socios/:id',
+            element: <SocioDetalle />,
           },
           {
             path: 'jugadores',
