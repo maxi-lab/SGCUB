@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
-import { getCategorias } from '../api/categorias'
+import {
+  deleteCategoria,
+  getCategorias,
+  patchCategoria,
+  postCategoria,
+} from '../api/categorias'
 
 function useCategorias() {
   const [categorias, setCategorias] = useState([])
@@ -19,11 +24,35 @@ function useCategorias() {
     }
   }, [])
 
+  const crearCategoria = useCallback(async (categoria) => {
+    const categoriaCreada = await postCategoria(categoria)
+    await cargarCategorias()
+    return categoriaCreada
+  }, [cargarCategorias])
+
+  const editarCategoria = useCallback(async (categoriaId, categoria) => {
+    const categoriaEditada = await patchCategoria(categoriaId, categoria)
+    await cargarCategorias()
+    return categoriaEditada
+  }, [cargarCategorias])
+
+  const eliminarCategoria = useCallback(async (categoriaId) => {
+    await deleteCategoria(categoriaId)
+    await cargarCategorias()
+  }, [cargarCategorias])
+
   useEffect(() => {
     cargarCategorias()
   }, [cargarCategorias])
 
-  return { categorias, isLoading, error }
+  return {
+    categorias,
+    isLoading,
+    error,
+    crearCategoria,
+    editarCategoria,
+    eliminarCategoria,
+  }
 }
 
 export default useCategorias

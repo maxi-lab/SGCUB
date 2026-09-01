@@ -15,7 +15,13 @@ class PadronViewTests(APITestCase):
         }
         self.persona_counter = 1
         self.socio_data = {}
-        self.categoria_data = {"nombre": "Inferior"}
+        self.categoria_data = {
+            "nombre": "Inferior",
+            "anio_vigente": 2026,
+            "edad_minima": 10,
+            "edad_maxima": 12,
+            "genero": "M",
+        }
         self.docente_data = {"legajo": 1001}
 
     # ------------------------------------------------------------------
@@ -242,12 +248,49 @@ class PadronViewTests(APITestCase):
         response = self.create_categoria()
         self.assertEqual(status.HTTP_201_CREATED, response.status_code)
         self.assertEqual(self.categoria_data["nombre"], response.data["nombre"])
+        self.assertEqual(self.categoria_data["anio_vigente"], response.data["anio_vigente"])
+        self.assertEqual(self.categoria_data["edad_minima"], response.data["edad_minima"])
+        self.assertEqual(self.categoria_data["edad_maxima"], response.data["edad_maxima"])
+        self.assertEqual(self.categoria_data["genero"], response.data["genero"])
         self.assertIn("categoria_id", response.data)
 
     def test_categoria_post_campo_faltante(self):
         response = self.create_categoria({})
         self.assertEqual(status.HTTP_400_BAD_REQUEST, response.status_code)
         self.assertIn("nombre", response.data)
+        self.assertIn("anio_vigente", response.data)
+        self.assertIn("edad_minima", response.data)
+        self.assertIn("edad_maxima", response.data)
+        self.assertIn("genero", response.data)
+
+    def test_categoria_post_edad_maxima_menor_que_minima(self):
+        data = {**self.categoria_data, "edad_minima": 15, "edad_maxima": 10}
+        response = self.create_categoria(data)
+        self.assertEqual(status.HTTP_400_BAD_REQUEST, response.status_code)
+        self.assertIn("edad_maxima", response.data)
+
+    def test_categoria_post_genero_invalido(self):
+        data = {**self.categoria_data, "genero": "X"}
+        response = self.create_categoria(data)
+        self.assertEqual(status.HTTP_400_BAD_REQUEST, response.status_code)
+        self.assertIn("genero", response.data)
+
+    def test_categoria_post_edad_negativa(self):
+        data = {**self.categoria_data, "edad_minima": -1}
+        response = self.create_categoria(data)
+        self.assertEqual(status.HTTP_400_BAD_REQUEST, response.status_code)
+        self.assertIn("edad_minima", response.data)
+
+    def test_categoria_post_duplicada(self):
+        self.crear_categoria_orm()
+        response = self.create_categoria()
+        self.assertEqual(status.HTTP_400_BAD_REQUEST, response.status_code)
+
+    def test_categoria_post_mismo_nombre_distinto_genero(self):
+        self.crear_categoria_orm()
+        data = {**self.categoria_data, "genero": "F"}
+        response = self.create_categoria(data)
+        self.assertEqual(status.HTTP_201_CREATED, response.status_code)
 
     def test_categoria_get_list(self):
         self.crear_categoria_orm()
