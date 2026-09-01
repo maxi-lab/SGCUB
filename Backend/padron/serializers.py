@@ -396,12 +396,14 @@ class JugadorSerializer(serializers.ModelSerializer):
             socio = socio_serializer.create(nuevo_socio_data)
             validated_data["socio"] = socio
 
-        if "categoria" not in validated_data or not validated_data["categoria"]:
+        if not validated_data.get("categoria"):
             from .models import get_default_categoria
+            validated_data.pop("categoria", None)
             validated_data["categoria_id"] = get_default_categoria()
 
-        if "estado" not in validated_data or not validated_data["estado"]:
+        if not validated_data.get("estado"):
             from .models import get_default_estado_deportivo
+            validated_data.pop("estado", None)
             validated_data["estado_id"] = get_default_estado_deportivo()
 
         contactos_data = validated_data.pop("contactos_emergencia", [])

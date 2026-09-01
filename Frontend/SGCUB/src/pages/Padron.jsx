@@ -102,7 +102,7 @@ function Padron() {
       } else {
         await crearSocio(payload)
       }
-      setFormulario({ nombre: '', apellido: '', dni: '', telefono: '', email: '', estado_socio: '' })
+      setFormulario({ ...formInicial })
       setSocioEnEdicion(null)
       setModalAbierto(false)
     } catch (requestError) {

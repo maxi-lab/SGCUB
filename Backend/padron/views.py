@@ -30,44 +30,18 @@ def localidad_list(request):
     return Response(LocalidadSerializer(localidades, many=True).data)
 
 
-@api_view(["GET", "POST"])
+@api_view(["GET"])
 def estado_socio_list_create(request):
-    if request.method == "GET":
-        estados = EstadoSocio.objects.all()
-        serializer = EstadoSocioSerializer(estados, many=True)
-        return Response(serializer.data)
-
-    serializer = EstadoSocioSerializer(data=request.data)
-    if serializer.is_valid():
-        estado = serializer.save()
-        return Response(EstadoSocioSerializer(estado).data, status=status.HTTP_201_CREATED)
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    estados = EstadoSocio.objects.all()
+    serializer = EstadoSocioSerializer(estados, many=True)
+    return Response(serializer.data)
 
 
-@api_view(["GET", "PUT", "PATCH", "DELETE"])
+@api_view(["GET"])
 def estado_socio_detail(request, pk):
     estado = get_object_or_404(EstadoSocio, pk=pk)
-
-    if request.method == "GET":
-        serializer = EstadoSocioSerializer(estado)
-        return Response(serializer.data)
-
-    if request.method == "PUT":
-        serializer = EstadoSocioSerializer(estado, data=request.data, partial=True)
-        if serializer.is_valid():
-            estado = serializer.save()
-            return Response(EstadoSocioSerializer(estado).data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    if request.method == "PATCH":
-        serializer = EstadoSocioSerializer(estado, data=request.data, partial=True)
-        if serializer.is_valid():
-            estado = serializer.save()
-            return Response(EstadoSocioSerializer(estado).data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    estado.delete()
-    return Response(status=status.HTTP_204_NO_CONTENT)
+    serializer = EstadoSocioSerializer(estado)
+    return Response(serializer.data)
 
 
 @api_view(["GET", "POST"])

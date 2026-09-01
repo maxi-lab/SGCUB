@@ -233,7 +233,7 @@ function SocioDetalle() {
                 <Text size="sm" color="dimmed">Nacimiento:</Text>
                 <Text size="sm" weight={500}>
                   {socio.fecha_nacimiento 
-                    ? `${new Date(socio.fecha_nacimiento + 'T00:00:00').toLocaleDateString('es-AR')} (${Math.floor((new Date() - new Date(socio.fecha_nacimiento)) / 3.15576e+10)} años)` 
+                    ? `${new Date(socio.fecha_nacimiento + 'T00:00:00').toLocaleDateString('es-AR')} (${Math.floor((new Date() - new Date(socio.fecha_nacimiento + 'T00:00:00')) / 3.15576e+10)} años)` 
                     : 'No registrado'}
                 </Text>
               </Group>

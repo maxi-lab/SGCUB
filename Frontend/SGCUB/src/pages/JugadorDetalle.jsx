@@ -379,7 +379,7 @@ function JugadorDetalle() {
                 </Text>
                 <Text size="sm" weight={500}>
                   {jugador.socio?.fecha_nacimiento 
-                    ? `${new Date(jugador.socio.fecha_nacimiento + 'T00:00:00').toLocaleDateString('es-AR')} (${Math.floor((new Date() - new Date(jugador.socio.fecha_nacimiento)) / 3.15576e+10)} años)` 
+                    ? `${new Date(jugador.socio.fecha_nacimiento + 'T00:00:00').toLocaleDateString('es-AR')} (${Math.floor((new Date() - new Date(jugador.socio.fecha_nacimiento + 'T00:00:00')) / 3.15576e+10)} años)` 
                     : 'No registrado'}
                 </Text>
               </Group>
