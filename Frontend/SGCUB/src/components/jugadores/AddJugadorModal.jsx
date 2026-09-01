@@ -91,7 +91,7 @@ function AddJugadorModal({
               onChange('modo_socio', 'existente')
               onChange('socio', String(socioExistente.socio_id))
               setErrorBuscador('')
-            }, 2500)
+            }, 1000)
           }
           return
         }
@@ -115,7 +115,7 @@ function AddJugadorModal({
     }
   }
 
-  const modoSocio = formulario.modo_socio || 'existente'
+  const modoSocio = formulario.modo_socio || 'nuevo'
 
   return (
     <Modal opened={opened} onClose={onClose} title="Agregar jugador" size="lg">
@@ -129,8 +129,8 @@ function AddJugadorModal({
               onChange('modo_socio', val)
             }}
             data={[
-              { label: 'Socio existente', value: 'existente' },
               { label: 'Registrar nuevo socio', value: 'nuevo' },
+              { label: 'Socio existente', value: 'existente' },
             ]}
             fullWidth
             color="teal"

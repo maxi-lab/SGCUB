@@ -9,7 +9,7 @@ import useJugadores from '../hooks/useJugadores'
 import useSocio from '../hooks/useSocio'
 
 const formularioInicial = () => ({
-  modo_socio: 'existente',
+  modo_socio: 'nuevo',
   socio: null,
   nuevo_socio: {
     nombre: '',
