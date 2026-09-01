@@ -6,8 +6,6 @@ export default function PadronLayout() {
   let sectionName = 'Socios'
   if (pathname.includes('/jugadores')) {
     sectionName = 'Jugadores'
-  } else if (pathname.includes('/personas')) {
-    sectionName = 'Personas'
   }
 
   return (

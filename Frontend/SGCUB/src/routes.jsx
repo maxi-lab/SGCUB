@@ -3,7 +3,6 @@ import MainLayout from './layouts/MainLayout'
 import AdminLayout from './layouts/AdminLayout'
 import Principal from './pages/Principal'
 import AdminPage from './pages/AdminPage'
-import Personas from './pages/Personas'
 import Padron from './pages/Padron'
 import Jugadores from './pages/Jugadores'
 import JugadorDetalle from './pages/JugadorDetalle'
@@ -25,10 +24,6 @@ export const router = createBrowserRouter([
           {
             index: true,
             element: <Navigate to="socios" replace />,
-          },
-          {
-            path: 'personas',
-            element: <Personas />,
           },
           {
             path: 'socios',
