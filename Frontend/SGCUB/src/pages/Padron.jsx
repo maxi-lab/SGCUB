@@ -28,8 +28,8 @@ function Padron() {
   const formInicial = {
     nombre: '', apellido: '', dni: '', telefono: '', email: '', estado_socio: '',
     fecha_nacimiento: '', genero: '', genero_otro: '',
-    domicilio_calle: '', domicilio_numero: '', domicilio_entre_calle_1: '', 
-    domicilio_entre_calle_2: '', domicilio_barrio: '', domicilio_localidad: ''
+    domicilio_calle: '', domicilio_numero: '', domicilio_piso: '', domicilio_departamento: '',
+    domicilio_entre_calle_1: '', domicilio_entre_calle_2: '', domicilio_barrio: '', domicilio_localidad: ''
   }
   const [formulario, setFormulario] = useState(formInicial)
   const [guardando, setGuardando] = useState(false)
@@ -63,6 +63,8 @@ function Padron() {
       genero_otro: socio.genero_otro || '',
       domicilio_calle: socio.domicilio_calle || '',
       domicilio_numero: socio.domicilio_numero || '',
+      domicilio_piso: socio.domicilio_piso || '',
+      domicilio_departamento: socio.domicilio_departamento || '',
       domicilio_entre_calle_1: socio.domicilio_entre_calle_1 || '',
       domicilio_entre_calle_2: socio.domicilio_entre_calle_2 || '',
       domicilio_barrio: socio.domicilio_barrio || '',

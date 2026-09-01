@@ -179,6 +179,20 @@ function AddSocioModal({
                   required
                 />
               </Grid.Col>
+              <Grid.Col span={6} sm={6}>
+                <TextInput
+                  label="Piso"
+                  value={formulario.domicilio_piso}
+                  onChange={(event) => onChange('domicilio_piso', event.currentTarget.value)}
+                />
+              </Grid.Col>
+              <Grid.Col span={6} sm={6}>
+                <TextInput
+                  label="Departamento"
+                  value={formulario.domicilio_departamento}
+                  onChange={(event) => onChange('domicilio_departamento', event.currentTarget.value)}
+                />
+              </Grid.Col>
               <Grid.Col span={12} sm={6}>
                 <TextInput
                   label="Entre calle 1"

@@ -92,6 +92,8 @@ function SocioDetalle() {
       genero_otro: socio.genero_otro || '',
       domicilio_calle: socio.domicilio_calle || '',
       domicilio_numero: socio.domicilio_numero || '',
+      domicilio_piso: socio.domicilio_piso || '',
+      domicilio_departamento: socio.domicilio_departamento || '',
       domicilio_entre_calle_1: socio.domicilio_entre_calle_1 || '',
       domicilio_entre_calle_2: socio.domicilio_entre_calle_2 || '',
       domicilio_barrio: socio.domicilio_barrio || '',
@@ -283,7 +285,7 @@ function SocioDetalle() {
                 <Text size="sm" color="dimmed">Domicilio:</Text>
                 <Text size="sm" weight={500} align="right">
                   {socio.domicilio_calle
-                    ? `${socio.domicilio_calle} ${socio.domicilio_numero || ''}${socio.domicilio_barrio ? `, B° ${socio.domicilio_barrio}` : ''}${socio.domicilio_localidad ? ` - ${localidades.find(l => l.localidad_id === socio.domicilio_localidad)?.nombre || ''}` : ''}`
+                    ? `${socio.domicilio_calle} ${socio.domicilio_numero || ''}${socio.domicilio_piso ? ` Piso ${socio.domicilio_piso}` : ''}${socio.domicilio_departamento ? ` Depto ${socio.domicilio_departamento}` : ''}${socio.domicilio_barrio ? `, B° ${socio.domicilio_barrio}` : ''}${socio.domicilio_localidad ? ` - ${localidades.find(l => l.localidad_id === socio.domicilio_localidad)?.nombre || ''}` : ''}`
                     : 'No registrado'}
                 </Text>
               </Group>

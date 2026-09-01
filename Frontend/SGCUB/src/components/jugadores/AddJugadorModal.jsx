@@ -277,6 +277,20 @@ function AddJugadorModal({
                       required
                     />
                   </Grid.Col>
+                  <Grid.Col span={6} sm={6}>
+                    <TextInput
+                      label="Piso"
+                      value={formulario.nuevo_socio?.domicilio_piso || ''}
+                      onChange={(e) => onChange('nuevo_socio', { ...formulario.nuevo_socio, domicilio_piso: e.currentTarget.value })}
+                    />
+                  </Grid.Col>
+                  <Grid.Col span={6} sm={6}>
+                    <TextInput
+                      label="Departamento"
+                      value={formulario.nuevo_socio?.domicilio_departamento || ''}
+                      onChange={(e) => onChange('nuevo_socio', { ...formulario.nuevo_socio, domicilio_departamento: e.currentTarget.value })}
+                    />
+                  </Grid.Col>
                   <Grid.Col span={12} sm={6}>
                     <TextInput
                       label="Entre calle 1"

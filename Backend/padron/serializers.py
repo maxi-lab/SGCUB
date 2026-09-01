@@ -94,6 +94,8 @@ class SocioSerializer(serializers.ModelSerializer):
     
     domicilio_calle = serializers.CharField(source="persona.domicilio.calle", required=False, allow_null=True, allow_blank=True)
     domicilio_numero = serializers.CharField(source="persona.domicilio.numero", required=False, allow_null=True, allow_blank=True)
+    domicilio_piso = serializers.CharField(source="persona.domicilio.piso", required=False, allow_null=True, allow_blank=True)
+    domicilio_departamento = serializers.CharField(source="persona.domicilio.departamento", required=False, allow_null=True, allow_blank=True)
     domicilio_entre_calle_1 = serializers.CharField(source="persona.domicilio.entre_calle_1", required=False, allow_null=True, allow_blank=True)
     domicilio_entre_calle_2 = serializers.CharField(source="persona.domicilio.entre_calle_2", required=False, allow_null=True, allow_blank=True)
     domicilio_barrio = serializers.CharField(source="persona.domicilio.barrio", required=False, allow_null=True, allow_blank=True)
@@ -110,7 +112,7 @@ class SocioSerializer(serializers.ModelSerializer):
         fields = [
             "socio_id", "numero_socio", "nombre", "apellido", "dni", "telefono", "email", 
             "fecha_nacimiento", "genero", "genero_otro", 
-            "domicilio_calle", "domicilio_numero", "domicilio_entre_calle_1", "domicilio_entre_calle_2", "domicilio_barrio", "domicilio_localidad",
+            "domicilio_calle", "domicilio_numero", "domicilio_piso", "domicilio_departamento", "domicilio_entre_calle_1", "domicilio_entre_calle_2", "domicilio_barrio", "domicilio_localidad",
             "estado_socio", "estado_socio_nombre", "fecha_alta"
         ]
         read_only_fields = ["numero_socio", "fecha_alta"]

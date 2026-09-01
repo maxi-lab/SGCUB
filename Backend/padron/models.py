@@ -29,6 +29,8 @@ class Domicilio(models.Model):
     domicilio_id = models.AutoField(primary_key=True)
     calle = models.CharField(max_length=100)
     numero = models.CharField(max_length=20)
+    piso = models.CharField(max_length=20, blank=True, null=True)
+    departamento = models.CharField(max_length=20, blank=True, null=True)
     entre_calle_1 = models.CharField(max_length=100, blank=True, null=True)
     entre_calle_2 = models.CharField(max_length=100, blank=True, null=True)
     barrio = models.CharField(max_length=100, blank=True, null=True)

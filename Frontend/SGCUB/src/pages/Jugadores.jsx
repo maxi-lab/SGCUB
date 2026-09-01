@@ -16,8 +16,8 @@ const formularioInicial = () => ({
   nuevo_socio: {
     nombre: '', apellido: '', dni: '', telefono: '', email: '',
     fecha_nacimiento: '', genero: '', genero_otro: '',
-    domicilio_calle: '', domicilio_numero: '', domicilio_entre_calle_1: '', 
-    domicilio_entre_calle_2: '', domicilio_barrio: '', domicilio_localidad: ''
+    domicilio_calle: '', domicilio_numero: '', domicilio_piso: '', domicilio_departamento: '',
+    domicilio_entre_calle_1: '', domicilio_entre_calle_2: '', domicilio_barrio: '', domicilio_localidad: ''
   },
   categoria: null,
   estado: null,

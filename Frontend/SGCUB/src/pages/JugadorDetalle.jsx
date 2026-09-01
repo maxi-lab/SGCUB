@@ -403,7 +403,7 @@ function JugadorDetalle() {
                 </Text>
                 <Text size="sm" weight={500} align="right">
                   {jugador.socio?.domicilio_calle
-                    ? `${jugador.socio.domicilio_calle} ${jugador.socio.domicilio_numero || ''}${jugador.socio.domicilio_barrio ? `, B° ${jugador.socio.domicilio_barrio}` : ''}${jugador.socio.domicilio_localidad ? ` - ${localidades.find(l => l.localidad_id === jugador.socio.domicilio_localidad)?.nombre || ''}` : ''}`
+                    ? `${jugador.socio.domicilio_calle} ${jugador.socio.domicilio_numero || ''}${jugador.socio.domicilio_piso ? ` Piso ${jugador.socio.domicilio_piso}` : ''}${jugador.socio.domicilio_departamento ? ` Depto ${jugador.socio.domicilio_departamento}` : ''}${jugador.socio.domicilio_barrio ? `, B° ${jugador.socio.domicilio_barrio}` : ''}${jugador.socio.domicilio_localidad ? ` - ${localidades.find(l => l.localidad_id === jugador.socio.domicilio_localidad)?.nombre || ''}` : ''}`
                     : 'No registrado'}
                 </Text>
               </Group>
