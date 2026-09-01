@@ -67,10 +67,68 @@ class SocioSerializer(serializers.ModelSerializer):
 
 
 class CategoriaSerializer(serializers.ModelSerializer):
+    nombre = serializers.CharField(max_length=50)
+    anio_vigente = serializers.IntegerField()
+    edad_minima = serializers.IntegerField(min_value=0)
+    edad_maxima = serializers.IntegerField(min_value=0)
+    genero = serializers.ChoiceField(choices=Categoria.GENERO_CHOICES)
+
     class Meta:
         model = Categoria
-        fields = ["categoria_id", "nombre"]
+        fields = [
+            "categoria_id",
+            "nombre",
+            "anio_vigente",
+            "edad_minima",
+            "edad_maxima",
+            "genero",
+        ]
         read_only_fields = ["categoria_id"]
+
+    def validate_nombre(self, value):
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError("El nombre es obligatorio.")
+        return value
+
+    def validate_anio_vigente(self, value):
+        if value < 1900:
+            raise serializers.ValidationError("El año vigente no es válido.")
+        return value
+
+    def validate(self, attrs):
+        def actual(campo):
+            if campo in attrs:
+                return attrs[campo]
+            return getattr(self.instance, campo, None)
+
+        edad_minima = actual("edad_minima")
+        edad_maxima = actual("edad_maxima")
+        if (
+            edad_minima is not None
+            and edad_maxima is not None
+            and edad_maxima < edad_minima
+        ):
+            raise serializers.ValidationError(
+                {"edad_maxima": "La edad máxima no puede ser menor que la edad mínima."}
+            )
+
+        nombre = actual("nombre")
+        anio_vigente = actual("anio_vigente")
+        genero = actual("genero")
+        if nombre and anio_vigente and genero:
+            categorias = Categoria.objects.filter(
+                nombre__iexact=nombre,
+                anio_vigente=anio_vigente,
+                genero=genero,
+            )
+            if self.instance is not None:
+                categorias = categorias.exclude(pk=self.instance.pk)
+            if categorias.exists():
+                raise serializers.ValidationError(
+                    "Ya existe una categoría con ese nombre, año vigente y género."
+                )
+        return attrs
 
 
 class EstadoDeportivoSerializer(serializers.ModelSerializer):
