@@ -9,6 +9,7 @@ export const getContactosEmergencia = async () => {
 
 export const postContactoEmergencia = async (contacto) => {
   const response = await api.post(contactosEndpoint, contacto)
+  console.log('Contacto de emergencia creado:', response.data)
   return response.data
 }
 

@@ -24,6 +24,7 @@ function Padron() {
     dni: '',
     telefono: '',
     email: '',
+    fecha_nacimiento: '2026-01-01',
   })
   const [guardando, setGuardando] = useState(false)
   const [errorGuardado, setErrorGuardado] = useState('')
@@ -31,7 +32,7 @@ function Padron() {
   const abrirModal = () => {
     setErrorGuardado('')
     setSocioEnEdicion(null)
-    setFormulario({ nombre: '', apellido: '', dni: '', telefono: '', email: '' })
+    setFormulario({ nombre: '', apellido: '', dni: '', telefono: '', email: '', fecha_nacimiento: '2026-01-01' })
     setModalAbierto(true)
   }
 
@@ -44,6 +45,7 @@ function Padron() {
       dni: socio.dni,
       telefono: socio.telefono,
       email: socio.email,
+      fecha_nacimiento: socio.fecha_nacimiento,
     })
     setModalAbierto(true)
   }

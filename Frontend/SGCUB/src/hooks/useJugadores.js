@@ -18,6 +18,7 @@ function useJugadores() {
     try {
       setJugadores(await getJugadores())
     } catch (requestError) {
+      console.error('Error al cargar los jugadores:', requestError)
       setError(requestError)
     } finally {
       setIsLoading(false)

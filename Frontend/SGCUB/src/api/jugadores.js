@@ -14,6 +14,7 @@ export const getJugador = async (jugadorId) => {
 
 export const postJugador = async (jugador) => {
   const response = await api.post(jugadoresEndpoint, jugador)
+  console.log('Jugador creado:', response.data)
   return response.data
 }
 

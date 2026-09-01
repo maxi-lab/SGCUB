@@ -3,7 +3,7 @@ import { IconSearch } from '@tabler/icons-react'
 import { api } from '../../api/conf'
 
 const contactoVacio = () => ({
-  persona: { nombre: '', apellido: '', dni: '', telefono: '', email: null },
+  persona: { nombre: '', apellido: '', dni: '', telefono: '', email: null ,fecha_nacimiento: '2026-01-01'},
   relacion: '',
   responsable_legal: false,
 })

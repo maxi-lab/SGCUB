@@ -14,6 +14,7 @@ const formularioInicial = () => ({
   estado: null,
   obra_social: '',
   tallaIndumentaria: '',
+  fecha_nacimiento: '2026-01-01',
   contactos_emergencia: [],
 })
 

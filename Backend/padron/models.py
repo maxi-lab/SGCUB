@@ -8,7 +8,7 @@ class Persona(models.Model):
     dni = models.CharField(max_length=20, unique=True, default="")
     telefono = models.CharField(max_length=20, default="")
     email = models.EmailField(max_length=100, unique=True, default="")
-    fecha_nacimiento=models.DateField()
+    fecha_nacimiento=models.DateField(blank=True, null=True)
 
     class Meta:
         db_table = "persona"
@@ -136,6 +136,8 @@ class ContactoEmergencia(models.Model):
 
     responsable_legal = models.BooleanField(default=False)
     relacion = models.CharField(max_length=50)
+    def __str__(self):
+        return f"Contacto de Emergencia: {self.persona.nombre} {self.persona.apellido} para Jugador: {self.jugador.socio.persona.nombre} {self.jugador.socio.persona.apellido}"
 
     class Meta:
         db_table = "contacto_emergencia"

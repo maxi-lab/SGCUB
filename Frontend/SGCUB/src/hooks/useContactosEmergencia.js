@@ -18,6 +18,7 @@ function useContactosEmergencia() {
     try {
       setContactos(await getContactosEmergencia())
     } catch (requestError) {
+      console.error('Error al cargar los contactos de emergencia:', requestError)
       setError(requestError)
     } finally {
       setIsLoading(false)
