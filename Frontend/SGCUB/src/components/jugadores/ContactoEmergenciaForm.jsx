@@ -2,6 +2,21 @@ import { Button, Checkbox, Group, Select, Stack, TextInput, ActionIcon, Tooltip 
 import { IconSearch } from '@tabler/icons-react'
 import { api } from '../../api/conf'
 
+const formatLocalYmd = (date) => {
+  if (!date) return ''
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+const normalizarFechaYmd = (value) => {
+  if (!value) return ''
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) return value
+  if (value instanceof Date) return formatLocalYmd(value)
+  return ''
+}
+
 const contactoVacio = () => ({
   persona: { nombre: '', apellido: '', dni: '', telefono: '', email: null ,fecha_nacimiento: '2026-01-01'},
   relacion: '',
@@ -73,6 +88,17 @@ function ContactoEmergenciaForm({ contactos = [], onChange }) {
             <TextInput label="Apellido" value={contacto.persona?.apellido ?? ''} onChange={(event) => cambiarContacto(indice, 'persona', { apellido: event.currentTarget.value })} required />
           </Group>
           <TextInput label="Email" type="email" value={contacto.persona?.email ?? ''} onChange={(event) => cambiarContacto(indice, 'persona', { email: event.currentTarget.value || null })} />
+          <TextInput
+            label="Fecha de nacimiento"
+            type="date"
+            value={contacto.persona?.fecha_nacimiento ?? ''}
+            onChange={(event) =>
+              cambiarContacto(indice, 'persona', {
+                fecha_nacimiento: normalizarFechaYmd(event.currentTarget.value),
+              })
+            }
+            max={formatLocalYmd(new Date())}
+          />
           <Group grow align="flex-end">
             <Select label="Relacion" data={['Madre', 'Padre', 'Tutor', 'Abuelo', 'Hermano', 'Otro']} value={contacto.relacion} onChange={(value) => cambiarContacto(indice, 'relacion', value)} required />
             <Checkbox label="Responsable legal" checked={contacto.responsable_legal} onChange={(event) => cambiarContacto(indice, 'responsable_legal', event.currentTarget.checked)} />

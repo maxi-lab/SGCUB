@@ -1,5 +1,13 @@
 import { Button, Group, Modal, Stack, Text, TextInput } from '@mantine/core'
 
+const formatLocalYmd = (date) => {
+  if (!date) return ''
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 function AddSocioModal({
   opened,
   onClose,
@@ -44,6 +52,13 @@ function AddSocioModal({
             value={formulario.email}
             onChange={(event) => onChange('email', event.currentTarget.value)}
             required
+          />
+          <TextInput
+            label="Fecha de nacimiento"
+            type="date"
+            value={formulario.fecha_nacimiento ?? ''}
+            onChange={(event) => onChange('fecha_nacimiento', event.currentTarget.value)}
+            max={formatLocalYmd(new Date())}
           />
           {error && <Text color="red" size="sm">{error}</Text>}
           <Group position="right" mt="md">
