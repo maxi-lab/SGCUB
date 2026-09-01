@@ -7,7 +7,7 @@ class Persona(models.Model):
     apellido = models.CharField(max_length=50, default="")
     dni = models.CharField(max_length=20, unique=True, default="")
     telefono = models.CharField(max_length=20, default="")
-    email = models.EmailField(max_length=100, unique=True, default="")
+    email = models.EmailField(max_length=100, unique=True, blank=True, null=True,)
 
     class Meta:
         db_table = "persona"
@@ -66,9 +66,8 @@ def get_default_estado_deportivo():
 
 class Jugador(models.Model):
     jugador_id = models.AutoField(primary_key=True)
-    obra_social = models.CharField(max_length=50, default="")
-    tallaIndumentaria = models.CharField(max_length=10, default="")
-    contactoEmergencia = models.CharField(max_length=50, default="")
+    obra_social = models.CharField(max_length=50, default="", blank=True)
+    tallaIndumentaria = models.CharField(max_length=50, default="", blank=True)
     socio = models.OneToOneField(
         Socio,
         on_delete=models.CASCADE,
@@ -115,3 +114,31 @@ class Docente(models.Model):
 
     def __str__(self):
         return f"Docente {self.legajo}"
+
+class ContactoEmergencia(models.Model):
+    contacto_emergencia_id = models.AutoField(primary_key=True)
+
+    persona = models.ForeignKey(
+        Persona,
+        on_delete=models.CASCADE,
+        related_name="contactos_emergencia",
+    )
+
+    jugador = models.ForeignKey(
+        Jugador,
+        on_delete=models.CASCADE,
+        related_name="contactos_emergencia",
+    )
+
+    responsable_legal = models.BooleanField(default=False)
+    relacion = models.CharField(max_length=50)
+
+    class Meta:
+        db_table = "contacto_emergencia"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["persona", "jugador"],
+                name="persona_jugador_contacto_unico",
+            )
+        ]
+

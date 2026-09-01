@@ -3,7 +3,7 @@ from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
-from .models import Persona, Socio, Categoria, Jugador, Docente, EstadoDeportivo
+from .models import Persona, Socio, Categoria, Jugador, Docente, EstadoDeportivo, ContactoEmergencia
 from .serializers import (
     PersonaSerializer,
     SocioSerializer,
@@ -13,13 +13,18 @@ from .serializers import (
     JugadorListSerializer,
     JugadorSerializerDetail,
     DocenteSerializer,
+    ContactoEmergenciaSerializer,
 )
 
 
 @api_view(["GET", "POST"])
 def persona_list_create(request):
     if request.method == "GET":
-        personas = Persona.objects.all()
+        dni = request.query_params.get("dni")
+        if dni:
+            personas = Persona.objects.filter(dni=dni)
+        else:
+            personas = Persona.objects.all()
         serializer = PersonaSerializer(personas, many=True)
         return Response(serializer.data)
 
@@ -260,4 +265,61 @@ def docente_detail(request, pk):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     docente.delete()
+    return Response(status=status.HTTP_204_NO_CONTENT)
+
+@api_view(["GET", "POST"])
+def contacto_emergencia_list_create(request):
+    if request.method == "GET":
+        contactos = ContactoEmergencia.objects.select_related(
+            "persona",
+            "jugador",
+        )
+
+        serializer = ContactoEmergenciaSerializer(contactos, many=True)
+        return Response(serializer.data)
+
+    serializer = ContactoEmergenciaSerializer(data=request.data)
+
+    if serializer.is_valid():
+        contacto = serializer.save()
+
+        return Response(
+            ContactoEmergenciaSerializer(contacto).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+    return Response(
+        serializer.errors,
+        status=status.HTTP_400_BAD_REQUEST,
+    )
+
+
+@api_view(["GET", "PUT", "PATCH", "DELETE"])
+def contacto_emergencia_detail(request, pk):
+    contacto = get_object_or_404(
+        ContactoEmergencia.objects.select_related("persona", "jugador"),
+        pk=pk,
+    )
+
+    if request.method == "GET":
+        serializer = ContactoEmergenciaSerializer(contacto)
+        return Response(serializer.data)
+
+    if request.method in ["PUT", "PATCH"]:
+        serializer = ContactoEmergenciaSerializer(
+            contacto,
+            data=request.data,
+            partial=request.method == "PATCH",
+        )
+
+        if serializer.is_valid():
+            contacto = serializer.save()
+            return Response(ContactoEmergenciaSerializer(contacto).data)
+
+        return Response(
+            serializer.errors,
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    contacto.delete()
     return Response(status=status.HTTP_204_NO_CONTENT)
