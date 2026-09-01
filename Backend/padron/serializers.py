@@ -1,6 +1,24 @@
 from rest_framework import serializers
 from django.db import transaction
-from .models import Persona, Socio, Categoria, Jugador, Docente, EstadoDeportivo, ContactoEmergencia, EstadoSocio
+from .models import Persona, Socio, Categoria, Jugador, Docente, EstadoDeportivo, ContactoEmergencia, EstadoSocio, Genero, Localidad, Domicilio
+
+
+class GeneroSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Genero
+        fields = "__all__"
+
+
+class LocalidadSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Localidad
+        fields = "__all__"
+
+
+class DomicilioSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Domicilio
+        fields = "__all__"
 
 
 class EstadoSocioSerializer(serializers.ModelSerializer):
@@ -70,11 +88,31 @@ class SocioSerializer(serializers.ModelSerializer):
     dni = serializers.CharField(source="persona.dni")
     telefono = serializers.CharField(source="persona.telefono")
     email = serializers.EmailField(source="persona.email", required=False, allow_null=True, allow_blank=True)
+    fecha_nacimiento = serializers.DateField(source="persona.fecha_nacimiento", required=False, allow_null=True)
+    genero = serializers.PrimaryKeyRelatedField(source="persona.genero", queryset=Genero.objects.all(), required=False, allow_null=True)
+    genero_otro = serializers.CharField(source="persona.genero_otro", required=False, allow_null=True, allow_blank=True)
+    
+    domicilio_calle = serializers.CharField(source="persona.domicilio.calle", required=False, allow_null=True, allow_blank=True)
+    domicilio_numero = serializers.CharField(source="persona.domicilio.numero", required=False, allow_null=True, allow_blank=True)
+    domicilio_entre_calle_1 = serializers.CharField(source="persona.domicilio.entre_calle_1", required=False, allow_null=True, allow_blank=True)
+    domicilio_entre_calle_2 = serializers.CharField(source="persona.domicilio.entre_calle_2", required=False, allow_null=True, allow_blank=True)
+    domicilio_barrio = serializers.CharField(source="persona.domicilio.barrio", required=False, allow_null=True, allow_blank=True)
+    domicilio_localidad = serializers.PrimaryKeyRelatedField(source="persona.domicilio.localidad", queryset=Localidad.objects.all(), required=False, allow_null=True)
+    
+    estado_socio = serializers.PrimaryKeyRelatedField(
+        queryset=EstadoSocio.objects.all(),
+        required=False
+    )
     estado_socio_nombre = serializers.CharField(source="estado_socio.nombre", read_only=True)
 
     class Meta:
         model = Socio
-        fields = ["socio_id", "numero_socio", "nombre", "apellido", "dni", "telefono", "email", "estado_socio", "estado_socio_nombre", "fecha_alta"]
+        fields = [
+            "socio_id", "numero_socio", "nombre", "apellido", "dni", "telefono", "email", 
+            "fecha_nacimiento", "genero", "genero_otro", 
+            "domicilio_calle", "domicilio_numero", "domicilio_entre_calle_1", "domicilio_entre_calle_2", "domicilio_barrio", "domicilio_localidad",
+            "estado_socio", "estado_socio_nombre", "fecha_alta"
+        ]
         read_only_fields = ["numero_socio", "fecha_alta"]
 
     def _get_current_persona(self):
@@ -134,6 +172,14 @@ class SocioSerializer(serializers.ModelSerializer):
         dni = persona_data.get("dni")
         if not persona_data.get("email"):
             persona_data["email"] = None
+            
+        domicilio_data = persona_data.pop("domicilio", None)
+        if domicilio_data:
+            # Drop null values to avoid trying to pass null for required fields if not provided
+            domicilio_data = {k: v for k, v in domicilio_data.items() if v is not None}
+            if domicilio_data:
+                persona_data["domicilio"] = Domicilio.objects.create(**domicilio_data)
+                
         persona, _ = Persona.objects.update_or_create(dni=dni, defaults=persona_data)
         return Socio.objects.create(persona=persona, **validated_data)
 
@@ -143,6 +189,17 @@ class SocioSerializer(serializers.ModelSerializer):
         if persona_data:
             if not persona_data.get("email"):
                 persona_data["email"] = None
+                
+            domicilio_data = persona_data.pop("domicilio", None)
+            if domicilio_data:
+                domicilio_data = {k: v for k, v in domicilio_data.items() if v is not None}
+                if instance.persona.domicilio:
+                    for attr, value in domicilio_data.items():
+                        setattr(instance.persona.domicilio, attr, value)
+                    instance.persona.domicilio.save()
+                elif domicilio_data:
+                    instance.persona.domicilio = Domicilio.objects.create(**domicilio_data)
+                    
             for attr, value in persona_data.items():
                 setattr(instance.persona, attr, value)
             instance.persona.save()
