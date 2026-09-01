@@ -1,12 +1,12 @@
-import { createBrowserRouter } from 'react-router-dom'
+import { createBrowserRouter, Navigate } from 'react-router-dom'
 import MainLayout from './layouts/MainLayout'
 import AdminLayout from './layouts/AdminLayout'
 import Principal from './pages/Principal'
 import AdminPage from './pages/AdminPage'
 import Padron from './pages/Padron'
 import Jugadores from './pages/Jugadores'
+import JugadorDetalle from './pages/JugadorDetalle'
 import PadronLayout from './layouts/PadronLayout'
-import { Navigate } from 'react-router-dom'
 
 export const router = createBrowserRouter([
   {
@@ -32,6 +32,10 @@ export const router = createBrowserRouter([
           {
             path: 'jugadores',
             element: <Jugadores />,
+          },
+          {
+            path: 'jugadores/:id',
+            element: <JugadorDetalle />,
           },
         ],
       },
