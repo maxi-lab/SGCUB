@@ -6,6 +6,7 @@ import AdminPage from './pages/AdminPage'
 import Padron from './pages/Padron'
 import Jugadores from './pages/Jugadores'
 import JugadorDetalle from './pages/JugadorDetalle'
+import Categorias from './pages/Categorias'
 import PadronLayout from './layouts/PadronLayout'
 
 export const router = createBrowserRouter([
@@ -36,6 +37,10 @@ export const router = createBrowserRouter([
           {
             path: 'jugadores/:id',
             element: <JugadorDetalle />,
+          },
+          {
+            path: 'categorias',
+            element: <Categorias />,
           },
         ],
       },

@@ -17,6 +17,13 @@ function Sidebar() {
       nested: true,
       active: true,
     },
+    {
+      to: "/padron/categorias",
+      label: "Categorías",
+      icon: "bi-collection",
+      nested: true,
+      active: true,
+    },
   ];
 
   return (

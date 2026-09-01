@@ -1,4 +1,11 @@
+from datetime import date
+
+from django.core.exceptions import ValidationError
 from django.db import models
+
+
+def get_anio_actual():
+    return date.today().year
 
 
 class Persona(models.Model):
@@ -32,18 +39,52 @@ class Socio(models.Model):
 
 
 class Categoria(models.Model):
+    GENERO_MASCULINO = "M"
+    GENERO_FEMENINO = "F"
+    GENERO_CHOICES = [
+        (GENERO_MASCULINO, "Masculino"),
+        (GENERO_FEMENINO, "Femenino"),
+    ]
+
     categoria_id = models.AutoField(primary_key=True)
     nombre = models.CharField(max_length=50)
+    anio_vigente = models.PositiveIntegerField(default=get_anio_actual)
+    edad_minima = models.PositiveSmallIntegerField(default=0)
+    edad_maxima = models.PositiveSmallIntegerField(default=0)
+    genero = models.CharField(
+        max_length=1,
+        choices=GENERO_CHOICES,
+        blank=True,
+        default="",
+    )
 
     class Meta:
         db_table = "categoria"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["nombre", "anio_vigente", "genero"],
+                name="categoria_nombre_anio_genero_unico",
+            ),
+            models.CheckConstraint(
+                check=models.Q(edad_maxima__gte=models.F("edad_minima")),
+                name="categoria_edad_maxima_gte_minima",
+            ),
+        ]
+
+    def clean(self):
+        if self.edad_maxima < self.edad_minima:
+            raise ValidationError(
+                {"edad_maxima": "La edad máxima no puede ser menor que la edad mínima."}
+            )
 
     def __str__(self):
-        return self.nombre
+        return f"{self.nombre} ({self.anio_vigente})"
 
 
 def get_default_categoria():
-    categoria, _ = Categoria.objects.get_or_create(nombre="No asignado")
+    categoria = Categoria.objects.filter(nombre="No asignado").only("pk").first()
+    if categoria is None:
+        categoria = Categoria.objects.create(nombre="No asignado")
     return categoria.pk
 
 
