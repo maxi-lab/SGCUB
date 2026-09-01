@@ -8,6 +8,11 @@ function SociosTable({ data, isLoading, error, onAdd, onEdit, onDelete }) {
   const columns = useMemo(
     () => [
       {
+        accessorKey: 'numero_socio',
+        header: 'N° Socio',
+        size: 100,
+      },
+      {
         accessorKey: 'nombre',
         header: 'Nombre',
       },
@@ -23,6 +28,20 @@ function SociosTable({ data, isLoading, error, onAdd, onEdit, onDelete }) {
         id: 'telefono',
         accessorFn: (row) => row.telefono ?? row.persona?.telefono ?? '',
         header: 'Teléfono',
+      },
+      {
+        accessorKey: 'estado_socio_nombre',
+        header: 'Estado',
+      },
+      {
+        id: 'fecha_alta',
+        accessorFn: (row) => {
+          if (!row.fecha_alta) return ''
+          const parts = row.fecha_alta.split('-')
+          if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`
+          return row.fecha_alta
+        },
+        header: 'Fecha Alta',
       },
     ],
     [],

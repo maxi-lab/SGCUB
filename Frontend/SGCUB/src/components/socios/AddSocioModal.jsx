@@ -9,6 +9,7 @@ import {
   Text,
   TextInput,
   Tooltip,
+  Select,
 } from '@mantine/core'
 import { IconCheck, IconSearch } from '@tabler/icons-react'
 import { api } from '../../api/conf'
@@ -22,6 +23,7 @@ function AddSocioModal({
   loading,
   error,
   editing = false,
+  estadosSocio = [],
 }) {
   const [buscandoPersona, setBuscandoPersona] = useState(false)
   const [personaEncontrada, setPersonaEncontrada] = useState(null)
@@ -110,6 +112,15 @@ function AddSocioModal({
             onChange={(event) => onChange('email', event.currentTarget.value)}
             required
           />
+          {editing && (
+            <Select
+              label="Estado"
+              data={estadosSocio.map(e => ({ value: String(e.estado_id), label: e.nombre }))}
+              value={formulario.estado_socio}
+              onChange={(value) => onChange('estado_socio', value)}
+              required
+            />
+          )}
           {error && <Text color="red" size="sm">{error}</Text>}
           <Group position="right" mt="md">
             <Button type="button" variant="default" onClick={onClose} disabled={loading}>

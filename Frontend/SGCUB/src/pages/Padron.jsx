@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import AddSocioModal from '../components/socios/AddSocioModal'
 import DeleteSocioModal from '../components/socios/DeleteSocioModal'
 import SociosTable from '../components/socios/SociosTable'
 import useSocio from '../hooks/useSocio'
+import { api } from '../api/conf'
 
 function Padron() {
   const {
@@ -28,10 +29,16 @@ function Padron() {
   const [guardando, setGuardando] = useState(false)
   const [errorGuardado, setErrorGuardado] = useState('')
 
+  const [estadosSocio, setEstadosSocio] = useState([])
+
+  useEffect(() => {
+    api.get('padron/estado-socio/').then((res) => setEstadosSocio(res.data)).catch(console.error)
+  }, [])
+
   const abrirModal = () => {
     setErrorGuardado('')
     setSocioEnEdicion(null)
-    setFormulario({ nombre: '', apellido: '', dni: '', telefono: '', email: '' })
+    setFormulario({ nombre: '', apellido: '', dni: '', telefono: '', email: '', estado_socio: '' })
     setModalAbierto(true)
   }
 
@@ -43,7 +50,8 @@ function Padron() {
       apellido: socio.apellido,
       dni: socio.dni,
       telefono: socio.telefono,
-      email: socio.email,
+      email: socio.email || '',
+      estado_socio: socio.estado_socio ? String(socio.estado_socio) : '',
     })
     setModalAbierto(true)
   }
@@ -66,13 +74,18 @@ function Padron() {
     setGuardando(true)
     setErrorGuardado('')
 
+    const payload = { ...formulario }
+    if (!payload.estado_socio) {
+      delete payload.estado_socio
+    }
+
     try {
       if (socioEnEdicion) {
-        await modificarSocio(socioEnEdicion.socio_id, formulario)
+        await modificarSocio(socioEnEdicion.socio_id, payload)
       } else {
-        await crearSocio(formulario)
+        await crearSocio(payload)
       }
-      setFormulario({ nombre: '', apellido: '', dni: '', telefono: '', email: '' })
+      setFormulario({ nombre: '', apellido: '', dni: '', telefono: '', email: '', estado_socio: '' })
       setSocioEnEdicion(null)
       setModalAbierto(false)
     } catch (requestError) {
@@ -138,6 +151,7 @@ function Padron() {
         loading={guardando}
         error={errorGuardado}
         editing={Boolean(socioEnEdicion)}
+        estadosSocio={estadosSocio}
       />
 
       <DeleteSocioModal
