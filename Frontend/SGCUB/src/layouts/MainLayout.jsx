@@ -11,7 +11,7 @@ export default function MainLayout() {
     <div className="app-shell">
       <header className="site-header">
         <Link className="brand" to="/" aria-label="SGCUB inicio">
-          <span className="brand-mark">CU</span>
+          <img className="brand-mark" src="/escudo-sin-fondo.png" alt="Logo SGCUB" />
           <span className="brand-name">SGCUB</span>
         </Link>
 
