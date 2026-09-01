@@ -3,13 +3,16 @@ import "./sidebar.css";
 
 function Sidebar() {
   const links = [
+    /*
     {
       to: "/padron/personas",
       label: "Personas",
       icon: "bi-person-vcard",
       nested: true,
       active: true,
+      
     },
+    */
     {
       to: "/padron/socios",
       label: "Socios",
