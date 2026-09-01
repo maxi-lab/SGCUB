@@ -1,6 +1,12 @@
 from rest_framework import serializers
 from django.db import transaction
-from .models import Persona, Socio, Categoria, Jugador, Docente, EstadoDeportivo, ContactoEmergencia
+from .models import Persona, Socio, Categoria, Jugador, Docente, EstadoDeportivo, ContactoEmergencia, EstadoSocio
+
+
+class EstadoSocioSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EstadoSocio
+        fields = "__all__"
 
 
 class PersonaSerializer(serializers.ModelSerializer):
@@ -64,10 +70,12 @@ class SocioSerializer(serializers.ModelSerializer):
     dni = serializers.CharField(source="persona.dni")
     telefono = serializers.CharField(source="persona.telefono")
     email = serializers.EmailField(source="persona.email", required=False, allow_null=True, allow_blank=True)
+    estado_socio_nombre = serializers.CharField(source="estado_socio.nombre", read_only=True)
 
     class Meta:
         model = Socio
-        fields = ["socio_id", "nombre", "apellido", "dni", "telefono", "email"]
+        fields = ["socio_id", "numero_socio", "nombre", "apellido", "dni", "telefono", "email", "estado_socio", "estado_socio_nombre", "fecha_alta"]
+        read_only_fields = ["numero_socio", "fecha_alta"]
 
     def _get_current_persona(self):
         persona = getattr(self.instance, "persona", None)

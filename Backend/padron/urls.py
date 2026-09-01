@@ -15,6 +15,8 @@ from .views import (
     socio_list_create,
     contacto_emergencia_list_create,
     contacto_emergencia_detail,
+    estado_socio_list_create,
+    estado_socio_detail,
 )
 
 urlpatterns = [
@@ -22,6 +24,8 @@ urlpatterns = [
     path("persona/<int:pk>/", persona_detail, name="persona_detail"),
     path("socio/", socio_list_create, name="socio_list_create"),
     path("socio/<int:pk>/", socio_detail, name="socio_detail"),
+    path("estado-socio/", estado_socio_list_create, name="estado_socio_list_create"),
+    path("estado-socio/<int:pk>/", estado_socio_detail, name="estado_socio_detail"),
     path("categoria/", categoria_list_create, name="categoria_list_create"),
     path("categoria/<int:pk>/", categoria_detail, name="categoria_detail"),
     path("estado/", estado_list_create, name="estado_list_create"),
