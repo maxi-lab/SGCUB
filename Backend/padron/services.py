@@ -21,14 +21,9 @@ def recategorizar_jugador(jugador):
     genero_nombre = genero_obj.nombre if genero_obj else None
     genero_categoria = GENERO_PERSONA_A_CATEGORIA.get(genero_nombre, None)
 
-    print(
-        f"Recategorizando jugador {jugador} de categoria {categoria_actual} "
-        f"con anio de nacimiento {anio_nacimiento} genero {genero_nombre}"
-    )
-
     if categoria_actual.anio_vigente != anio_nacimiento or categoria_actual.genero != genero_categoria:
         if genero_categoria is None:
-            print(f"ADVERTENCIA: género '{genero_nombre}' de {jugador} no matchea ningún género de Categoria.")
+            
             return
 
         nueva_categoria = Categoria.objects.filter(
@@ -36,10 +31,6 @@ def recategorizar_jugador(jugador):
         ).first()
 
         if nueva_categoria is None:
-            print(
-                f"ADVERTENCIA: no se encontró categoría para anio_nacimiento={anio_nacimiento} "
-                f"genero={genero_categoria}. Se mantiene la categoría actual del jugador {jugador}."
-            )
             return
 
         jugador.categoria = nueva_categoria
