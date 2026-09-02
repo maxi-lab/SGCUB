@@ -2,6 +2,7 @@ from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
+from .services import recategorizar_jugadores
 
 from .models import Persona, Socio, Categoria, Jugador, Docente, EstadoDeportivo, ContactoEmergencia, EstadoSocio, Genero, Localidad
 from .serializers import (
@@ -350,3 +351,7 @@ def contacto_emergencia_detail(request, pk):
 
     contacto.delete()
     return Response(status=status.HTTP_204_NO_CONTENT)
+@api_view(["POST"])
+def recategorizar_jugadores_view(request):
+    recategorizar_jugadores()
+    return Response({"message": "Recategorización de jugadores completada."}, status=status.HTTP_200_OK)

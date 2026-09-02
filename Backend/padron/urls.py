@@ -11,6 +11,7 @@ from .views import (
     jugador_list_create,
     persona_detail,
     persona_list_create,
+    recategorizar_jugadores_view,
     socio_detail,
     socio_list_create,
     contacto_emergencia_list_create,
@@ -40,4 +41,5 @@ urlpatterns = [
     path("estado-socio/<int:pk>/", estado_socio_detail, name="estado-socio-detail"),
     path("genero/", genero_list, name="genero-list"),
     path("localidad/", localidad_list, name="localidad-list"),
+    path("recategorizar-jugadores/", recategorizar_jugadores_view, name="recategorizar-jugadores"),
 ]
