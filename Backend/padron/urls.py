@@ -9,6 +9,7 @@ from .views import (
     estado_list_create,
     jugador_detail,
     jugador_list_create,
+    pasr_de_anio_vigente_a_categoria_view,
     persona_detail,
     persona_list_create,
     recategorizar_jugadores_view,
@@ -42,4 +43,5 @@ urlpatterns = [
     path("genero/", genero_list, name="genero-list"),
     path("localidad/", localidad_list, name="localidad-list"),
     path("recategorizar-jugadores/", recategorizar_jugadores_view, name="recategorizar-jugadores"),
+    path("pasr-de-anio-vigente-a-categoria/", pasr_de_anio_vigente_a_categoria_view, name="pasr-de-anio-vigente-a-categoria"),
 ]

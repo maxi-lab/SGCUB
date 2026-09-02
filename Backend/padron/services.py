@@ -36,3 +36,8 @@ def recategorizar_jugador(jugador):
         jugador.categoria = nueva_categoria
         jugador.save()
         print(f"Recategorizando jugador {jugador} pasado a categoria {jugador.categoria} {jugador.categoria.genero}")
+def pasr_de_anio_vigente_a_categoria():
+    categorias = Categoria.objects.all()
+    for categoria in categorias:
+        categoria.anio_vigente = categoria.anio_vigente+1
+        categoria.save()
