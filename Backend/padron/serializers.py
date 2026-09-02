@@ -474,8 +474,9 @@ class JugadorSerializerDetail(serializers.ModelSerializer):
 
 class DocenteSerializer(serializers.ModelSerializer):
     persona = serializers.PrimaryKeyRelatedField(queryset=Persona.objects.all())
+    persona_detalle = PersonaSerializer(source="persona", read_only=True)
 
     class Meta:
         model = Docente
-        fields = ["docente_id", "persona", "legajo"]
+        fields = ["docente_id", "persona", "persona_detalle", "legajo"]
         read_only_fields = ["docente_id"]
