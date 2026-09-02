@@ -11,9 +11,10 @@ class PadronViewTests(APITestCase):
             "nombre": "Juan",
             "apellido": "Perez",
             "dni": "12345678",
+            "telefono": "123456789",
         }
         self.persona_counter = 1
-        self.socio_data = {"telefono": "123456789"}
+        self.socio_data = {}
         self.categoria_data = {
             "nombre": "Inferior",
             "anio_vigente": 2026,
@@ -40,6 +41,8 @@ class PadronViewTests(APITestCase):
                 "nombre": persona_data["nombre"],
                 "apellido": persona_data["apellido"],
                 "dni": persona_data["dni"],
+                "telefono": persona_data.get("telefono", "123456789"),
+                "email": persona_data.get("email", None),
                 **self.socio_data,
             }
         return self.client.post("/api/padron/socio/", payload, format="json")
@@ -114,8 +117,8 @@ class PadronViewTests(APITestCase):
     def test_persona_post_campo_faltante(self):
         data = {"nombre": "Juan", "apellido": "Perez"}
         response = self.create_persona(data)
-        self.assertEqual(status.HTTP_201_CREATED, response.status_code)
-        self.assertEqual("", response.data["dni"])
+        self.assertEqual(status.HTTP_400_BAD_REQUEST, response.status_code)
+        self.assertIn("dni", response.data)
 
     def test_persona_get_list(self):
         self.crear_persona_orm()
@@ -142,7 +145,7 @@ class PadronViewTests(APITestCase):
 
     def test_persona_patch(self):
         persona = self.crear_persona_orm()
-        response = self.client.put(
+        response = self.client.patch(
             f"/api/padron/persona/{persona.persona_id}/", {"nombre": "Juancito"}, format="json"
         )
         self.assertEqual(status.HTTP_200_OK, response.status_code)
@@ -176,7 +179,7 @@ class PadronViewTests(APITestCase):
         self.assertEqual(self.persona_data["nombre"], response.data["nombre"])
         self.assertEqual(self.persona_data["apellido"], response.data["apellido"])
         self.assertEqual(self.persona_data["dni"], response.data["dni"])
-        self.assertEqual(self.socio_data["telefono"], response.data["telefono"])
+        self.assertEqual(self.persona_data["telefono"], response.data["telefono"])
         self.assertIn("socio_id", response.data)
 
     def test_socio_post_campo_faltante(self):
@@ -328,14 +331,38 @@ class PadronViewTests(APITestCase):
     # ==================================================================
     # JUGADOR
     # ==================================================================
+    # JUGADOR
+    # ==================================================================
     def test_jugador_post(self):
         socio = self.crear_socio_orm()
         categoria = self.crear_categoria_orm()
         response = self.create_jugador(socio.socio_id, categoria.categoria_id)
         self.assertEqual(status.HTTP_201_CREATED, response.status_code)
-        self.assertEqual(socio.socio_id, response.data["socio"])
-        self.assertEqual(categoria.categoria_id, response.data["categoria"])
+        self.assertEqual(socio.socio_id, response.data["socio"]["socio_id"])
+        self.assertEqual(categoria.categoria_id, response.data["categoria"]["categoria_id"])
         self.assertIn("jugador_id", response.data)
+
+    def test_jugador_post_nuevo_socio_directo(self):
+        categoria = self.crear_categoria_orm()
+        nuevo_socio_payload = {
+            "nombre": "Mariano",
+            "apellido": "Lopez",
+            "dni": "99887766",
+            "telefono": "221987654",
+            "email": "mariano@example.com",
+        }
+        payload = {
+            "nuevo_socio": nuevo_socio_payload,
+            "categoria": categoria.categoria_id,
+            "obra_social": "OSDE",
+            "tallaIndumentaria": "Remera L",
+        }
+        response = self.client.post("/api/padron/jugador/", payload, format="json")
+        self.assertEqual(status.HTTP_201_CREATED, response.status_code)
+        self.assertEqual("Mariano", response.data["socio"]["nombre"])
+        self.assertEqual("99887766", response.data["socio"]["dni"])
+        self.assertTrue(Socio.objects.filter(persona__dni="99887766").exists())
+        self.assertTrue(Jugador.objects.filter(socio__persona__dni="99887766").exists())
 
     def test_jugador_post_socio_inexistente(self):
         categoria = self.crear_categoria_orm()
@@ -369,7 +396,25 @@ class PadronViewTests(APITestCase):
         payload = {"socio": jugador.socio.socio_id, "categoria": otra_categoria.categoria_id}
         response = self.client.put(f"/api/padron/jugador/{jugador.jugador_id}/", payload, format="json")
         self.assertEqual(status.HTTP_200_OK, response.status_code)
-        self.assertEqual(otra_categoria.categoria_id, response.data["categoria"])
+        self.assertEqual(otra_categoria.categoria_id, response.data["categoria"]["categoria_id"])
+
+    def test_jugador_patch_with_nuevo_socio(self):
+        jugador = self.crear_jugador_orm()
+        payload = {
+            "socio": jugador.socio.socio_id,
+            "nuevo_socio": {
+                "nombre": "Juan Actualizado",
+                "apellido": jugador.socio.persona.apellido,
+                "dni": jugador.socio.persona.dni,
+                "telefono": "9999999",
+                "email": jugador.socio.persona.email,
+            },
+            "obra_social": "SWISS MEDICAL",
+        }
+        response = self.client.patch(f"/api/padron/jugador/{jugador.jugador_id}/", payload, format="json")
+        self.assertEqual(status.HTTP_200_OK, response.status_code)
+        self.assertEqual("Juan Actualizado", response.data["socio"]["nombre"])
+        self.assertEqual("SWISS MEDICAL", response.data["obra_social"])
 
     def test_jugador_delete(self):
         jugador = self.crear_jugador_orm()

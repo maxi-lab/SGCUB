@@ -2,11 +2,18 @@ import { useMemo } from 'react'
 import { ActionIcon, Button, Group, Text } from '@mantine/core'
 import { IconEdit, IconPlus, IconTrash } from '@tabler/icons-react'
 import { MantineReactTable, useMantineReactTable } from 'mantine-react-table'
+import { useNavigate } from 'react-router-dom'
 import '../shared/quiet-table.css'
 
 function SociosTable({ data, isLoading, error, onAdd, onEdit, onDelete }) {
+  const navigate = useNavigate()
   const columns = useMemo(
     () => [
+      {
+        accessorKey: 'numero_socio',
+        header: 'N° Socio',
+        size: 100,
+      },
       {
         accessorKey: 'nombre',
         header: 'Nombre',
@@ -23,6 +30,20 @@ function SociosTable({ data, isLoading, error, onAdd, onEdit, onDelete }) {
         id: 'telefono',
         accessorFn: (row) => row.telefono ?? row.persona?.telefono ?? '',
         header: 'Teléfono',
+      },
+      {
+        accessorKey: 'estado_socio_nombre',
+        header: 'Estado',
+      },
+      {
+        id: 'fecha_alta',
+        accessorFn: (row) => {
+          if (!row.fecha_alta) return ''
+          const parts = row.fecha_alta.split('-')
+          if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`
+          return row.fecha_alta
+        },
+        header: 'Fecha Alta',
       },
     ],
     [],
@@ -58,7 +79,10 @@ function SociosTable({ data, isLoading, error, onAdd, onEdit, onDelete }) {
           color="teal"
           variant="subtle"
           aria-label={`Modificar ${row.original.nombre}`}
-          onClick={() => onEdit?.(row.original)}
+          onClick={(event) => {
+            event.stopPropagation()
+            onEdit?.(row.original)
+          }}
         >
           <IconEdit size={18} />
         </ActionIcon>
@@ -66,12 +90,23 @@ function SociosTable({ data, isLoading, error, onAdd, onEdit, onDelete }) {
           color="red"
           variant="subtle"
           aria-label={`Eliminar ${row.original.nombre}`}
-          onClick={() => onDelete?.(row.original)}
+          onClick={(event) => {
+            event.stopPropagation()
+            onDelete?.(row.original)
+          }}
         >
           <IconTrash size={18} />
         </ActionIcon>
       </Group>
     ),
+    mantineTableBodyRowProps: ({ row }) => ({
+      onClick: () => {
+        navigate(`/padron/socios/${row.original.socio_id}`)
+      },
+      sx: {
+        cursor: 'pointer',
+      },
+    }),
     mantineTableProps: {
       className: 'quiet-table',
       striped: true,

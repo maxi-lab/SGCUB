@@ -3,7 +3,7 @@ from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
-from .models import Persona, Socio, Categoria, Jugador, Docente, EstadoDeportivo, ContactoEmergencia
+from .models import Persona, Socio, Categoria, Jugador, Docente, EstadoDeportivo, ContactoEmergencia, EstadoSocio, Genero, Localidad
 from .serializers import (
     PersonaSerializer,
     SocioSerializer,
@@ -14,7 +14,34 @@ from .serializers import (
     JugadorSerializerDetail,
     DocenteSerializer,
     ContactoEmergenciaSerializer,
+    EstadoSocioSerializer,
+    GeneroSerializer,
+    LocalidadSerializer,
 )
+
+@api_view(["GET"])
+def genero_list(request):
+    generos = Genero.objects.all()
+    return Response(GeneroSerializer(generos, many=True).data)
+
+@api_view(["GET"])
+def localidad_list(request):
+    localidades = Localidad.objects.all()
+    return Response(LocalidadSerializer(localidades, many=True).data)
+
+
+@api_view(["GET"])
+def estado_socio_list_create(request):
+    estados = EstadoSocio.objects.all()
+    serializer = EstadoSocioSerializer(estados, many=True)
+    return Response(serializer.data)
+
+
+@api_view(["GET"])
+def estado_socio_detail(request, pk):
+    estado = get_object_or_404(EstadoSocio, pk=pk)
+    serializer = EstadoSocioSerializer(estado)
+    return Response(serializer.data)
 
 
 @api_view(["GET", "POST"])

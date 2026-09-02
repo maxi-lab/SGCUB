@@ -29,17 +29,27 @@ import {
   IconUser,
   IconUsers,
 } from '@tabler/icons-react'
-import { getJugador, patchJugador, deleteJugador } from '../api/jugadores'
-import EditJugadorModal from '../components/jugadores/EditJugadorModal'
+import { deleteJugador, getJugador, patchJugador } from '../api/jugadores'
 import DeleteJugadorModal from '../components/jugadores/DeleteJugadorModal'
+import EditJugadorModal from '../components/jugadores/EditJugadorModal'
 import useCategorias from '../hooks/useCategorias'
 import useEstados from '../hooks/useEstados'
+import useJugadores from '../hooks/useJugadores'
 import useSocio from '../hooks/useSocio'
+import useGeneros from '../hooks/useGeneros'
+import useLocalidades from '../hooks/useLocalidades'
 
 const formularioInicial = (jugador) => {
   if (!jugador) {
     return {
       socio: '',
+      nuevo_socio: {
+        nombre: '',
+        apellido: '',
+        dni: '',
+        telefono: '',
+        email: '',
+      },
       categoria: '',
       estado: '',
       obra_social: '',
@@ -50,6 +60,13 @@ const formularioInicial = (jugador) => {
 
   return {
     socio: String(jugador.socio?.socio_id ?? ''),
+    nuevo_socio: {
+      nombre: jugador.socio?.nombre ?? '',
+      apellido: jugador.socio?.apellido ?? '',
+      dni: jugador.socio?.dni ?? '',
+      telefono: jugador.socio?.telefono ?? '',
+      email: jugador.socio?.email ?? '',
+    },
     categoria: String(jugador.categoria?.categoria_id ?? ''),
     estado: String(jugador.estado?.estado_id ?? ''),
     obra_social: jugador.obra_social ?? '',
@@ -79,8 +96,11 @@ function JugadorDetalle() {
 
   // Opciones para edición
   const { socios } = useSocio()
+  const { jugadores } = useJugadores()
   const { categorias } = useCategorias()
   const { estados } = useEstados()
+  const { generos } = useGeneros()
+  const { localidades } = useLocalidades()
 
   // Estados de modales
   const [modalEdicionAbierto, setModalEdicionAbierto] = useState(false)
@@ -124,16 +144,44 @@ function JugadorDetalle() {
     event.preventDefault()
     setGuardandoEdicion(true)
     setErrorEdicion('')
+
+    const payload = {
+      socio: formulario.socio,
+      categoria: formulario.categoria,
+      estado: formulario.estado,
+      obra_social: formulario.obra_social,
+      tallaIndumentaria: formulario.tallaIndumentaria,
+      contactos_emergencia: formulario.contactos_emergencia,
+    }
+
     try {
-      const actualizado = await patchJugador(jugador.jugador_id, formulario)
+      const actualizado = await patchJugador(jugador.jugador_id, payload)
       setJugador(actualizado)
       setModalEdicionAbierto(false)
     } catch (requestError) {
-      setErrorEdicion(
-        Object.values(requestError.response?.data || {})
-          .flat()
-          .join(' ') || 'No se pudo editar el jugador.',
-      )
+      const errorData = requestError.response?.data
+      let errorMsg = 'No se pudo editar el jugador.'
+      if (errorData) {
+        if (typeof errorData === 'string') {
+          errorMsg = errorData
+        } else if (errorData.detail) {
+          errorMsg = errorData.detail
+        } else {
+          errorMsg = Object.entries(errorData)
+            .map(
+              ([k, v]) =>
+                `${k}: ${
+                  Array.isArray(v)
+                    ? v.join(' ')
+                    : typeof v === 'object'
+                      ? JSON.stringify(v)
+                      : v
+                }`,
+            )
+            .join(' | ')
+        }
+      }
+      setErrorEdicion(errorMsg)
     } finally {
       setGuardandoEdicion(false)
     }
@@ -256,7 +304,9 @@ function JugadorDetalle() {
               <Badge
                 size="lg"
                 variant="filled"
-                color={jugador.estado.nombre.toLowerCase().includes('activo') ? 'teal' : 'gray'}
+                color={
+                  jugador.estado.nombre.toLowerCase().includes('activo') ? 'teal' : 'gray'
+                }
               >
                 {jugador.estado.nombre}
               </Badge>
@@ -321,6 +371,41 @@ function JugadorDetalle() {
                     {jugador.socio?.email || 'No registrado'}
                   </Text>
                 </Group>
+              </Group>
+              
+              <Group position="apart">
+                <Text size="sm" color="dimmed">
+                  Nacimiento:
+                </Text>
+                <Text size="sm" weight={500}>
+                  {jugador.socio?.fecha_nacimiento 
+                    ? `${new Date(jugador.socio.fecha_nacimiento + 'T00:00:00').toLocaleDateString('es-AR')} (${Math.floor((new Date() - new Date(jugador.socio.fecha_nacimiento + 'T00:00:00')) / 3.15576e+10)} años)` 
+                    : 'No registrado'}
+                </Text>
+              </Group>
+
+              <Group position="apart">
+                <Text size="sm" color="dimmed">
+                  Género:
+                </Text>
+                <Text size="sm" weight={500}>
+                  {jugador.socio?.genero
+                    ? generos.find((g) => g.genero_id === jugador.socio.genero)?.nombre === 'Otro'
+                      ? jugador.socio.genero_otro || 'Otro'
+                      : generos.find((g) => g.genero_id === jugador.socio.genero)?.nombre || 'Registrado'
+                    : 'No registrado'}
+                </Text>
+              </Group>
+
+              <Group position="apart">
+                <Text size="sm" color="dimmed">
+                  Domicilio:
+                </Text>
+                <Text size="sm" weight={500} align="right">
+                  {jugador.socio?.domicilio_calle
+                    ? `${jugador.socio.domicilio_calle} ${jugador.socio.domicilio_numero || ''}${jugador.socio.domicilio_piso ? ` Piso ${jugador.socio.domicilio_piso}` : ''}${jugador.socio.domicilio_departamento ? ` Depto ${jugador.socio.domicilio_departamento}` : ''}${jugador.socio.domicilio_barrio ? `, B° ${jugador.socio.domicilio_barrio}` : ''}${jugador.socio.domicilio_localidad ? ` - ${localidades.find(l => l.localidad_id === jugador.socio.domicilio_localidad)?.nombre || ''}` : ''}`
+                    : 'No registrado'}
+                </Text>
               </Group>
             </Stack>
           </Card>
@@ -397,12 +482,17 @@ function JugadorDetalle() {
             </Group>
             <Divider mb="md" />
 
-            {(!jugador.contactos_emergencia || jugador.contactos_emergencia.length === 0) ? (
+            {!jugador.contactos_emergencia ||
+            jugador.contactos_emergencia.length === 0 ? (
               <Text color="dimmed" size="sm" align="center" py="md">
                 No hay contactos de emergencia registrados para este jugador.
               </Text>
             ) : (
-              <SimpleGrid cols={2} breakpoints={[{ maxWidth: 'sm', cols: 1 }]} spacing="md">
+              <SimpleGrid
+                cols={2}
+                breakpoints={[{ maxWidth: 'sm', cols: 1 }]}
+                spacing="md"
+              >
                 {jugador.contactos_emergencia.map((contacto, idx) => (
                   <Paper
                     key={contacto.contacto_emergencia_id ?? idx}
@@ -480,6 +570,7 @@ function JugadorDetalle() {
         formulario={formulario}
         onChange={actualizarCampo}
         socios={socios}
+        jugadores={jugadores}
         categorias={categorias}
         estados={estados}
         loading={guardandoEdicion}
@@ -500,4 +591,3 @@ function JugadorDetalle() {
 }
 
 export default JugadorDetalle
-

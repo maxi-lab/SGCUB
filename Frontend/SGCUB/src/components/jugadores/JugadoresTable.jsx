@@ -60,7 +60,7 @@ function JugadoresTable({ data, isLoading, error, onAdd, onEdit, onDelete }) {
     columns,
     data: data ?? [],
     state: { isLoading },
-    enableColumnActions: true,
+    enableColumnActions: false,
     enableColumnFilters: false,
     enableDensityToggle: false,
     enableFullScreenToggle: false,
