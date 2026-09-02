@@ -6,7 +6,6 @@ def recategorizar_jugadores():
         recategorizar_jugador(jugador)
 def recategorizar_jugador(jugador):
     edad = obtener_edad(jugador)
-    
     if edad is None:
         return
     categoria = get_categoria_por_edad(edad)
