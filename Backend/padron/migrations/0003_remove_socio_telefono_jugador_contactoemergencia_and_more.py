@@ -3,6 +3,11 @@
 from django.db import migrations, models
 
 
+def limpiar_emails_vacios(apps, schema_editor):
+    Persona = apps.get_model('padron', 'Persona')
+    Persona.objects.filter(email='').update(email=None)
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -29,10 +34,19 @@ class Migration(migrations.Migration):
             name='tallaIndumentaria',
             field=models.CharField(default='', max_length=10),
         ),
+        # 1. Agregamos el campo SIN unique, permitiendo null
         migrations.AddField(
             model_name='persona',
             name='email',
-            field=models.EmailField(default='', max_length=100, unique=True),
+            field=models.EmailField(max_length=100, null=True, blank=True),
+        ),
+        # 2. Limpiamos los strings vacíos que puedan haber quedado
+        migrations.RunPython(limpiar_emails_vacios, migrations.RunPython.noop),
+        # 3. Recién ahora aplicamos el unique constraint
+        migrations.AlterField(
+            model_name='persona',
+            name='email',
+            field=models.EmailField(max_length=100, unique=True, null=True, blank=True),
         ),
         migrations.AddField(
             model_name='persona',

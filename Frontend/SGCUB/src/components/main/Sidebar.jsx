@@ -34,6 +34,13 @@ function Sidebar() {
       nested: true,
       active: true,
     },
+    {
+      to: "/padron/docentes",
+      label: "Docentes",
+      icon: "bi-people-fill",
+      nested: true,
+      active: true,
+    }
   ];
 
   return (

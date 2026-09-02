@@ -230,7 +230,9 @@ class Docente(models.Model):
         related_name="docente"
     )
     legajo = models.IntegerField()
-
+    fecha_ingreso = models.DateField(default=django.utils.timezone.localdate)
+    
+    
     class Meta:
         db_table = "docente"
 
