@@ -211,7 +211,6 @@ class SocioSerializer(serializers.ModelSerializer):
 class CategoriaSerializer(serializers.ModelSerializer):
     nombre = serializers.CharField(max_length=50)
     anio_vigente = serializers.IntegerField()
-    edad_minima = serializers.IntegerField(min_value=0)
     edad_maxima = serializers.IntegerField(min_value=0)
     genero = serializers.ChoiceField(choices=Categoria.GENERO_CHOICES)
 
@@ -221,7 +220,6 @@ class CategoriaSerializer(serializers.ModelSerializer):
             "categoria_id",
             "nombre",
             "anio_vigente",
-            "edad_minima",
             "edad_maxima",
             "genero",
         ]
@@ -243,18 +241,6 @@ class CategoriaSerializer(serializers.ModelSerializer):
             if campo in attrs:
                 return attrs[campo]
             return getattr(self.instance, campo, None)
-
-        edad_minima = actual("edad_minima")
-        edad_maxima = actual("edad_maxima")
-        if (
-            edad_minima is not None
-            and edad_maxima is not None
-            and edad_maxima < edad_minima
-        ):
-            raise serializers.ValidationError(
-                {"edad_maxima": "La edad máxima no puede ser menor que la edad mínima."}
-            )
-
         nombre = actual("nombre")
         anio_vigente = actual("anio_vigente")
         genero = actual("genero")

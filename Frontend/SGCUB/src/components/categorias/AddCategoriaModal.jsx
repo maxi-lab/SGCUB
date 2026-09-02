@@ -34,13 +34,6 @@ function AddCategoriaModal({
           />
           <Group grow align="flex-start">
             <NumberInput
-              label="Edad mínima"
-              value={formulario.edad_minima}
-              onChange={(valor) => onChange('edad_minima', valor)}
-              min={0}
-              required
-            />
-            <NumberInput
               label="Edad máxima"
               value={formulario.edad_maxima}
               onChange={(valor) => onChange('edad_maxima', valor)}
