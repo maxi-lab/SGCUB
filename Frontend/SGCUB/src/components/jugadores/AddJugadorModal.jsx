@@ -320,7 +320,7 @@ function AddJugadorModal({
                       onChange={(val) => onChange('nuevo_socio', { ...formulario.nuevo_socio, domicilio_localidad: val })}
                       required
                     />
-                  </Grid.
+                  </Grid.Col>
                 </Grid>
               </Stack>
             </Paper>
