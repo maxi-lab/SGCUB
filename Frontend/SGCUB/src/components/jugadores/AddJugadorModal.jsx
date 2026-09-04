@@ -55,14 +55,46 @@ function AddJugadorModal({
       }))
   }, [socios, sociosConJugadorIds])
 
-  const categoriasOptions = useMemo(
-    () =>
-      categorias.map((categoria) => ({
-        value: String(categoria.categoria_id),
-        label: categoria.nombre,
-      })),
-    [categorias],
-  )
+  const categoriasOptions = useMemo(() => {
+    let generoNombre = null
+    let anioNac = null
+
+    // 1. Extraer los datos según el modo del formulario
+    if (formulario.modo_socio === 'existente' && formulario.socio) {
+      const socioElegido = socios.find((s) => String(s.socio_id) === String(formulario.socio))
+      if (socioElegido) {
+        anioNac = socioElegido.fecha_nacimiento ? parseInt(socioElegido.fecha_nacimiento.substring(0, 4)) : null
+        if (socioElegido.genero) {
+          const genObj = generos.find((g) => String(g.genero_id) === String(socioElegido.genero))
+          generoNombre = genObj ? genObj.nombre : null
+        }
+      }
+    } else if (formulario.modo_socio === 'nuevo' && formulario.nuevo_socio) {
+      anioNac = formulario.nuevo_socio.fecha_nacimiento ? parseInt(formulario.nuevo_socio.fecha_nacimiento.substring(0, 4)) : null
+      if (formulario.nuevo_socio.genero) {
+        const genObj = generos.find((g) => String(g.genero_id) === String(formulario.nuevo_socio.genero))
+        generoNombre = genObj ? genObj.nombre : null
+      }
+    }
+
+    // 2. Filtrar las categorías
+    let categoriasFiltradas = categorias
+    
+    if (anioNac && generoNombre) {
+      const generoLetra = generoNombre === 'Masculino' ? 'M' : 'F'
+      const temporadaActual = categorias.length > 0 ? categorias[0].anio_vigente : 2026
+      const edadCompetencia = temporadaActual - anioNac
+
+      categoriasFiltradas = categorias.filter((c) => 
+        c.genero === generoLetra && c.edad_maxima >= edadCompetencia
+      )
+    }
+
+    return categoriasFiltradas.map((categoria) => ({
+      value: String(categoria.categoria_id),
+      label: categoria.nombre,
+    }))
+  }, [categorias, formulario.modo_socio, formulario.socio, formulario.nuevo_socio, socios, generos])
 
   const estadosOptions = useMemo(
     () =>
