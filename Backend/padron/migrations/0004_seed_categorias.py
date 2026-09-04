@@ -14,10 +14,7 @@ CATEGORIAS_INICIALES = [
 
 
 def crear_categorias(apps, schema_editor):
-    Categoria = apps.get_model('padron', 'Categoria')
-
-    for nombre in CATEGORIAS_INICIALES:
-        Categoria.objects.get_or_create(nombre=nombre)
+    pass
 
 
 def conservar_categorias(apps, schema_editor):

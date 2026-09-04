@@ -168,16 +168,12 @@ function JugadorDetalle() {
           errorMsg = errorData.detail
         } else {
           errorMsg = Object.entries(errorData)
-            .map(
-              ([k, v]) =>
-                `${k}: ${
-                  Array.isArray(v)
-                    ? v.join(' ')
-                    : typeof v === 'object'
-                      ? JSON.stringify(v)
-                      : v
-                }`,
-            )
+            .map(([k, v]) => {
+              if (Array.isArray(v)) {
+                return `${k}: ${v.map(item => typeof item === 'object' ? JSON.stringify(item) : item).join(', ')}`
+              }
+              return `${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`
+            })
             .join(' | ')
         }
       }

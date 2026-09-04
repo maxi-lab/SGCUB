@@ -111,7 +111,25 @@ function SocioDetalle() {
       setSocio(actualizado)
       setModalEdicionAbierto(false)
     } catch (requestError) {
-      setErrorEdicion(requestError.response?.data?.detail || 'No se pudo editar el socio.')
+      const errorData = requestError.response?.data
+      let errorMsg = 'No se pudo editar el socio.'
+      if (errorData) {
+        if (typeof errorData === 'string') {
+          errorMsg = errorData
+        } else if (errorData.detail) {
+          errorMsg = errorData.detail
+        } else {
+          errorMsg = Object.entries(errorData)
+            .map(([k, v]) => {
+              if (Array.isArray(v)) {
+                return `${k}: ${v.map(item => typeof item === 'object' ? JSON.stringify(item) : item).join(', ')}`
+              }
+              return `${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`
+            })
+            .join(' | ')
+        }
+      }
+      setErrorEdicion(errorMsg)
     } finally {
       setGuardandoEdicion(false)
     }

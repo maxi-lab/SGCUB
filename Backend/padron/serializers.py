@@ -36,51 +36,35 @@ class PersonaSerializer(serializers.ModelSerializer):
         fields = ["persona_id", "nombre", "apellido", "dni", "telefono", "email"]
         read_only_fields = ["persona_id"]
 
-    def _get_current_persona(self):
+    def validate(self, attrs):
+        dni = attrs.get('dni')
+        email = attrs.get('email')
+        
+        if dni and not dni.isdigit():
+            raise serializers.ValidationError({"dni": "El DNI debe contener solo números."})
+        
         persona = getattr(self.instance, "persona", None) or self.instance
-        if not persona and self.parent:
-            if hasattr(self.parent, "initial_data") and self.parent.initial_data.get("socio"):
-                try:
-                    from .models import Socio
-                    socio_id = self.parent.initial_data.get("socio")
-                    socio = Socio.objects.get(pk=socio_id)
-                    return socio.persona
-                except Exception:
-                    pass
+        if not persona and dni:
+            from .models import Persona
+            persona = Persona.objects.filter(dni=dni).first()
 
-            parent_inst = getattr(self.parent, "instance", None)
-            if parent_inst:
-                if hasattr(parent_inst, "persona") and parent_inst.persona:
-                    persona = parent_inst.persona
-                elif hasattr(parent_inst, "socio") and parent_inst.socio:
-                    persona = parent_inst.socio.persona
-        return persona
+        if dni:
+            from .models import Persona
+            qs = Persona.objects.filter(dni=dni)
+            if persona:
+                qs = qs.exclude(pk=persona.pk)
+            if qs.exists():
+                raise serializers.ValidationError({"dni": "Ya existe una persona con este DNI."})
 
-    def validate_email(self, value):
-        if not value:
-            return None
-        persona = self._get_current_persona()
-        if not persona and hasattr(self, "initial_data") and self.initial_data.get("dni"):
-            persona = Persona.objects.filter(dni=self.initial_data.get("dni")).first()
-
-        if self.parent is None or persona:
-            personas = Persona.objects.filter(email=value)
-            if persona is not None:
-                personas = personas.exclude(pk=persona.pk)
-            if personas.exists():
-                raise serializers.ValidationError("Ya existe una persona con este email.")
-        return value
-
-    def validate_dni(self, value):
-        persona = self._get_current_persona()
-        if self.parent is None or persona:
-            personas = Persona.objects.filter(dni=value)
-            if persona is not None:
-                personas = personas.exclude(pk=persona.pk)
-            if personas.exists():
-                raise serializers.ValidationError("Ya existe una persona con este DNI.")
-        return value
-
+        if email:
+            from .models import Persona
+            qs = Persona.objects.filter(email=email)
+            if persona:
+                qs = qs.exclude(pk=persona.pk)
+            if qs.exists():
+                raise serializers.ValidationError({"email": "Ya existe una persona con este email."})
+                
+        return attrs
 
 class SocioSerializer(serializers.ModelSerializer):
     nombre = serializers.CharField(source="persona.nombre")
@@ -90,6 +74,7 @@ class SocioSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(source="persona.email", required=False, allow_null=True, allow_blank=True)
     fecha_nacimiento = serializers.DateField(source="persona.fecha_nacimiento", required=False, allow_null=True)
     genero = serializers.PrimaryKeyRelatedField(source="persona.genero", queryset=Genero.objects.all(), required=False, allow_null=True)
+    genero_nombre = serializers.CharField(source="persona.genero.nombre", read_only=True)
     genero_otro = serializers.CharField(source="persona.genero_otro", required=False, allow_null=True, allow_blank=True)
     
     domicilio_calle = serializers.CharField(source="persona.domicilio.calle", required=False, allow_null=True, allow_blank=True)
@@ -111,62 +96,47 @@ class SocioSerializer(serializers.ModelSerializer):
         model = Socio
         fields = [
             "socio_id", "numero_socio", "nombre", "apellido", "dni", "telefono", "email", 
-            "fecha_nacimiento", "genero", "genero_otro", 
+            "fecha_nacimiento", "genero", "genero_nombre", "genero_otro", 
             "domicilio_calle", "domicilio_numero", "domicilio_piso", "domicilio_departamento", "domicilio_entre_calle_1", "domicilio_entre_calle_2", "domicilio_barrio", "domicilio_localidad",
             "estado_socio", "estado_socio_nombre", "fecha_alta"
         ]
         read_only_fields = ["numero_socio", "fecha_alta"]
 
-    def _get_current_persona(self):
+    def validate(self, attrs):
+        persona_data = attrs.get('persona', {})
+        dni = persona_data.get('dni')
+        email = persona_data.get('email')
+        
+        if dni and not dni.isdigit():
+            raise serializers.ValidationError({"dni": "El DNI debe contener solo números."})
+            
         persona = getattr(self.instance, "persona", None)
-        if not persona and self.parent:
-            if hasattr(self.parent, "initial_data") and self.parent.initial_data.get("socio"):
-                try:
-                    from .models import Socio
-                    socio_id = self.parent.initial_data.get("socio")
-                    socio = Socio.objects.get(pk=socio_id)
-                    return socio.persona
-                except Exception:
-                    pass
+        if not persona and dni:
+            persona = Persona.objects.filter(dni=dni).first()
 
-            parent_instance = getattr(self.parent, "instance", None)
-            if parent_instance:
-                if hasattr(parent_instance, "socio") and parent_instance.socio:
-                    persona = parent_instance.socio.persona
-                elif hasattr(parent_instance, "persona") and parent_instance.persona:
-                    persona = parent_instance.persona
-        return persona
-
-    def validate_email(self, value):
-        if not value:
-            return None
-        persona = self._get_current_persona()
-        if not persona and hasattr(self, "initial_data") and self.initial_data.get("dni"):
-            persona = Persona.objects.filter(dni=self.initial_data.get("dni")).first()
-
-        personas = Persona.objects.filter(email=value)
-        if persona is not None:
-            personas = personas.exclude(pk=persona.pk)
-        if personas.exists():
-            raise serializers.ValidationError("Ya existe una persona con este email.")
-        return value
-
-    def validate_dni(self, value):
-        persona = self._get_current_persona()
-        personas = Persona.objects.filter(dni=value)
-        if persona is not None:
-            personas = personas.exclude(pk=persona.pk)
-            if personas.exists():
-                raise serializers.ValidationError("Ya existe una persona con este DNI.")
-        else:
-            if personas.exists():
-                persona_obj = personas.first()
-                if hasattr(persona_obj, "socio"):
-                    if hasattr(persona_obj.socio, "jugador"):
-                        raise serializers.ValidationError("La persona con este DNI ya tiene un socio registrado como jugador.")
+        if dni:
+            qs = Persona.objects.filter(dni=dni)
+            if persona:
+                qs = qs.exclude(pk=persona.pk)
+            
+            if qs.exists():
+                raise serializers.ValidationError({"dni": "Ya existe una persona con este DNI."})
+            
+            if not getattr(self.instance, "persona", None) and persona:
+                if hasattr(persona, "socio"):
+                    if hasattr(persona.socio, "jugador"):
+                        raise serializers.ValidationError({"dni": "La persona con este DNI ya tiene un socio registrado como jugador."})
                     elif self.parent is None:
-                        raise serializers.ValidationError("Ya existe un socio asociado a esta persona (DNI existente).")
-        return value
+                        raise serializers.ValidationError({"dni": "Ya existe un socio asociado a esta persona (DNI existente)."})
+
+        if email:
+            qs = Persona.objects.filter(email=email)
+            if persona:
+                qs = qs.exclude(pk=persona.pk)
+            if qs.exists():
+                raise serializers.ValidationError({"email": "Ya existe una persona con este email."})
+
+        return attrs
 
     @transaction.atomic
     def create(self, validated_data):
@@ -177,7 +147,6 @@ class SocioSerializer(serializers.ModelSerializer):
             
         domicilio_data = persona_data.pop("domicilio", None)
         if domicilio_data:
-            # Drop null values to avoid trying to pass null for required fields if not provided
             domicilio_data = {k: v for k, v in domicilio_data.items() if v is not None}
             if domicilio_data:
                 persona_data["domicilio"] = Domicilio.objects.create(**domicilio_data)
@@ -211,7 +180,6 @@ class SocioSerializer(serializers.ModelSerializer):
 class CategoriaSerializer(serializers.ModelSerializer):
     nombre = serializers.CharField(max_length=50)
     anio_vigente = serializers.IntegerField()
-    edad_minima = serializers.IntegerField(min_value=0)
     edad_maxima = serializers.IntegerField(min_value=0)
     genero = serializers.ChoiceField(choices=Categoria.GENERO_CHOICES)
 
@@ -221,7 +189,6 @@ class CategoriaSerializer(serializers.ModelSerializer):
             "categoria_id",
             "nombre",
             "anio_vigente",
-            "edad_minima",
             "edad_maxima",
             "genero",
         ]
@@ -243,18 +210,6 @@ class CategoriaSerializer(serializers.ModelSerializer):
             if campo in attrs:
                 return attrs[campo]
             return getattr(self.instance, campo, None)
-
-        edad_minima = actual("edad_minima")
-        edad_maxima = actual("edad_maxima")
-        if (
-            edad_minima is not None
-            and edad_maxima is not None
-            and edad_maxima < edad_minima
-        ):
-            raise serializers.ValidationError(
-                {"edad_maxima": "La edad máxima no puede ser menor que la edad mínima."}
-            )
-
         nombre = actual("nombre")
         anio_vigente = actual("anio_vigente")
         genero = actual("genero")
@@ -310,11 +265,12 @@ class ContactoEmergenciaSerializer(serializers.ModelSerializer):
         persona_data = validated_data.pop("persona", None)
         validated_data.pop("contacto_emergencia_id", None)
         if persona_data:
+            dni = persona_data.get("dni")
             if not persona_data.get("email"):
                 persona_data["email"] = None
-            for attr, value in persona_data.items():
-                setattr(instance.persona, attr, value)
-            instance.persona.save()
+            persona, _ = Persona.objects.update_or_create(dni=dni, defaults=persona_data)
+            instance.persona = persona
+            instance.save()
         return super().update(instance, validated_data)
 
 

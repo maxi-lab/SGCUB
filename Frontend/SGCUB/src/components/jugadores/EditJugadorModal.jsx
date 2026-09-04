@@ -30,14 +30,42 @@ function EditJugadorModal({
 }) {
 
 
-  const categoriasOptions = useMemo(
-    () =>
-      categorias.map((categoria) => ({
-        value: String(categoria.categoria_id),
-        label: categoria.nombre,
-      })),
-    [categorias],
-  )
+  const categoriasOptions = useMemo(() => {
+    let generoNombre = null
+    let anioNac = null
+
+    if (formulario.socio) {
+      const socioElegido = socios.find((s) => String(s.socio_id) === String(formulario.socio))
+      if (socioElegido) {
+        anioNac = socioElegido.fecha_nacimiento ? parseInt(socioElegido.fecha_nacimiento.substring(0, 4)) : null
+        if (socioElegido.genero) {
+          const genObj = window.generosGlobal?.find((g) => String(g.genero_id) === String(socioElegido.genero))
+          if (genObj) {
+            generoNombre = genObj.nombre
+          } else {
+            generoNombre = socioElegido.genero_nombre || null
+          }
+        }
+      }
+    }
+
+    let categoriasFiltradas = categorias
+    
+    if (anioNac && generoNombre) {
+      const generoLetra = generoNombre === 'Masculino' ? 'M' : 'F'
+      const temporadaActual = categorias.length > 0 ? categorias[0].anio_vigente : 2026
+      const edadCompetencia = temporadaActual - anioNac
+
+      categoriasFiltradas = categorias.filter((c) => 
+        c.genero === generoLetra && c.edad_maxima >= edadCompetencia
+      )
+    }
+
+    return categoriasFiltradas.map((categoria) => ({
+      value: String(categoria.categoria_id),
+      label: categoria.nombre,
+    }))
+  }, [categorias, formulario.socio, socios])
 
   const estadosOptions = useMemo(
     () =>
