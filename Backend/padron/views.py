@@ -2,6 +2,7 @@ from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
+from drf_spectacular.utils import extend_schema
 from .services import recategorizar_jugadores
 from .services import pasr_de_anio_vigente_a_categoria
 
@@ -21,17 +22,20 @@ from .serializers import (
     LocalidadSerializer,
 )
 
+@extend_schema(request=GeneroSerializer, responses=GeneroSerializer)
 @api_view(["GET"])
 def genero_list(request):
     generos = Genero.objects.all()
     return Response(GeneroSerializer(generos, many=True).data)
 
+@extend_schema(request=LocalidadSerializer, responses=LocalidadSerializer)
 @api_view(["GET"])
 def localidad_list(request):
     localidades = Localidad.objects.all()
     return Response(LocalidadSerializer(localidades, many=True).data)
 
 
+@extend_schema(request=EstadoSocioSerializer, responses=EstadoSocioSerializer)
 @api_view(["GET"])
 def estado_socio_list_create(request):
     estados = EstadoSocio.objects.all()
@@ -39,6 +43,7 @@ def estado_socio_list_create(request):
     return Response(serializer.data)
 
 
+@extend_schema(request=EstadoSocioSerializer, responses=EstadoSocioSerializer)
 @api_view(["GET"])
 def estado_socio_detail(request, pk):
     estado = get_object_or_404(EstadoSocio, pk=pk)
@@ -46,6 +51,7 @@ def estado_socio_detail(request, pk):
     return Response(serializer.data)
 
 
+@extend_schema(request=PersonaSerializer, responses=PersonaSerializer)
 @api_view(["GET", "POST"])
 def persona_list_create(request):
     if request.method == "GET":
@@ -64,6 +70,7 @@ def persona_list_create(request):
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+@extend_schema(request=PersonaSerializer, responses=PersonaSerializer)
 @api_view(["GET", "PUT", "PATCH", "DELETE"])
 def persona_detail(request, pk):
     persona = get_object_or_404(Persona, pk=pk)
@@ -90,6 +97,7 @@ def persona_detail(request, pk):
     return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+@extend_schema(request=SocioSerializer, responses=SocioSerializer)
 @api_view(["GET", "POST"])
 def socio_list_create(request):
     if request.method == "GET":
@@ -111,6 +119,7 @@ def socio_list_create(request):
         status=status.HTTP_400_BAD_REQUEST
     )
 
+@extend_schema(request=SocioSerializer, responses=SocioSerializer)
 @api_view(["GET", "PUT", "PATCH", "DELETE"])
 def socio_detail(request, pk):
     socio = get_object_or_404(Socio, pk=pk)
@@ -137,6 +146,7 @@ def socio_detail(request, pk):
     return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+@extend_schema(request=CategoriaSerializer, responses=CategoriaSerializer)
 @api_view(["GET", "POST"])
 def categoria_list_create(request):
     if request.method == "GET":
@@ -151,6 +161,7 @@ def categoria_list_create(request):
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+@extend_schema(request=CategoriaSerializer, responses=CategoriaSerializer)
 @api_view(["GET", "PUT", "PATCH", "DELETE"])
 def categoria_detail(request, pk):
     categoria = get_object_or_404(Categoria, pk=pk)
@@ -177,6 +188,7 @@ def categoria_detail(request, pk):
     return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+@extend_schema(request=EstadoDeportivoSerializer, responses=EstadoDeportivoSerializer)
 @api_view(["GET", "POST"])
 def estado_list_create(request):
     if request.method == "GET":
@@ -191,6 +203,7 @@ def estado_list_create(request):
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+@extend_schema(request=EstadoDeportivoSerializer, responses=EstadoDeportivoSerializer)
 @api_view(["GET", "PUT", "PATCH", "DELETE"])
 def estado_detail(request, pk):
     estado = get_object_or_404(EstadoDeportivo, pk=pk)
@@ -217,6 +230,7 @@ def estado_detail(request, pk):
     return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+@extend_schema(request=JugadorSerializer, responses={200: JugadorListSerializer, 201: JugadorListSerializer})
 @api_view(["GET", "POST"])
 def jugador_list_create(request):
     if request.method == "GET":
@@ -231,6 +245,7 @@ def jugador_list_create(request):
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+@extend_schema(request=JugadorSerializer, responses={200: JugadorSerializerDetail, 201: JugadorSerializerDetail})
 @api_view(["GET", "PUT", "PATCH", "DELETE"])
 def jugador_detail(request, pk):
     jugador = get_object_or_404(Jugador, pk=pk)
@@ -257,6 +272,7 @@ def jugador_detail(request, pk):
     return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+@extend_schema(request=DocenteSerializer, responses=DocenteSerializer)
 @api_view(["GET", "POST"])
 def docente_list_create(request):
     if request.method == "GET":
@@ -271,6 +287,7 @@ def docente_list_create(request):
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+@extend_schema(request=DocenteSerializer, responses=DocenteSerializer)
 @api_view(["GET", "PUT", "PATCH", "DELETE"])
 def docente_detail(request, pk):
     docente = get_object_or_404(Docente, pk=pk)
@@ -296,6 +313,7 @@ def docente_detail(request, pk):
     docente.delete()
     return Response(status=status.HTTP_204_NO_CONTENT)
 
+@extend_schema(request=ContactoEmergenciaSerializer, responses=ContactoEmergenciaSerializer)
 @api_view(["GET", "POST"])
 def contacto_emergencia_list_create(request):
     if request.method == "GET":
@@ -323,6 +341,7 @@ def contacto_emergencia_list_create(request):
     )
 
 
+@extend_schema(request=ContactoEmergenciaSerializer, responses=ContactoEmergenciaSerializer)
 @api_view(["GET", "PUT", "PATCH", "DELETE"])
 def contacto_emergencia_detail(request, pk):
     contacto = get_object_or_404(
