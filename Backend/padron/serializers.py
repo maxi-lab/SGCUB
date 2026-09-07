@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.db import transaction
-from .models import Persona, Socio, Categoria, Jugador, Docente, EstadoDeportivo, ContactoEmergencia, EstadoSocio, Genero, Localidad, Domicilio
+from .models import DocenteCategoria, Persona, Socio, Categoria, Jugador, Docente, EstadoDeportivo, ContactoEmergencia, EstadoSocio, Genero, Localidad, Domicilio
 
 
 class GeneroSerializer(serializers.ModelSerializer):
@@ -521,3 +521,24 @@ class DocenteSerializer(serializers.ModelSerializer):
         model = Docente
         fields = ["docente_id", "persona", "persona_detalle", "legajo", "fecha_ingreso"]
         read_only_fields = ["docente_id"]
+
+class DocenteCategoriaSerializer(serializers.ModelSerializer):
+    docente = DocenteSerializer(read_only=True)
+    categoria = CategoriaSerializer(read_only=True)
+    docente_id = serializers.PrimaryKeyRelatedField(
+        source="docente",
+        queryset=Docente.objects.all(),
+        write_only=True,
+        required=True,
+    )
+    categoria_id = serializers.PrimaryKeyRelatedField(
+        source="categoria",
+        queryset=Categoria.objects.all(),
+        write_only=True,
+        required=True,
+    )
+
+    class Meta:
+        model = DocenteCategoria
+        fields = ["docente_categoria_id", "docente", "categoria", "docente_id", "categoria_id"]
+        read_only_fields = ["docente_categoria_id"]

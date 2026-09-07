@@ -3,8 +3,9 @@ from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
-from .models import Persona, Socio, Categoria, Jugador, Docente, EstadoDeportivo, ContactoEmergencia, EstadoSocio, Genero, Localidad
+from .models import Persona, Socio, Categoria, Jugador, Docente, EstadoDeportivo, ContactoEmergencia, EstadoSocio, Genero, Localidad, DocenteCategoria
 from .serializers import (
+    DocenteCategoriaSerializer,
     PersonaSerializer,
     SocioSerializer,
     CategoriaSerializer,
@@ -350,3 +351,60 @@ def contacto_emergencia_detail(request, pk):
 
     contacto.delete()
     return Response(status=status.HTTP_204_NO_CONTENT)
+
+@api_view(["GET", "POST"])
+def docente_categoria_list(request):
+    if request.method == "POST":
+        serializer = DocenteCategoriaSerializer(data=request.data)
+        if serializer.is_valid():
+            docente_categoria = serializer.save()
+            return Response(
+                DocenteCategoriaSerializer(docente_categoria).data,
+                status=status.HTTP_201_CREATED,
+            )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    categorias = DocenteCategoria.objects.select_related("docente", "categoria")
+
+    docente_id = (
+        request.query_params.get("idDocente")
+        or request.query_params.get("docente_id")
+        or request.query_params.get("docente")
+    )
+    categoria_id = (
+        request.query_params.get("idCategoria")
+        or request.query_params.get("categoria_id")
+        or request.query_params.get("categoria")
+    )
+
+    if docente_id:
+        categorias = categorias.filter(docente_id=docente_id)
+    if categoria_id:
+        categorias = categorias.filter(categoria_id=categoria_id)
+
+    serializer = DocenteCategoriaSerializer(categorias, many=True)
+    return Response(serializer.data)
+
+@api_view(["GET", "DELETE"])
+def docente_categoria_detail(request, pk):
+    docente_categoria = get_object_or_404(
+        DocenteCategoria.objects.select_related("docente", "categoria"),
+        pk=pk,
+    )
+    if request.method == "DELETE":
+        docente_categoria.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    serializer = DocenteCategoriaSerializer(docente_categoria)
+    return Response(serializer.data)
+
+@api_view(["POST"])
+def docente_categoria_create(request):
+    serializer = DocenteCategoriaSerializer(data=request.data)
+    if serializer.is_valid():
+        docente_categoria = serializer.save()
+        return Response(
+            DocenteCategoriaSerializer(docente_categoria).data,
+            status=status.HTTP_201_CREATED,
+        )
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

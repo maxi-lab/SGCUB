@@ -3,6 +3,7 @@ import { ActionIcon, Button, Group, Text } from '@mantine/core'
 import { IconEdit, IconPlus, IconTrash } from '@tabler/icons-react'
 import { MantineReactTable, useMantineReactTable } from 'mantine-react-table'
 import '../shared/quiet-table.css'
+import { useNavigate } from 'react-router-dom'
 
 const GENERO_LABEL = {
   M: 'Masculino',
@@ -10,6 +11,7 @@ const GENERO_LABEL = {
 }
 
 function CategoriasTable({ data, isLoading, error, onAdd, onEdit, onDelete }) {
+  const navigate = useNavigate()
   const columns = useMemo(
     () => [
       {
@@ -72,6 +74,14 @@ function CategoriasTable({ data, isLoading, error, onAdd, onEdit, onDelete }) {
     initialState: {
       density: 'compact',
     },
+    mantineTableBodyRowProps: ({ row }) => ({
+      onClick: () => {
+        navigate(`/padron/categorias/${row.original.categoria_id}`)
+      },
+      sx: {
+        cursor: 'pointer',
+      },
+    }),
     renderTopToolbarCustomActions: () => (
       <Button leftIcon={<IconPlus size={16} />} onClick={onAdd}>
         Agregar

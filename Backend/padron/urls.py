@@ -3,6 +3,8 @@ from django.urls import path
 from .views import (
     categoria_detail,
     categoria_list_create,
+    docente_categoria_detail,
+    docente_categoria_list,
     docente_detail,
     docente_list_create,
     estado_detail,
@@ -19,6 +21,8 @@ from .views import (
     estado_socio_detail,
     genero_list,
     localidad_list,
+    docente_categoria_list,
+    docente_categoria_detail,
 )
 
 urlpatterns = [
@@ -40,4 +44,6 @@ urlpatterns = [
     path("estado-socio/<int:pk>/", estado_socio_detail, name="estado-socio-detail"),
     path("genero/", genero_list, name="genero-list"),
     path("localidad/", localidad_list, name="localidad-list"),
+    path("docente-categoria/", docente_categoria_list, name="docente-categoria-list"),
+    path("docente-categoria/<int:pk>/", docente_categoria_detail, name="docente-categoria-detail"),
 ]
