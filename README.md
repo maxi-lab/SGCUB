@@ -143,6 +143,10 @@ docker compose down -v
    ```bash
    python manage.py runserver
    ```
+6. Ejecucion de tareas en segundo plano
+   ```bash
+   python manage.py qcluster
+   ```
 
 ### Frontend (React / Vite)
 1. Ir a la carpeta del frontend:

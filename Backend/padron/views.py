@@ -2,6 +2,8 @@ from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
+from .services import recategorizar_jugadores
+from .services import pasr_de_anio_vigente_a_categoria
 
 from .models import Persona, Socio, Categoria, Jugador, Docente, EstadoDeportivo, ContactoEmergencia, EstadoSocio, Genero, Localidad, DocenteCategoria
 from .serializers import (
@@ -351,7 +353,14 @@ def contacto_emergencia_detail(request, pk):
 
     contacto.delete()
     return Response(status=status.HTTP_204_NO_CONTENT)
-
+@api_view(["POST"])
+def recategorizar_jugadores_view(request):
+    recategorizar_jugadores()
+    return Response({"message": "Recategorización de jugadores completada."}, status=status.HTTP_200_OK)
+@api_view(["POST"])
+def pasr_de_anio_vigente_a_categoria_view(request):
+    pasr_de_anio_vigente_a_categoria()
+    return Response({"message": "Año vigente de categorías actualizado."}, status=status.HTTP_200_OK)
 @api_view(["GET", "POST"])
 def docente_categoria_list(request):
     if request.method == "POST":

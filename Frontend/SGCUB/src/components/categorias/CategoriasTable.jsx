@@ -26,12 +26,7 @@ function CategoriasTable({ data, isLoading, error, onAdd, onEdit, onDelete }) {
         size: 110,
         minSize: 90,
       },
-      {
-        accessorKey: 'edad_minima',
-        header: 'Edad mínima',
-        size: 110,
-        minSize: 90,
-      },
+      
       {
         accessorKey: 'edad_maxima',
         header: 'Edad máxima',

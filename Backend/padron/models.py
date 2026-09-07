@@ -130,7 +130,6 @@ class Categoria(models.Model):
     categoria_id = models.AutoField(primary_key=True)
     nombre = models.CharField(max_length=50)
     anio_vigente = models.PositiveIntegerField(default=get_anio_actual)
-    edad_minima = models.PositiveSmallIntegerField(default=0)
     edad_maxima = models.PositiveSmallIntegerField(default=0)
     genero = models.CharField(
         max_length=1,
@@ -145,11 +144,7 @@ class Categoria(models.Model):
             models.UniqueConstraint(
                 fields=["nombre", "anio_vigente", "genero"],
                 name="categoria_nombre_anio_genero_unico",
-            ),
-            models.CheckConstraint(
-                check=models.Q(edad_maxima__gte=models.F("edad_minima")),
-                name="categoria_edad_maxima_gte_minima",
-            ),
+            )
         ]
 
     def clean(self):
