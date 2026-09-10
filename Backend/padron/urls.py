@@ -3,6 +3,8 @@ from django.urls import path
 from .views import (
     categoria_detail,
     categoria_list_create,
+    docente_categoria_detail,
+    docente_categoria_list,
     docente_detail,
     docente_list_create,
     estado_detail,
@@ -21,6 +23,8 @@ from .views import (
     estado_socio_detail,
     genero_list,
     localidad_list,
+    docente_categoria_list,
+    docente_categoria_detail,
 )
 
 urlpatterns = [
@@ -44,4 +48,6 @@ urlpatterns = [
     path("localidad/", localidad_list, name="localidad-list"),
     path("recategorizar-jugadores/", recategorizar_jugadores_view, name="recategorizar-jugadores"),
     path("pasr-de-anio-vigente-a-categoria/", pasr_de_anio_vigente_a_categoria_view, name="pasr-de-anio-vigente-a-categoria"),
+    path("docente-categoria/", docente_categoria_list, name="docente-categoria-list"),
+    path("docente-categoria/<int:pk>/", docente_categoria_detail, name="docente-categoria-detail"),
 ]

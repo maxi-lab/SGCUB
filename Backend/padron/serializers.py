@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.db import transaction
-from .models import Persona, Socio, Categoria, Jugador, Docente, EstadoDeportivo, ContactoEmergencia, EstadoSocio, Genero, Localidad, Domicilio
+from .models import DocenteCategoria, Persona, Socio, Categoria, Jugador, Docente, EstadoDeportivo, ContactoEmergencia, EstadoSocio, Genero, Localidad, Domicilio
 
 
 class GeneroSerializer(serializers.ModelSerializer):
@@ -30,11 +30,52 @@ class EstadoSocioSerializer(serializers.ModelSerializer):
 class PersonaSerializer(serializers.ModelSerializer):
     dni = serializers.CharField(max_length=20, validators=[])
     email = serializers.EmailField(max_length=100, validators=[], required=False, allow_null=True, allow_blank=True)
+    genero = serializers.PrimaryKeyRelatedField(queryset=Genero.objects.all(), required=False, allow_null=True)
+    genero_nombre = serializers.CharField(source="genero.nombre", read_only=True)
+    domicilio_calle = serializers.CharField(source="domicilio.calle", required=False, allow_blank=True, allow_null=True)
+    domicilio_numero = serializers.CharField(source="domicilio.numero", required=False, allow_blank=True, allow_null=True)
+    domicilio_piso = serializers.CharField(source="domicilio.piso", required=False, allow_blank=True, allow_null=True)
+    domicilio_departamento = serializers.CharField(source="domicilio.departamento", required=False, allow_blank=True, allow_null=True)
+    domicilio_entre_calle_1 = serializers.CharField(source="domicilio.entre_calle_1", required=False, allow_blank=True, allow_null=True)
+    domicilio_entre_calle_2 = serializers.CharField(source="domicilio.entre_calle_2", required=False, allow_blank=True, allow_null=True)
+    domicilio_barrio = serializers.CharField(source="domicilio.barrio", required=False, allow_blank=True, allow_null=True)
+    domicilio_localidad = serializers.PrimaryKeyRelatedField(source="domicilio.localidad", queryset=Localidad.objects.all(), required=False, allow_null=True)
+    domicilio_localidad_nombre = serializers.CharField(source="domicilio.localidad.nombre", read_only=True)
     
     class Meta:
         model = Persona
-        fields = ["persona_id", "nombre", "apellido", "dni", "telefono", "email"]
+        fields = [
+            "persona_id", "nombre", "apellido", "dni", "telefono", "email",
+            "fecha_nacimiento", "genero", "genero_nombre", "genero_otro",
+            "domicilio_calle", "domicilio_numero", "domicilio_piso",
+            "domicilio_departamento", "domicilio_entre_calle_1",
+            "domicilio_entre_calle_2", "domicilio_barrio", "domicilio_localidad",
+            "domicilio_localidad_nombre",
+        ]
         read_only_fields = ["persona_id"]
+
+    @transaction.atomic
+    def create(self, validated_data):
+        domicilio_data = validated_data.pop("domicilio", None)
+        if domicilio_data:
+            domicilio_data = {key: value for key, value in domicilio_data.items() if value not in (None, "")}
+            if domicilio_data.get("calle") and domicilio_data.get("numero") and domicilio_data.get("localidad"):
+                validated_data["domicilio"] = Domicilio.objects.create(**domicilio_data)
+        return super().create(validated_data)
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        domicilio_data = validated_data.pop("domicilio", None)
+        if domicilio_data:
+            domicilio_data = {key: value for key, value in domicilio_data.items() if value not in (None, "")}
+            if instance.domicilio:
+                for attribute, value in domicilio_data.items():
+                    setattr(instance.domicilio, attribute, value)
+                instance.domicilio.save()
+            elif domicilio_data.get("calle") and domicilio_data.get("numero") and domicilio_data.get("localidad"):
+                instance.domicilio = Domicilio.objects.create(**domicilio_data)
+                instance.save(update_fields=["domicilio"])
+        return super().update(instance, validated_data)
 
     def validate(self, attrs):
         dni = attrs.get('dni')
@@ -430,8 +471,30 @@ class JugadorSerializerDetail(serializers.ModelSerializer):
 
 class DocenteSerializer(serializers.ModelSerializer):
     persona = serializers.PrimaryKeyRelatedField(queryset=Persona.objects.all())
+    persona_detalle = PersonaSerializer(source="persona", read_only=True)
 
     class Meta:
         model = Docente
-        fields = ["docente_id", "persona", "legajo"]
+        fields = ["docente_id", "persona", "persona_detalle", "legajo", "fecha_ingreso"]
         read_only_fields = ["docente_id"]
+
+class DocenteCategoriaSerializer(serializers.ModelSerializer):
+    docente = DocenteSerializer(read_only=True)
+    categoria = CategoriaSerializer(read_only=True)
+    docente_id = serializers.PrimaryKeyRelatedField(
+        source="docente",
+        queryset=Docente.objects.all(),
+        write_only=True,
+        required=True,
+    )
+    categoria_id = serializers.PrimaryKeyRelatedField(
+        source="categoria",
+        queryset=Categoria.objects.all(),
+        write_only=True,
+        required=True,
+    )
+
+    class Meta:
+        model = DocenteCategoria
+        fields = ["docente_categoria_id", "docente", "categoria", "docente_id", "categoria_id"]
+        read_only_fields = ["docente_categoria_id"]
