@@ -3,41 +3,60 @@ import { ActionIcon, Button, Group, Text } from '@mantine/core'
 import { IconEdit, IconPlus, IconTrash } from '@tabler/icons-react'
 import { MantineReactTable, useMantineReactTable } from 'mantine-react-table'
 import '../shared/quiet-table.css'
-import { useNavigate } from 'react-router-dom'
 
-const GENERO_LABEL = {
-  M: 'Masculino',
-  F: 'Femenino',
-}
-
-function CategoriasTable({ data, isLoading, error, onAdd, onEdit, onDelete }) {
-  const navigate = useNavigate()
+function DocentesTable({ data, isLoading, error, onAdd, onEdit, onDelete }) {
   const columns = useMemo(
     () => [
       {
-        accessorKey: 'nombre',
-        header: 'Nombre',
+        id: 'docente',
+        accessorFn: (row) =>
+          [row.persona_detalle?.nombre, row.persona_detalle?.apellido]
+            .filter(Boolean)
+            .join(' '),
+        header: 'Docente',
         size: 180,
         minSize: 140,
       },
       {
-        accessorKey: 'anio_vigente',
-        header: 'Año vigente',
+        id: 'dni',
+        accessorFn: (row) => row.persona_detalle?.dni ?? '',
+        header: 'DNI',
         size: 110,
         minSize: 90,
       },
-      
       {
-        accessorKey: 'edad_maxima',
-        header: 'Edad máxima',
-        size: 110,
-        minSize: 90,
+        id: 'legajo',
+        accessorKey: 'legajo',
+        header: 'Legajo',
+        size: 100,
+        minSize: 80,
+      },
+      {
+        id: 'telefono',
+        accessorFn: (row) => row.persona_detalle?.telefono ?? '',
+        header: 'Teléfono',
+        size: 120,
+        minSize: 100,
+      },
+      {
+        id: 'email',
+        accessorFn: (row) => row.persona_detalle?.email ?? '',
+        header: 'Email',
+        size: 190,
+        minSize: 140,
       },
       {
         id: 'genero',
-        accessorFn: (row) => GENERO_LABEL[row.genero] ?? row.genero ?? '',
+        accessorFn: (row) => row.persona_detalle?.genero_nombre ?? '',
         header: 'Género',
-        size: 120,
+        size: 110,
+        minSize: 90,
+      },
+      {
+        id: 'fecha_ingreso',
+        accessorKey: 'fecha_ingreso',
+        header: 'Ingreso',
+        size: 110,
         minSize: 90,
       },
     ],
@@ -48,7 +67,7 @@ function CategoriasTable({ data, isLoading, error, onAdd, onEdit, onDelete }) {
     columns,
     data: data ?? [],
     state: { isLoading },
-    enableColumnActions: true,
+    enableColumnActions: false,
     enableColumnFilters: false,
     enableDensityToggle: false,
     enableFullScreenToggle: false,
@@ -69,14 +88,6 @@ function CategoriasTable({ data, isLoading, error, onAdd, onEdit, onDelete }) {
     initialState: {
       density: 'compact',
     },
-    mantineTableBodyRowProps: ({ row }) => ({
-      onClick: () => {
-        navigate(`/padron/categorias/${row.original.categoria_id}`)
-      },
-      sx: {
-        cursor: 'pointer',
-      },
-    }),
     renderTopToolbarCustomActions: () => (
       <Button leftIcon={<IconPlus size={16} />} onClick={onAdd}>
         Agregar
@@ -87,7 +98,7 @@ function CategoriasTable({ data, isLoading, error, onAdd, onEdit, onDelete }) {
         <ActionIcon
           color="teal"
           variant="subtle"
-          aria-label={`Editar categoría ${row.original.nombre}`}
+          aria-label={`Editar docente ${row.original.persona_detalle?.nombre ?? 'este docente'}`}
           onClick={(event) => {
             event.stopPropagation()
             onEdit?.(row.original)
@@ -98,7 +109,7 @@ function CategoriasTable({ data, isLoading, error, onAdd, onEdit, onDelete }) {
         <ActionIcon
           color="red"
           variant="subtle"
-          aria-label={`Eliminar categoría ${row.original.nombre}`}
+          aria-label={`Eliminar docente ${row.original.persona_detalle?.nombre ?? 'este docente'}`}
           onClick={(event) => {
             event.stopPropagation()
             onDelete?.(row.original)
@@ -135,8 +146,8 @@ function CategoriasTable({ data, isLoading, error, onAdd, onEdit, onDelete }) {
     renderEmptyRowsFallback: () => (
       <Text align="center" py="xl">
         {error
-          ? 'No se pudieron cargar las categorías.'
-          : 'No hay categorías cargadas.'}
+          ? 'No se pudieron cargar los docentes.'
+          : 'No hay docentes cargados.'}
       </Text>
     ),
   })
@@ -144,4 +155,4 @@ function CategoriasTable({ data, isLoading, error, onAdd, onEdit, onDelete }) {
   return <MantineReactTable table={table} />
 }
 
-export default CategoriasTable
+export default DocentesTable

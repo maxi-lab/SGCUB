@@ -225,7 +225,9 @@ class Docente(models.Model):
         related_name="docente"
     )
     legajo = models.IntegerField()
-
+    fecha_ingreso = models.DateField(default=django.utils.timezone.localdate)
+    
+    
     class Meta:
         db_table = "docente"
 
@@ -259,3 +261,26 @@ class ContactoEmergencia(models.Model):
             )
         ]
 
+class DocenteCategoria(models.Model):
+    docente_categoria_id = models.AutoField(primary_key=True)
+
+    docente = models.ForeignKey(
+        Docente,
+        on_delete=models.CASCADE,
+        related_name="categorias_docente",
+    )
+
+    categoria = models.ForeignKey(
+        Categoria,
+        on_delete=models.CASCADE,
+        related_name="docentes_categoria",
+    )
+
+    class Meta:
+        db_table = "docente_categoria"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["docente", "categoria"],
+                name="docente_categoria_unico",
+            )
+        ]

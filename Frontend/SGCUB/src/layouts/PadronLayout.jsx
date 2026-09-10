@@ -7,7 +7,9 @@ export default function PadronLayout() {
     ? 'Jugadores'
     : pathname.includes('/categorias')
       ? 'Categorías'
-      : 'Socios'
+      : pathname.includes('/docentes')
+        ? 'Docentes'
+        : 'Socios'
 
   return (
     <section className="padron-layout">

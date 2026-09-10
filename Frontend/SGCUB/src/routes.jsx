@@ -9,6 +9,8 @@ import JugadorDetalle from './pages/JugadorDetalle'
 import SocioDetalle from './pages/SocioDetalle'
 import Categorias from './pages/Categorias'
 import PadronLayout from './layouts/PadronLayout'
+import Docentes from './pages/Docentes'
+import CategoriaDetalle from './pages/CategoriaDetalle'
 
 export const router = createBrowserRouter([
   {
@@ -47,6 +49,14 @@ export const router = createBrowserRouter([
             path: 'categorias',
             element: <Categorias />,
           },
+          {
+            path: 'docentes',
+            element: <Docentes />,
+          },
+          {
+            path: 'categorias/:id',
+            element: <CategoriaDetalle />,
+          }
         ],
       },
     ],
