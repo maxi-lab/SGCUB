@@ -24,7 +24,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-u@l#j43y0%&umhuqt!iaiev^pi6bh!4^&gn$#j3o@xm18*0np_'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get('DEBUG', 'False')=='True'
 
 ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
 
@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'padron',
     'django_q',
+    'drf_spectacular',
 ]
 Q_CLUSTER = {
     'name': 'django_q_cluster',
@@ -158,3 +159,18 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Django REST Framework Settings
+REST_FRAMEWORK = {
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+}
+
+# Swagger / drf-spectacular Settings
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'SGCUB API',
+    'DESCRIPTION': 'Documentación interactiva de la API REST para el Sistema de Gestión del Club (SGCUB).',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'COMPONENT_SPLIT_REQUEST': True, # Separar esquemas de Request y Response para mayor claridad3
+    "SORT_OPERATIONS": True,  # ordena alfabéticamente los tags/operaciones
+}
