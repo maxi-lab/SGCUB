@@ -171,5 +171,6 @@ SPECTACULAR_SETTINGS = {
     'DESCRIPTION': 'Documentación interactiva de la API REST para el Sistema de Gestión del Club (SGCUB).',
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
-    'COMPONENT_SPLIT_REQUEST': True, # Separar esquemas de Request y Response para mayor claridad
+    'COMPONENT_SPLIT_REQUEST': True, # Separar esquemas de Request y Response para mayor claridad3
+    "SORT_OPERATIONS": True,  # ordena alfabéticamente los tags/operaciones
 }
