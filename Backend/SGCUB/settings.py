@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'corsheaders',
     'padron',
+    'finanzas',
     'django_q',
     'drf_spectacular',
 ]
