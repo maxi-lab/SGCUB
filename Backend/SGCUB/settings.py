@@ -174,4 +174,3 @@ SPECTACULAR_SETTINGS = {
     'COMPONENT_SPLIT_REQUEST': True, # Separar esquemas de Request y Response para mayor claridad3
     "SORT_OPERATIONS": True,  # ordena alfabéticamente los tags/operaciones
 }
-#prueba de cambio
