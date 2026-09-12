@@ -3,31 +3,32 @@
   max-width: none;
   margin: 0 auto;
   text-align: left;
-}
-
 .common-header {
-  margin-bottom: 26px;
-  padding-bottom: 18px;
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
   border-bottom: 1px solid var(--border);
 }
 
-.common-header .eyebrow {
-  margin-bottom: 8px;
-}
-
-.common-header h1 {
-  margin: 0 0 4px;
-  font-size: clamp(28px, 3vw, 38px);
+.common-title {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -0.5px;
 }
 
 .common-section-name {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   color: var(--accent);
   font-family: var(--sans);
-  font-size: 0.72em;
-  font-weight: 400;
+  font-size: 0.75em;
+  font-weight: 500;
 }
 
 .common-section-name::before {
@@ -37,28 +38,32 @@
   content: '';
 }
 
-.common-description {
-  max-width: 620px;
-  color: var(--text);
-  font-size: 16px;
+.common-description-below {
+  color: var(--text-muted, #64748b);
+  font-size: 15px;
+  margin: 0 0 16px 0;
 }
 
 .common-layout h2 {
   margin: 0 0 12px;
-  font-size: 21px;
+  font-size: 18px;
 }
 
 @media (max-width: 600px) {
   .common-header {
-    margin-bottom: 20px;
-    padding-bottom: 14px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    margin-bottom: 12px;
+    padding-bottom: 10px;
   }
 
-  .common-header h1 {
-    font-size: 30px;
+  .common-title {
+    font-size: 22px;
   }
 
-  .common-description {
-    font-size: 16px;
+  .common-description-below {
+    font-size: 14px;
+    margin-bottom: 16px;
   }
 }

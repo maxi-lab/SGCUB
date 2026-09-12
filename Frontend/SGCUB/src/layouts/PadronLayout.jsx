@@ -12,7 +12,7 @@ export default function PadronLayout() {
     <CommonLayout 
       moduleName="Padrón" 
       getSectionName={getSectionName} 
-      defaultDescription="Gestión del padrón de socios"
+      defaultDescription="Directorio y control del padrón de socios"
     />
   )
 }
