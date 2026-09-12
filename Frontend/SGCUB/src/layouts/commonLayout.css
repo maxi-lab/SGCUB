@@ -1,26 +1,26 @@
-.padron-layout {
+.common-layout {
   width: 100%;
   max-width: none;
   margin: 0 auto;
   text-align: left;
 }
 
-.padron-header {
+.common-header {
   margin-bottom: 26px;
   padding-bottom: 18px;
   border-bottom: 1px solid var(--border);
 }
 
-.padron-header .eyebrow {
+.common-header .eyebrow {
   margin-bottom: 8px;
 }
 
-.padron-header h1 {
+.common-header h1 {
   margin: 0 0 4px;
   font-size: clamp(28px, 3vw, 38px);
 }
 
-.padron-section-name {
+.common-section-name {
   display: inline-flex;
   align-items: center;
   gap: 10px;
@@ -30,35 +30,35 @@
   font-weight: 400;
 }
 
-.padron-section-name::before {
+.common-section-name::before {
   width: 1px;
   height: 0.8em;
   background: var(--border);
   content: '';
 }
 
-.padron-description {
+.common-description {
   max-width: 620px;
   color: var(--text);
   font-size: 16px;
 }
 
-.padron-layout h2 {
+.common-layout h2 {
   margin: 0 0 12px;
   font-size: 21px;
 }
 
 @media (max-width: 600px) {
-  .padron-header {
+  .common-header {
     margin-bottom: 20px;
     padding-bottom: 14px;
   }
 
-  .padron-header h1 {
+  .common-header h1 {
     font-size: 30px;
   }
 
-  .padron-description {
+  .common-description {
     font-size: 16px;
   }
 }

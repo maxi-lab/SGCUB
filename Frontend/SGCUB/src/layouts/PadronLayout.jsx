@@ -1,28 +1,18 @@
-import { Outlet, useLocation } from 'react-router-dom'
-import './PadronLayout.css'
+import CommonLayout from './CommonLayout'
 
 export default function PadronLayout() {
-  const { pathname } = useLocation()
-  const sectionName = pathname.includes('/jugadores')
-    ? 'Jugadores'
-    : pathname.includes('/categorias')
-      ? 'Categorías'
-      : pathname.includes('/docentes')
-        ? 'Docentes'
-        : 'Socios'
+  const getSectionName = (pathname) => {
+    if (pathname.includes('/jugadores')) return 'Jugadores'
+    if (pathname.includes('/categorias')) return 'Categorías'
+    if (pathname.includes('/docentes')) return 'Docentes'
+    return 'Socios'
+  }
 
   return (
-    <section className="padron-layout">
-      <header className="padron-header">
-        <p className="eyebrow">Módulo de gestión</p>
-        <h1>
-          Padrón <span className="padron-section-name">{sectionName}</span>
-        </h1>
-        <p className="padron-description">
-          Gestión de {sectionName.toLowerCase()}
-        </p>
-      </header>
-      <Outlet />
-    </section>
+    <CommonLayout 
+      moduleName="Padrón" 
+      getSectionName={getSectionName} 
+      defaultDescription="Gestión del padrón de socios"
+    />
   )
 }
