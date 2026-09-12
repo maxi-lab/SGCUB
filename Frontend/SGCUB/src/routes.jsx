@@ -11,6 +11,9 @@ import Categorias from './pages/Categorias'
 import PadronLayout from './layouts/PadronLayout'
 import Docentes from './pages/Docentes'
 import CategoriaDetalle from './pages/CategoriaDetalle'
+import GestionFinancieraLayout from './layouts/GestionFinancieraLayout'
+import GestFinancieraResumen from './pages/GestFinancieraResumen'
+import NotFound from './pages/NotFound'
 
 export const router = createBrowserRouter([
   {
@@ -59,6 +62,20 @@ export const router = createBrowserRouter([
           }
         ],
       },
+      {
+        path: 'gestion-financiera',
+        element: <GestionFinancieraLayout />,
+        children: [
+          {
+            index: true,
+            element: <Navigate to="resumen" replace />,
+          },
+          {
+            path: 'resumen',
+            element: <GestFinancieraResumen />,
+          }
+        ],
+      },
     ],
 
     label: 'Inicio',
@@ -78,6 +95,6 @@ export const router = createBrowserRouter([
   },
   {
     path: '*',
-    element: <h1>404 - Página no encontrada</h1>,
+    element: <NotFound />,
   }
 ])
