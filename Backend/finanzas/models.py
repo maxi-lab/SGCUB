@@ -2,8 +2,13 @@ from django.db import models
 
 
 class EstadoCuota(models.Model):
+	class Valores(models.TextChoices):
+		EN_FECHA = "En Fecha", "En Fecha"
+		VENCIDA = "Vencida", "Vencida"
+		PAGA = "Paga", "Paga"
+
 	estado_cuota_id = models.AutoField(primary_key=True)
-	nombre = models.CharField(max_length=40)
+	nombre = models.CharField(max_length=40, choices=Valores.choices)
 
 	class Meta:
 		db_table = "estado_cuota"
@@ -19,8 +24,8 @@ class Cuota(models.Model):
 		on_delete=models.PROTECT,
 		related_name="cuotas",
 	)
-	socio = models.ForeignKey(
-		"padron.Socio",
+	cuenta_corriente = models.ForeignKey(
+		"finanzas.CuentaCorriente",
 		on_delete=models.PROTECT,
 		related_name="cuotas",
 	)
@@ -32,17 +37,25 @@ class Cuota(models.Model):
 		db_table = "cuota"
 
 	def __str__(self):
-		return f"{self.socio} - {self.periodo}"
+		return f"{self.cuenta_corriente} - {self.periodo}"
 
 
 class ItemCuota(models.Model):
+	class Conceptos(models.TextChoices):
+		CUOTA_SOCIAL = "CuotaSocial", "CuotaSocial"
+		CUOTA_DEPORTIVA = "CuotaDeportiva", "CuotaDeportiva"
+		MORA = "Mora", "Mora"
+		DESCUENTO_UNICO = "DescuentoUnico", "DescuentoUnico"
+		BECA = "Beca", "Beca"
+		OTRO = "Otro", "Otro"
+
 	item_cuota_id = models.AutoField(primary_key=True)
 	cuota = models.ForeignKey(
 		Cuota,
 		on_delete=models.CASCADE,
 		related_name="items",
 	)
-	concepto = models.CharField(max_length=50)
+	concepto = models.CharField(max_length=50, choices=Conceptos.choices)
 	es_descuento = models.BooleanField()
 	fecha_aplicacion = models.DateField()
 	monto = models.DecimalField(max_digits=10, decimal_places=2)
