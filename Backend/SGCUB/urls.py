@@ -26,6 +26,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path("api-auth/", include("rest_framework.urls")),
     path("api/padron/", include("padron.urls")),   
+    path("api/finanzas/", include("finanzas.urls")),
      ]
 if settings.DEBUG:
     urlpatterns += [
