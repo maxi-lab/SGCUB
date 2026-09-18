@@ -1,3 +1,7 @@
+from datetime import date
+
+from django.utils import timezone
+
 from .models import CuentaCorriente, Cuota, EstadoCuota
 from padron.models import Jugador
 
@@ -42,3 +46,13 @@ def crear_cuotas_jugadores(fecha_venc1, fecha_venc2, periodo):
 			cuotas_creadas.append(cuota)
 
 	return cuotas_creadas
+
+
+def generar_cuotas_mensuales():
+	"""Genera las cuotas del mes actual con vencimientos los días 10 y 20."""
+	hoy = timezone.localdate()
+	fecha_venc1 = date(hoy.year, hoy.month, 10)
+	fecha_venc2 = date(hoy.year, hoy.month, 20)
+	periodo = hoy.strftime("%Y-%m")
+
+	return crear_cuotas_jugadores(fecha_venc1, fecha_venc2, periodo)
