@@ -26,6 +26,12 @@ class CuotaSerializer(serializers.ModelSerializer):
         read_only_fields = ["cuota_id"]
 
 
+class GenerarCuotasSerializer(serializers.Serializer):
+    fecha_venc1 = serializers.DateField()
+    fecha_venc2 = serializers.DateField()
+    periodo = serializers.CharField(max_length=20)
+
+
 class ItemCuotaSerializer(serializers.ModelSerializer):
     class Meta:
         model = ItemCuota
