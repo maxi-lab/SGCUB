@@ -2,7 +2,7 @@ from datetime import date
 
 from django.utils import timezone
 
-from .models import CuentaCorriente, Cuota, EstadoCuota
+from .models import CuentaCorriente, Cuota, EstadoCuota, ItemCuota
 from padron.models import Jugador
 
 
@@ -43,6 +43,14 @@ def crear_cuotas_jugadores(fecha_venc1, fecha_venc2, periodo):
 			},
 		)
 		if creada:
+			ItemCuota.objects.create(
+                cuota=cuota,
+                concepto=ItemCuota.Conceptos.CUOTA_SOCIAL,
+                es_descuento=False,
+                fecha_aplicacion=fecha_venc1,
+                monto=1000,  # Asignar el monto correspondiente a la cuota social
+                motivo="cuota social",
+            )
 			cuotas_creadas.append(cuota)
 
 	return cuotas_creadas
