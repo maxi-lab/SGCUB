@@ -1,6 +1,8 @@
 from datetime import date
 
+from django.contrib.admin import models
 from django.utils import timezone
+from django.db.models import F
 
 from .models import CuentaCorriente, Cuota, EstadoCuota, ItemCuota
 from padron.models import Jugador
@@ -52,7 +54,8 @@ def crear_cuotas_jugadores(fecha_venc1, fecha_venc2, periodo):
                 motivo="cuota social",
             )
 			cuotas_creadas.append(cuota)
-
+			CuentaCorriente.objects.filter(socio=jugador.socio).update(saldo=F("saldo") - 1000)  # Actualizar el saldo de la cuenta corriente
+		
 	return cuotas_creadas
 
 
