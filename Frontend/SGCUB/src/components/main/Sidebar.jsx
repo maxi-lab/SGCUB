@@ -13,7 +13,7 @@ export default function Sidebar({ collapsed, onToggle }) {
       <div className="app-sidebar-content">
         <div className="app-sidebar-brand">
           <Link to="/" className="app-sidebar-brand-inner" aria-label="Ir al inicio">
-            <img alt="Escudo C.U.B." className="app-sidebar-logo object-contain shrink-0" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCw0qMmPJt8lyOTUmLIk2OChr72lPBKBGM0Ooi5EsWTcQZWPwF5tQmcpOwUne1Zxvpblwrqju3Ys1pdkaOSi34oNgho0Y76qWMARu8muV-uLxCVofMILAo-WMwrMhxHWo7N0XKSs-p6SKceU_y2aFDakmlV0aTgH7l298a2hTMGf6K42RthvVubA8eQ3HLriAqS7KCzLAq2-eCRowuPbM4J1up9LxuGkNPWtzwmSTe0gxDIedSLAHvNQWCoLL3q4m1gGQ" />
+            <img alt="Escudo C.U.B." className="app-sidebar-logo object-contain shrink-0" src="/escudo-sin-fondo.png" />
             <div className="app-sidebar-brand-copy">
               <span className="app-sidebar-brand-name text-on-surface">C.U.B.</span>
               <span className="app-sidebar-brand-subtitle text-on-surface-variant">Club Univ. Berisso</span>
