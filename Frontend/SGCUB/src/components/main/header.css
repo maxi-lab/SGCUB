@@ -1,0 +1,48 @@
+.app-header {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  box-sizing: border-box;
+}
+
+.app-header-search {
+  min-width: 0;
+  flex: 1 1 auto;
+  display: flex;
+  justify-content: center;
+}
+
+.app-header-search > div {
+  width: min(100%, 52rem);
+}
+
+.app-header-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 1rem;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+  .app-header {
+    padding-right: 1rem;
+    padding-left: 1rem;
+  }
+
+  .app-header-search {
+    max-width: none;
+  }
+
+  .app-header-actions {
+    gap: 0.5rem;
+  }
+
+  .app-header-actions > div:nth-of-type(2),
+  .app-header-actions > div:nth-of-type(3) > div:last-child,
+  .app-header-actions > button:last-child > span:last-child {
+    display: none;
+  }
+}
