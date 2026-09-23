@@ -15,7 +15,7 @@ export default function MainLayout() {
         onToggle={() => setSidebarCollapsed((collapsed) => !collapsed)}
       />
       <div className="main-layout-content">
-        <Header />
+        <Header collapsed={sidebarCollapsed} />
         <main className="main-layout-main">
           <Outlet />
         </main>

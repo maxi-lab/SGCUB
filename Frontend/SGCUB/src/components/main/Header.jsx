@@ -1,8 +1,8 @@
 import "./header.css";
 
-export default function Header() {
+export default function Header({ collapsed = false }) {
   return (
-    <header className="app-header fixed top-0 right-0 w-[calc(100%-260px)] h-16 bg-surface-container-lowest border-b border-outline-variant/30 z-40 flex flex-row flex-nowrap items-center px-6">
+    <header className={`app-header fixed top-0 right-0 bg-surface-container-lowest border-b border-outline-variant/30 z-40 flex flex-row flex-nowrap items-center px-6 ${collapsed ? 'app-header--collapsed' : ''}`}>
       
       <div className="app-header-search min-w-0 flex-1">
         <div className="relative flex items-center">
