@@ -11,6 +11,7 @@ import Categorias from './pages/Categorias'
 import PadronLayout from './layouts/PadronLayout'
 import Docentes from './pages/Docentes'
 import CategoriaDetalle from './pages/CategoriaDetalle'
+import EnDesarrollo from './pages/EnDesarrollo'
 
 export const router = createBrowserRouter([
   {
@@ -56,8 +57,36 @@ export const router = createBrowserRouter([
           {
             path: 'categorias/:id',
             element: <CategoriaDetalle />,
-          }
+          },
         ],
+      },
+      {
+        path: 'resumen-financiero',
+        element: <EnDesarrollo title="Resumen financiero" />,
+      },
+      {
+        path: 'morosidad',
+        element: <EnDesarrollo title="Reporte de morosidad" />,
+      },
+      {
+        path: 'caja',
+        element: <EnDesarrollo title="Caja y cobros" />,
+      },
+      {
+        path: 'documental',
+        element: <EnDesarrollo title="Documental" />,
+      },
+      {
+        path: 'comunicaciones',
+        element: <EnDesarrollo title="Comunicaciones" />,
+      },
+      {
+        path: 'reportes',
+        element: <EnDesarrollo title="Reportes y COMET" />,
+      },
+      {
+        path: 'administracion',
+        element: <EnDesarrollo title="Administración" />,
       },
     ],
 

@@ -1,45 +1,25 @@
-import { NavLink, Link, Outlet } from "react-router-dom";
-import "../App.css";
-import Sidebar from "../components/main/Sidebar";
+// src/layouts/MainLayout.jsx
+import { useState } from 'react';
+import { Outlet } from 'react-router-dom';
+import Sidebar from '../components/main/Sidebar';
+import Header from '../components/main/Header';
+import './main-layout.css';
 
 export default function MainLayout() {
-  const navLinks = [
-    { path: "/admin", label: "Admin" },
-  ];
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   return (
-    <div className="app-shell">
-      <header className="site-header">
-        <Link className="brand" to="/" aria-label="SGCUB inicio">
-          <img className="brand-mark" src="/escudo-sin-fondo.png" alt="Logo SGCUB" />
-          <span className="brand-name">SGCUB</span>
-        </Link>
-
-        <nav className="main-nav" aria-label="Navegación principal">
-          {navLinks.map((link) => (
-            /* NavLink sabe automáticamente si está "activo" o no */
-            <NavLink
-              to={link.path}
-              key={link.path}
-              className={({ isActive }) =>
-                `nav-link ${isActive ? "nav-link-active" : ""}`
-              }
-            >
-              {link.label}
-            </NavLink>
-          ))}
-        </nav>
-      </header>
-      <div className="page-layout">
-        <Sidebar />
-        <main className="main-content">
+    <div className={`main-layout ${sidebarCollapsed ? 'main-layout--collapsed' : ''}`}>
+      <Sidebar
+        collapsed={sidebarCollapsed}
+        onToggle={() => setSidebarCollapsed((collapsed) => !collapsed)}
+      />
+      <div className="main-layout-content">
+        <Header collapsed={sidebarCollapsed} />
+        <main className="main-layout-main">
           <Outlet />
         </main>
       </div>
-
-      <footer className="site-footer">
-        <span>Sistema Gestión Club Universitario Berisso</span>
-      </footer>
     </div>
   );
 }

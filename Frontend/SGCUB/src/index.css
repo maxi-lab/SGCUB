@@ -1,68 +1,23 @@
-:root {
-  --text: #687078;
-  --text-h: #17242b;
-  --bg: #f5f7f4;
-  --surface: #ffffff;
-  --border: #dce4df;
-  --accent: #176b58;
-  --accent-soft: #e8f1ed;
-  --sans: 'Trebuchet MS', 'Segoe UI', sans-serif;
-  --heading: Georgia, 'Times New Roman', serif;
+@import "tailwindcss";
+@config "../tailwind.config.js";
 
-  font: 18px/145% var(--sans);
-  letter-spacing: 0;
-  color-scheme: light;
-  color: var(--text);
-  background: var(--bg);
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-
-  @media (max-width: 1024px) {
-    font-size: 16px;
+@layer base {
+  html, body {
+    margin: 0;
+    padding: 0;
+    @apply bg-background font-body-md text-body-md text-on-surface antialiased min-h-screen;
+  }
+  body {
+    overscroll-behavior: none;
+  }
+  main > :first-child {
+    margin-top: 0 !important;
+  }
+  main > :last-child {
+    margin-bottom: 0 !important;
   }
 }
 
-body {
-  margin: 0;
-}
-
-#root {
-  width: 100%;
-  max-width: none;
-  margin: 0;
-  text-align: center;
-  min-height: 100svh;
-  display: flex;
-  flex-direction: column;
-  box-sizing: border-box;
-}
-
-h1,
-h2 {
-  font-family: var(--heading);
-  font-weight: 500;
-  color: var(--text-h);
-}
-
-h1 {
-  font-size: clamp(40px, 7vw, 72px);
-  line-height: 1.05;
-  letter-spacing: 0;
-  @media (max-width: 1024px) {
-    font-size: 42px;
-  }
-}
-h2 {
-  font-size: 24px;
-  line-height: 118%;
-  letter-spacing: -0.24px;
-  margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
-  }
-}
-p {
-  margin: 0;
+::-webkit-scrollbar {
+  display: none;
 }
