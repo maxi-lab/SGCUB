@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import AddSocioModal from '../components/socios/AddSocioModal'
 import DeleteSocioModal from '../components/socios/DeleteSocioModal'
 import SociosTable from '../components/socios/SociosTable'
+import PageHeader from '../components/shared/PageHeader'
+import StatCard from '../components/shared/StatCard'
 import useSocio from '../hooks/useSocio'
 import { api } from '../api/conf'
 import useGeneros from '../hooks/useGeneros'
@@ -36,6 +38,22 @@ function Padron() {
   const [errorGuardado, setErrorGuardado] = useState('')
 
   const [estadosSocio, setEstadosSocio] = useState([])
+
+  const totales = useMemo(() => {
+    const sociosActivos = socios.filter((socio) => {
+      const estado = (socio.estado_socio_nombre ?? '').toLowerCase()
+      return estado.includes('activo') && !estado.includes('inactivo')
+    })
+    const activos = sociosActivos.length
+    const activosNoJugadores = sociosActivos.filter((socio) => !socio.es_jugador).length
+    const formato = (valor) => valor.toLocaleString('es-AR')
+    return {
+      total: formato(socios.length),
+      activos: formato(activos),
+      activosNoJugadores: formato(activosNoJugadores),
+      inactivos: formato(socios.length - activos),
+    }
+  }, [socios])
 
   useEffect(() => {
     api.get('padron/estado-socio/').then((res) => setEstadosSocio(res.data)).catch(console.error)
@@ -153,16 +171,38 @@ function Padron() {
 
   return (
     <>
-      <section className="padron-table-section" aria-label="Socios">
-        <SociosTable
-          data={socios}
-          isLoading={isLoading}
-          error={error}
-          onAdd={abrirModal}
-          onEdit={abrirEdicion}
-          onDelete={borrarSocio}
+      <div className="w-full flex flex-col gap-5">
+        <PageHeader
+          breadcrumb={[{ label: 'Personas' }, { label: 'Socios' }]}
+          title="Socios"
+          actions={(
+            <button
+              type="button"
+              onClick={abrirModal}
+              className="inline-flex items-center gap-2 bg-primary text-on-primary hover:bg-primary/90 px-4 py-2 rounded shadow-sm font-label-lg text-base font-medium transition-colors cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[18px]" aria-hidden="true">person_add</span>
+              <span className="text-xl"> Nuevo socio</span>
+            </button>
+          )}
         />
-      </section>
+
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-10">
+          <StatCard label="Total Padrón" value={totales.total} icon="group" tone="neutral" />
+          <StatCard label="Activos Plenos" value={totales.activos} icon="how_to_reg" tone="positive" />
+          <StatCard label="Inactivos / En Pausa" value={totales.inactivos} icon="person_off" tone="muted" />
+        </div>
+
+        <section aria-label="Socios">
+          <SociosTable
+            data={socios}
+            isLoading={isLoading}
+            error={error}
+            onEdit={abrirEdicion}
+            onDelete={borrarSocio}
+          />
+        </section>
+      </div>
 
       <AddSocioModal
         opened={modalAbierto}
