@@ -1,0 +1,68 @@
+import { useState } from 'react'
+
+const TONOS_BADGE = {
+  info: 'bg-primary-fixed/30 text-primary',
+  ok: 'bg-emerald-50 text-emerald-700',
+  alerta: 'bg-amber-50 text-amber-700',
+  error: 'bg-error-container text-on-error-container',
+  neutro: 'bg-surface-container-high text-on-surface-variant',
+}
+
+const PUNTO_BADGE = {
+  ok: 'bg-emerald-500',
+  alerta: 'bg-amber-500',
+  error: 'bg-error',
+}
+
+export default function PersonTabs({ tabs = [], defaultTab }) {
+  const [activeTabId, setActiveTabId] = useState(defaultTab ?? tabs[0]?.id)
+  const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? tabs[0]
+
+  return (
+    <div>
+      <div
+        className="flex items-center gap-1 bg-surface-container-lowest px-4 pt-2 rounded-t-xl shadow-sm overflow-x-auto border-b border-surface-container"
+        role="tablist"
+      >
+        {tabs.map((tab) => {
+          const isSelected = tab.id === activeTab?.id
+          return (
+            <button
+              key={tab.id}
+              id={`tab-${tab.id}`}
+              type="button"
+              role="tab"
+              aria-selected={isSelected}
+              aria-controls={`panel-${tab.id}`}
+              onClick={() => setActiveTabId(tab.id)}
+              className={`relative inline-flex items-center gap-2 px-4 py-3 text-base focus:outline-none transition-colors cursor-pointer whitespace-nowrap ${
+                isSelected ? 'text-primary font-semibold' : 'text-on-surface-variant hover:text-primary'
+              }`}
+            >
+              <span className="material-symbols-outlined text-[20px]">{tab.icon}</span>
+              <span>{tab.label}</span>
+              {tab.badge && (
+                <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-semibold ${TONOS_BADGE[tab.badge.tono] ?? TONOS_BADGE.neutro}`}>
+                  {PUNTO_BADGE[tab.badge.tono] && <span className={`w-1.5 h-1.5 rounded-full ${PUNTO_BADGE[tab.badge.tono]}`} />}
+                  {tab.badge.label}
+                </span>
+              )}
+              <span className={`absolute bottom-0 left-0 right-0 h-0.5 rounded-t ${isSelected ? 'bg-primary' : 'bg-transparent'}`} />
+            </button>
+          )
+        })}
+      </div>
+
+      {activeTab && (
+        <div
+          id={`panel-${activeTab.id}`}
+          role="tabpanel"
+          aria-labelledby={`tab-${activeTab.id}`}
+          className="bg-surface-container-lowest rounded-b-xl shadow-sm p-6"
+        >
+          {activeTab.content}
+        </div>
+      )}
+    </div>
+  )
+}

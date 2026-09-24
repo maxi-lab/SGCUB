@@ -1,0 +1,80 @@
+import { yearsSince, isActiveStatus, formatDni, formatDate, yearsText } from '../format'
+import { Field, RecordSection } from './parts'
+
+const nombreGenero = (persona) => {
+  if (!persona.genero_nombre) return ''
+  return persona.genero_nombre === 'Otro' ? persona.genero_otro || 'Otro' : persona.genero_nombre
+}
+export default function PersonalDataTab({ persona, localidades = [], deportivo }) {
+  if (!persona) return null
+
+  const age = yearsSince(persona.fecha_nacimiento)
+  const localidad = persona.domicilio_localidad_nombre
+    ?? localidades.find((l) => l.localidad_id === persona.domicilio_localidad)?.nombre
+
+  return (
+    <div className="flex flex-col gap-8">
+      <RecordSection title="Datos personales">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <Field
+            label="Documento Nacional de Identidad (DNI)"
+            value={persona.dni ? formatDni(persona.dni) : ''}
+            icon="badge"
+          />
+          <Field label="Nombre(s)" value={persona.nombre} />
+          <Field label="Apellido(s)" value={persona.apellido} />
+          <Field
+            label="Fecha de nacimiento"
+            value={persona.fecha_nacimiento ? formatDate(persona.fecha_nacimiento) : ''}
+            icon="cake"
+            help={age !== null ? `Edad actual: ${yearsText(age)}` : undefined}
+          />
+          <Field label="Género" value={nombreGenero(persona)} />
+          <Field label="Teléfono / Móvil" value={persona.telefono} icon="call" />
+          <Field label="Correo electrónico" value={persona.email} icon="mail" className="lg:col-span-2" />
+        </div>
+      </RecordSection>
+
+      {deportivo && (
+        <RecordSection
+          title="Datos deportivos"
+          color="bg-primary"
+          extra={deportivo.estado && (
+            <span
+              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-sm font-semibold ${
+                isActiveStatus(deportivo.estado) ? 'bg-emerald-50 text-emerald-700' : 'bg-surface-container-high text-on-surface-variant'
+              }`}
+            >
+              <span className="material-symbols-outlined text-[16px]">sports</span>
+              Estado deportivo: {deportivo.estado}
+            </span>
+          )}
+        >
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Field
+              label="Obra social / Cobertura médica"
+              value={deportivo.obra_social}
+              icon="health_and_safety"
+              className="md:col-span-2"
+            />
+            <Field label="Talle de indumentaria" value={deportivo.talla} icon="checkroom" />
+            <Field label="Categoría" value={deportivo.categoria} icon="sports_soccer" />
+          </div>
+        </RecordSection>
+      )}
+
+      <RecordSection title="Domicilio" color="bg-secondary-container">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+          <Field label="Calle" value={persona.domicilio_calle} className="sm:col-span-2 md:col-span-3" />
+          <Field label="Número" value={persona.domicilio_numero} />
+          <Field label="Piso" value={persona.domicilio_piso} />
+          <Field label="Depto" value={persona.domicilio_departamento} />
+          <Field label="Entre calle 1" value={persona.domicilio_entre_calle_1} className="md:col-span-2" />
+          <Field label="Entre calle 2" value={persona.domicilio_entre_calle_2} className="md:col-span-2" />
+          <Field label="Barrio" value={persona.domicilio_barrio} />
+          <Field label="Localidad" value={localidad} />
+        </div>
+      </RecordSection>
+    </div>
+  )
+}

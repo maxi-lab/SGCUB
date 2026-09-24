@@ -5,8 +5,9 @@ import Principal from './pages/Principal'
 import AdminPage from './pages/AdminPage'
 import Socios from './pages/Socios'
 import Jugadores from './pages/Jugadores'
-import JugadorDetalle from './pages/JugadorDetalle'
-import SocioDetalle from './pages/SocioDetalle'
+import JugadorDetail from './pages/JugadorDetail'
+import SocioDetail from './pages/SocioDetail'
+import DocenteDetail from './pages/DocenteDetail'
 import SocioForm from './pages/SocioForm'
 import Categorias from './pages/Categorias'
 import PadronLayout from './layouts/PadronLayout'
@@ -25,7 +26,6 @@ export const router = createBrowserRouter([
       },
       {
         path: 'padron',
-        element: <PadronLayout />,
         children: [
           {
             index: true,
@@ -41,7 +41,7 @@ export const router = createBrowserRouter([
           },
           {
             path: 'socios/:id',
-            element: <SocioDetalle />,
+            element: <SocioDetail />,
           },
           {
             path: 'socios/:id/editar',
@@ -53,7 +53,7 @@ export const router = createBrowserRouter([
           },
           {
             path: 'jugadores/:id',
-            element: <JugadorDetalle />,
+            element: <JugadorDetail />,
           },
           {
             path: 'categorias',
@@ -62,6 +62,10 @@ export const router = createBrowserRouter([
           {
             path: 'docentes',
             element: <Docentes />,
+          },
+          {
+            path: 'docentes/:id',
+            element: <DocenteDetail />,
           },
           {
             path: 'categorias/:id',
