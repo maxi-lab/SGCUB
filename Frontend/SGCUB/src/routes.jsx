@@ -7,6 +7,7 @@ import Socios from './pages/Socios'
 import Jugadores from './pages/Jugadores'
 import JugadorDetalle from './pages/JugadorDetalle'
 import SocioDetalle from './pages/SocioDetalle'
+import SocioForm from './pages/SocioForm'
 import Categorias from './pages/Categorias'
 import PadronLayout from './layouts/PadronLayout'
 import Docentes from './pages/Docentes'
@@ -35,8 +36,16 @@ export const router = createBrowserRouter([
             element: <Socios />,
           },
           {
+            path: 'socios/nuevo',
+            element: <SocioForm />,
+          },
+          {
             path: 'socios/:id',
             element: <SocioDetalle />,
+          },
+          {
+            path: 'socios/:id/editar',
+            element: <SocioForm />,
           },
           {
             path: 'jugadores',
