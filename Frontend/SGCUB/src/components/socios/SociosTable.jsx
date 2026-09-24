@@ -121,20 +121,7 @@ function SociosTable({ data, isLoading, error }) {
               <option value="activo">Activo</option>
               <option value="inactivo">Inactivo / De baja</option>
             </select>
-            <select
-              className="h-10 px-3 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-lg font-medium focus:outline-none focus:border-primary cursor-pointer"
-              value={tipo}
-              onChange={(event) => {
-                setTipo(event.target.value)
-                setPagina(1)
-              }}
-              aria-label="Filtrar por categoría de socio"
-            >
-              <option value="todos">Categoría: Todas las categorías</option>
-              {tiposDisponibles.map((nombre) => (
-                <option key={nombre} value={nombre}>{nombre}</option>
-              ))}
-            </select>
+            
           </div>
         </div>
         <div className="flex items-center justify-between sm:justify-end gap-3 pt-2 lg:pt-0">
