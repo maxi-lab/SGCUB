@@ -3,7 +3,7 @@ import MainLayout from './layouts/MainLayout'
 import AdminLayout from './layouts/AdminLayout'
 import Principal from './pages/Principal'
 import AdminPage from './pages/AdminPage'
-import Padron from './pages/Padron'
+import Socios from './pages/Socios'
 import Jugadores from './pages/Jugadores'
 import JugadorDetalle from './pages/JugadorDetalle'
 import SocioDetalle from './pages/SocioDetalle'
@@ -32,7 +32,7 @@ export const router = createBrowserRouter([
           },
           {
             path: 'socios',
-            element: <Padron />,
+            element: <Socios />,
           },
           {
             path: 'socios/:id',
