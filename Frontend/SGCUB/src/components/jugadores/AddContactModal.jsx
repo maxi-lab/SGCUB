@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../../api/conf'
 import { PrimaryButton, SecondaryButton } from '../personas/tabs/parts'
-
-const RELACIONES = ['Madre', 'Padre', 'Tutor', 'Abuelo', 'Hermano', 'Otro']
+import { RELATIONS } from './contacts'
 
 const contactoVacio = {
   dni: '',
@@ -117,7 +116,6 @@ export default function AddContactModal({ onClose, onSubmit }) {
     }
   }
 
-  // Los datos de una persona existente no se editan desde acá: solo se completa el vínculo.
   const datosBloqueados = saving || Boolean(personaSeleccionada)
 
   return (
@@ -221,7 +219,7 @@ export default function AddContactModal({ onClose, onSubmit }) {
           <InputField label="Relación" required>
             <select className={inputClass} value={form.relacion} onChange={change('relacion')} required disabled={saving}>
               <option value="" disabled>Seleccionar...</option>
-              {RELACIONES.map((relacion) => <option key={relacion} value={relacion}>{relacion}</option>)}
+              {RELATIONS.map((relacion) => <option key={relacion} value={relacion}>{relacion}</option>)}
             </select>
           </InputField>
           <label className="flex items-center gap-2 sm:mt-7 cursor-pointer select-none">
