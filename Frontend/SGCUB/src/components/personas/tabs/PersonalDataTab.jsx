@@ -50,12 +50,11 @@ export default function PersonalDataTab({ persona, localidades = [], deportivo }
             </span>
           )}
         >
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
             <Field
               label="Obra social / Cobertura médica"
               value={deportivo.obra_social}
               icon="health_and_safety"
-              className="md:col-span-2"
             />
             <Field label="Talle de indumentaria" value={deportivo.talla} icon="checkroom" />
             <Field label="Categoría" value={deportivo.categoria} icon="sports_soccer" />
