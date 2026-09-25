@@ -14,6 +14,7 @@ from .models import (
 	ItemCuota,
 	Pago,
 )
+from .services import crear_cuotas_jugadores
 from .serializers import (
 	ComprobanteSerializer,
 	CuentaCorrienteSerializer,
@@ -21,6 +22,7 @@ from .serializers import (
 	CuotaXPagoSerializer,
 	DetalleMedioPagoSerializer,
 	EstadoCuotaSerializer,
+	GenerarCuotasSerializer,
 	ItemCuotaSerializer,
 	PagoSerializer,
 )
@@ -82,6 +84,21 @@ def cuota_list_create(request):
 		CuotaSerializer,
 		Cuota.objects.select_related("cuenta_corriente"),
 	)
+
+
+@extend_schema(
+	tags=["Finanzas/GenerarCuotas"],
+	request=GenerarCuotasSerializer,
+	responses=CuotaSerializer(many=True),
+)
+@api_view(["PATCH"])
+def cuota_generar(request):
+	serializer = GenerarCuotasSerializer(data=request.data)
+	if not serializer.is_valid():
+		return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+	cuotas = crear_cuotas_jugadores(**serializer.validated_data)
+	return Response(CuotaSerializer(cuotas, many=True).data)
 
 
 @extend_schema(tags=["Finanzas/Cuota"], request=CuotaSerializer, responses=CuotaSerializer)
