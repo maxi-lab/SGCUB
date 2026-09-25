@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { deleteJugador, getJugador, patchJugador } from '../api/jugadores'
 import DeleteJugadorModal from '../components/jugadores/DeleteJugadorModal'
-import EditJugadorModal from '../components/jugadores/EditJugadorModal'
 import PersonHeader, { EditButton, DeleteButton } from '../components/personas/HeaderPersona'
 import PersonTabs from '../components/personas/TabsNavPersonas'
 import PersonalDataTab from '../components/personas/tabs/PersonalDataTab'
@@ -11,62 +10,34 @@ import FinancialTab from '../components/personas/tabs/FinancialTab'
 import DocumentationTab from '../components/personas/tabs/DocumentationTab'
 import { LoadingFile, ErrorFile } from '../components/personas/FileStatus'
 import { isActiveStatus, formatDni, formatDate, formatNumber, getErrorMessage } from '../components/personas/format'
-import useCategorias from '../hooks/useCategorias'
 import useFinancialStatus from '../hooks/useEstadoFinanciero'
-import useEstados from '../hooks/useEstados'
-import useJugadores from '../hooks/useJugadores'
 import useLocalidades from '../hooks/useLocalidades'
-import useSocio from '../hooks/useSocio'
 
-const getFormFromPlayer = (player) => ({
-  socio: String(player.socio?.socio_id ?? ''),
-  nuevo_socio: {
-    nombre: player.socio?.nombre ?? '',
-    apellido: player.socio?.apellido ?? '',
-    dni: player.socio?.dni ?? '',
-    telefono: player.socio?.telefono ?? '',
-    email: player.socio?.email ?? '',
+const getContacts = (player) => (player.contactos_emergencia ?? []).map((c) => ({
+  contacto_emergencia_id: c.contacto_emergencia_id,
+  persona: {
+    nombre: c.persona?.nombre ?? '',
+    apellido: c.persona?.apellido ?? '',
+    dni: c.persona?.dni ?? '',
+    telefono: c.persona?.telefono ?? '',
+    email: c.persona?.email ?? null,
   },
-  categoria: String(player.categoria?.categoria_id ?? ''),
-  estado: String(player.estado?.estado_id ?? ''),
-  obra_social: player.obra_social ?? '',
-  tallaIndumentaria: player.tallaIndumentaria ?? '',
-  contactos_emergencia: (player.contactos_emergencia ?? []).map((c) => ({
-    contacto_emergencia_id: c.contacto_emergencia_id,
-    persona: {
-      nombre: c.persona?.nombre ?? '',
-      apellido: c.persona?.apellido ?? '',
-      dni: c.persona?.dni ?? '',
-      telefono: c.persona?.telefono ?? '',
-      email: c.persona?.email ?? null,
-    },
-    relacion: c.relacion ?? '',
-    responsable_legal: Boolean(c.responsable_legal),
-  })),
-})
+  relacion: c.relacion ?? '',
+  responsable_legal: Boolean(c.responsable_legal),
+}))
 
 function JugadorDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
 
-  // Guarda el id cargado para derivar "cargando" sin setState síncrono en el effect.
   const [carga, setCarga] = useState({ id: null, datos: null, error: null })
   const loading = carga.id !== id
   const jugador = carga.datos
   const error = carga.error
   const setJugador = (datos) => setCarga((actual) => ({ ...actual, datos }))
 
-  const { socios } = useSocio()
-  const { jugadores } = useJugadores()
-  const { categorias } = useCategorias()
-  const { estados } = useEstados()
   const { localidades } = useLocalidades()
   const financiero = useFinancialStatus(jugador?.socio?.socio_id)
-
-  const [modalEdicionAbierto, setModalEdicionAbierto] = useState(false)
-  const [guardandoEdicion, setGuardandoEdicion] = useState(false)
-  const [errorEdicion, setErrorEdicion] = useState('')
-  const [formulario, setFormulario] = useState(null)
 
   const [modalEliminarAbierto, setModalEliminarAbierto] = useState(false)
   const [eliminando, setEliminando] = useState(false)
@@ -82,39 +53,11 @@ function JugadorDetail() {
     return () => { activo = false }
   }, [id])
 
-  const abrirModalEdicion = () => {
-    setErrorEdicion('')
-    setFormulario(getFormFromPlayer(jugador))
-    setModalEdicionAbierto(true)
-  }
 
-  const guardarEdicion = async (event) => {
-    event.preventDefault()
-    setGuardandoEdicion(true)
-    setErrorEdicion('')
-    try {
-      const actualizado = await patchJugador(jugador.jugador_id, {
-        socio: formulario.socio,
-        categoria: formulario.categoria,
-        estado: formulario.estado,
-        obra_social: formulario.obra_social,
-        tallaIndumentaria: formulario.tallaIndumentaria,
-        contactos_emergencia: formulario.contactos_emergencia,
-      })
-      setJugador(actualizado)
-      setModalEdicionAbierto(false)
-    } catch (requestError) {
-      setErrorEdicion(getErrorMessage(requestError, 'No se pudo editar el jugador.'))
-    } finally {
-      setGuardandoEdicion(false)
-    }
-  }
-
-  // Se envía la lista completa de contactos porque el PATCH del jugador la reemplaza.
   const agregarContacto = async (contacto) => {
     try {
       const actualizado = await patchJugador(jugador.jugador_id, {
-        contactos_emergencia: [...getFormFromPlayer(jugador).contactos_emergencia, contacto],
+        contactos_emergencia: [...getContacts(jugador), contacto],
       })
       setJugador(actualizado)
     } catch (requestError) {
@@ -124,7 +67,7 @@ function JugadorDetail() {
 
   const eliminarContacto = async (contacto) => {
     try {
-      const contactosRestantes = getFormFromPlayer(jugador).contactos_emergencia
+      const contactosRestantes = getContacts(jugador)
         .filter((item) => item.contacto_emergencia_id !== contacto.contacto_emergencia_id)
       const actualizado = await patchJugador(jugador.jugador_id, {
         contactos_emergencia: contactosRestantes,
@@ -222,7 +165,7 @@ function JugadorDetail() {
         ]}
         actions={(
           <>
-            <EditButton onClick={abrirModalEdicion} />
+            <EditButton onClick={() => navigate(`/padron/jugadores/${jugador.jugador_id}/editar`)} />
             <DeleteButton
               onClick={() => {
                 setErrorEliminacion('')
@@ -234,22 +177,6 @@ function JugadorDetail() {
       />
 
       <PersonTabs tabs={tabs} />
-
-      {formulario && (
-        <EditJugadorModal
-          opened={modalEdicionAbierto}
-          onClose={() => !guardandoEdicion && setModalEdicionAbierto(false)}
-          onSubmit={guardarEdicion}
-          formulario={formulario}
-          onChange={(campo, valor) => setFormulario((actual) => ({ ...actual, [campo]: valor }))}
-          socios={socios}
-          jugadores={jugadores}
-          categorias={categorias}
-          estados={estados}
-          loading={guardandoEdicion}
-          error={errorEdicion}
-        />
-      )}
 
       <DeleteJugadorModal
         opened={modalEliminarAbierto}

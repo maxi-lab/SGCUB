@@ -39,7 +39,6 @@ function AddJugadorModal({
   const [buscandoPersona, setBuscandoPersona] = useState(false)
   const [personaEncontrada, setPersonaEncontrada] = useState(null)
 
-  // Filtrar socios que NO tienen ya un jugador asignado
   const sociosConJugadorIds = useMemo(() => {
     return new Set(
       (jugadores || []).map((j) => String(j.socio?.socio_id)).filter(Boolean),
@@ -59,7 +58,6 @@ function AddJugadorModal({
     let generoNombre = null
     let anioNac = null
 
-    // 1. Extraer los datos según el modo del formulario
     if (formulario.modo_socio === 'existente' && formulario.socio) {
       const socioElegido = socios.find((s) => String(s.socio_id) === String(formulario.socio))
       if (socioElegido) {
@@ -77,7 +75,6 @@ function AddJugadorModal({
       }
     }
 
-    // 2. Filtrar las categorías
     let categoriasFiltradas = categorias
     
     if (anioNac && generoNombre) {
