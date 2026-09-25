@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react'
 import { formatDni } from '../format'
 import { PrimaryButton, Field, TabHeader, EmptyState } from './parts'
-import AddContactModal from './AddContactModal'
+import AddContactModal from '../../jugadores/AddContactModal'
 
 function LegalGuardianBadge({ isLegalGuardian }) {
   return isLegalGuardian ? (
-    <span className="inline-flex items-center justify-center px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-sm font-semibold border border-emerald-200">Sí</span>
+    <span className="inline-flex items-center justify-center px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-base font-semibold border border-emerald-200">Sí</span>
   ) : (
-    <span className="inline-flex items-center justify-center px-2.5 py-0.5 rounded-full bg-surface-container-high text-on-surface-variant text-sm font-medium border border-outline-variant/30">No</span>
+    <span className="inline-flex items-center justify-center px-2.5 py-0.5 rounded-full bg-surface-container-high text-on-surface-variant text-base font-medium border border-outline-variant/30">No</span>
   )
 }
 
@@ -35,9 +35,9 @@ function ContactDetailsModal({ contact, onClose }) {
             <h3 id="titulo-detalle-contacto" className="text-lg font-bold text-on-surface">{name}</h3>
             <div className="flex items-center gap-2 flex-wrap">
               {contact.relacion && (
-                <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-surface-container-high text-on-surface text-sm font-medium">{contact.relacion}</span>
+                <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-surface-container-high text-on-surface text-base font-medium">{contact.relacion}</span>
               )}
-              <span className={`text-sm font-semibold ${contact.responsable_legal ? 'text-emerald-700' : 'text-on-surface-variant'}`}>
+              <span className={`text-base font-semibold ${contact.responsable_legal ? 'text-emerald-700' : 'text-on-surface-variant'}`}>
                 {contact.responsable_legal ? 'Responsable legal autorizado' : 'Solo contacto de emergencia'}
               </span>
             </div>
@@ -98,7 +98,7 @@ function DeleteContactModal({ contact, onClose, onConfirm }) {
         <div className="flex items-start justify-between gap-4 px-6 py-4 border-b border-surface-container">
           <div>
             <h3 id="delete-contact-title" className="text-lg font-bold text-on-surface">Eliminar contacto</h3>
-            <p className="mt-1 text-sm text-on-surface-variant">¿Estás seguro de eliminar a {name}?</p>
+            <p className="mt-1 text-base text-on-surface-variant">¿Estás seguro de eliminar a {name}?</p>
           </div>
           <button
             type="button"
@@ -112,7 +112,7 @@ function DeleteContactModal({ contact, onClose, onConfirm }) {
         </div>
         <div className="p-6">
           <p className="text-base text-on-surface-variant">Esta acción quitará el vínculo familiar del jugador.</p>
-          {error && <p className="mt-4 px-3 py-2 rounded-lg bg-error-container/40 text-sm text-on-error-container" role="alert">{error}</p>}
+          {error && <p className="mt-4 px-3 py-2 rounded-lg bg-error-container/40 text-base text-on-error-container" role="alert">{error}</p>}
         </div>
         <div className="flex justify-end gap-2 px-6 py-4 border-t border-surface-container">
           <button
@@ -163,7 +163,7 @@ export default function FamilyTab({ contacts = [], onAdd, onDelete }) {
         <div className="overflow-x-auto border border-outline-variant/30 rounded-xl bg-surface-container-lowest shadow-sm">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-surface-container-low/70 border-b border-outline-variant/30 text-on-surface-variant text-sm uppercase tracking-wider">
+              <tr className="bg-surface-container-low/70 border-b border-outline-variant/30 text-on-surface-variant text-base uppercase tracking-wider">
                 <th className="py-3 px-4 font-semibold">Nombre y apellido</th>
                 <th className="py-3 px-4 font-semibold">DNI</th>
                 <th className="py-3 px-4 font-semibold">Teléfono</th>
@@ -186,10 +186,10 @@ export default function FamilyTab({ contacts = [], onAdd, onDelete }) {
                     </span>
                   </td>
                   <td className="py-3.5 px-4 text-on-surface-variant">{contact.persona?.dni ? formatDni(contact.persona.dni) : '—'}</td>
-                  <td className="py-3.5 px-4"><span className="font-mono text-sm text-on-surface">{contact.persona?.telefono || '—'}</span></td>
+                  <td className="py-3.5 px-4"><span className="font-mono text-base text-on-surface">{contact.persona?.telefono || '—'}</span></td>
                   <td className="py-3.5 px-4">
                     {contact.relacion ? (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-surface-container-high text-on-surface text-sm font-medium">{contact.relacion}</span>
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-surface-container-high text-on-surface text-base font-medium">{contact.relacion}</span>
                     ) : '—'}
                   </td>
                   <td className="py-3.5 px-4 text-center"><LegalGuardianBadge isLegalGuardian={contact.responsable_legal} /></td>

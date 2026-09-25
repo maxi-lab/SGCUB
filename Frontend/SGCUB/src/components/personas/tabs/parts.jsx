@@ -3,10 +3,10 @@
 export function RecordSection({ title, color = 'bg-primary-container', extra, children }) {
   return (
     <section className="flex flex-col gap-4">
-      <div className="flex items-center justify-between pb-1 border-b border-surface-container">
+      <div className="flex items-center justify-between pb-1 border-b border-surface-container mb-4">
         <div className="flex items-center gap-2">
           <span className={`w-1 h-5 rounded ${color}`} />
-          <h2 className="text-base text-on-surface font-bold tracking-tight uppercase">{title}</h2>
+          <h2 className="text-xl   text-on-surface font-bold tracking-tight ">{title}</h2>
         </div>
         {extra}
       </div>
@@ -17,11 +17,11 @@ export function RecordSection({ title, color = 'bg-primary-container', extra, ch
 
 export function TabHeader({ title, description, actions }) {
   return (
-    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-surface-container">
-      <div className="flex flex-col gap-1">
-        <div className="flex items-center gap-2">
-          <span className="w-1 h-5 bg-primary-container rounded" />
-          <h2 className="text-lg text-on-surface font-bold tracking-tight">{title}</h2>
+    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-surface-container ">
+      <div className="flex flex-col gap-1 ">
+        <div className="flex items-center gap-2 mb-4">
+          <span className="w-1 h-5 bg-primary-container rounded " />
+          <h2 className="text-xl text-on-surface font-bold tracking-tight">{title}</h2>
         </div>
         {description && <p className="text-base text-on-surface-variant">{description}</p>}
       </div>
