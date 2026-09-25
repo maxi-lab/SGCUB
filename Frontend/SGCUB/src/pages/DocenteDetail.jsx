@@ -8,6 +8,7 @@ import EditDocenteModal from '../components/docentes/EditDocenteModal'
 import PersonHeader, { EditButton, DeleteButton } from '../components/personas/HeaderPersona'
 import PersonTabs from '../components/personas/TabsNavPersonas'
 import PersonalDataTab from '../components/personas/tabs/PersonalDataTab'
+import CategoriesTab from '../components/personas/tabs/CategoriesTab'
 import { LoadingFile, ErrorFile } from '../components/personas/FileStatus'
 import { yearsSince, formatDni, formatDate, getErrorMessage, yearsText } from '../components/personas/format'
 import useGeneros from '../hooks/useGeneros'
@@ -144,6 +145,12 @@ function DocenteDetail() {
       icon: 'person',
       content: <PersonalDataTab persona={persona} localidades={localidades} />,
     },
+    {
+      id: 'categorias',
+      label: 'Categorías',
+      icon: 'groups',
+      content: <CategoriesTab assignments={categorias} />,
+    },
   ]
 
   return (
@@ -154,8 +161,8 @@ function DocenteDetail() {
           { label: 'Docentes', to: '/padron/docentes' },
           { label: `Legajo #${docente.legajo}` },
         ]}
-        nombre={persona.nombre}
-        apellido={persona.apellido}
+        name={persona.nombre}
+        surname={persona.apellido}
         metadata={[
           { label: 'DNI', value: formatDni(persona.dni) },
           { label: 'Legajo', value: `#${docente.legajo}`, highlighted: true },

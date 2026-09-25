@@ -1,9 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { api } from '../api/conf'
 import AddDocenteModal from '../components/docentes/AddDocenteModal'
-import EditDocenteModal from '../components/docentes/EditDocenteModal'
-import DeleteDocenteModal from '../components/docentes/DeleteDocenteModal'
 import DocentesTable from '../components/docentes/DocentesTable'
+import { exportarNominaCSV } from '../components/docentes/docentesUtils'
+import PageHeader from '../components/shared/PageHeader'
+import StatCard from '../components/shared/StatCard'
+import useCategorias from '../hooks/useCategorias'
 import useDocentes from '../hooks/useDocentes'
 import useGeneros from '../hooks/useGeneros'
 import useLocalidades from '../hooks/useLocalidades'
@@ -17,19 +19,35 @@ const formularioInicial = () => ({
 })
 
 function Docentes() {
-  const { docentes, isLoading, error, crearDocente, editarDocente, eliminarDocente } = useDocentes()
+  const { docentes, isLoading, error, crearDocente } = useDocentes()
+  const { categorias } = useCategorias()
   const { generos } = useGeneros()
   const { localidades } = useLocalidades()
+  const [categoriasPorDocente, setCategoriasPorDocente] = useState({})
   const [modalAbierto, setModalAbierto] = useState(false)
   const [guardando, setGuardando] = useState(false)
   const [errorGuardado, setErrorGuardado] = useState('')
-  const [docenteAEditar, setDocenteAEditar] = useState(null)
-  const [editando, setEditando] = useState(false)
-  const [errorEdicion, setErrorEdicion] = useState('')
-  const [docenteAEliminar, setDocenteAEliminar] = useState(null)
-  const [eliminando, setEliminando] = useState(false)
-  const [errorEliminacion, setErrorEliminacion] = useState('')
   const [formulario, setFormulario] = useState(formularioInicial)
+
+  useEffect(() => {
+    let cancelado = false
+    api.get('padron/docente-categoria/')
+      .then((response) => {
+        if (cancelado) return
+        const agrupadas = {}
+        ;(response.data ?? []).forEach(({ docente, categoria }) => {
+          if (!docente || !categoria) return
+          agrupadas[docente.docente_id] = [...(agrupadas[docente.docente_id] ?? []), categoria]
+        })
+        setCategoriasPorDocente(agrupadas)
+      })
+      .catch(() => {
+        if (!cancelado) setCategoriasPorDocente({})
+      })
+    return () => {
+      cancelado = true
+    }
+  }, [])
 
   const actualizarCampo = (campo, valor) => setFormulario((actual) => ({ ...actual, [campo]: valor }))
 
@@ -37,32 +55,6 @@ function Docentes() {
     setErrorGuardado('')
     setFormulario(formularioInicial())
     setModalAbierto(true)
-  }
-
-  const abrirModalEdicion = (docente) => {
-    setErrorEdicion('')
-    setDocenteAEditar(docente)
-    setFormulario({
-      nombre: docente.persona_detalle?.nombre ?? '',
-      apellido: docente.persona_detalle?.apellido ?? '',
-      dni: docente.persona_detalle?.dni ?? '',
-      email: docente.persona_detalle?.email ?? '',
-      telefono: docente.persona_detalle?.telefono ?? '',
-      fecha_nacimiento: docente.persona_detalle?.fecha_nacimiento ?? '',
-      genero: docente.persona_detalle?.genero ? String(docente.persona_detalle.genero) : '',
-      genero_otro: docente.persona_detalle?.genero_otro ?? '',
-      domicilio_calle: docente.persona_detalle?.domicilio_calle ?? '',
-      domicilio_numero: docente.persona_detalle?.domicilio_numero ?? '',
-      domicilio_piso: docente.persona_detalle?.domicilio_piso ?? '',
-      domicilio_departamento: docente.persona_detalle?.domicilio_departamento ?? '',
-      domicilio_entre_calle_1: docente.persona_detalle?.domicilio_entre_calle_1 ?? '',
-      domicilio_entre_calle_2: docente.persona_detalle?.domicilio_entre_calle_2 ?? '',
-      domicilio_barrio: docente.persona_detalle?.domicilio_barrio ?? '',
-      domicilio_localidad: docente.persona_detalle?.domicilio_localidad ? String(docente.persona_detalle.domicilio_localidad) : '',
-      legajo: docente.legajo ?? '',
-      fecha_ingreso: docente.fecha_ingreso ?? '',
-      persona: docente.persona ?? null,
-    })
   }
 
   const guardarDocente = async (event) => {
@@ -127,78 +119,43 @@ function Docentes() {
     }
   }
 
-  const guardarEdicion = async (event) => {
-    event.preventDefault()
-    setEditando(true)
-    setErrorEdicion('')
-
-    try {
-      await api.patch(`padron/persona/${formulario.persona}/`, {
-        nombre: formulario.nombre,
-        apellido: formulario.apellido,
-        dni: formulario.dni,
-        email: formulario.email,
-        telefono: formulario.telefono,
-        fecha_nacimiento: formulario.fecha_nacimiento || null,
-        genero: formulario.genero || null,
-        genero_otro: formulario.genero_otro || '',
-        domicilio_calle: formulario.domicilio_calle,
-        domicilio_numero: formulario.domicilio_numero,
-        domicilio_piso: formulario.domicilio_piso,
-        domicilio_departamento: formulario.domicilio_departamento,
-        domicilio_entre_calle_1: formulario.domicilio_entre_calle_1,
-        domicilio_entre_calle_2: formulario.domicilio_entre_calle_2,
-        domicilio_barrio: formulario.domicilio_barrio,
-        domicilio_localidad: formulario.domicilio_localidad || null,
-      })
-      await editarDocente(docenteAEditar.docente_id, {
-        legajo: Number(formulario.legajo),
-        ...(formulario.fecha_ingreso ? { fecha_ingreso: formulario.fecha_ingreso } : {}),
-      })
-      setDocenteAEditar(null)
-    } catch (requestError) {
-      const errorData = requestError.response?.data
-      let errorMsg = 'No se pudo editar el docente.'
-      if (errorData) {
-        if (typeof errorData === 'string') {
-          errorMsg = errorData
-        } else if (errorData.detail) {
-          errorMsg = errorData.detail
-        } else {
-          errorMsg = Object.entries(errorData)
-            .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(' ') : typeof v === 'object' ? JSON.stringify(v) : v}`)
-            .join(' | ')
-        }
-      }
-      setErrorEdicion(errorMsg)
-    } finally {
-      setEditando(false)
-    }
-  }
-
-  const confirmarEliminacion = async () => {
-    setEliminando(true)
-    setErrorEliminacion('')
-    try {
-      await eliminarDocente(docenteAEliminar.docente_id)
-      setDocenteAEliminar(null)
-    } catch (requestError) {
-      setErrorEliminacion(requestError.response?.data?.detail || 'No se pudo eliminar el docente.')
-    } finally {
-      setEliminando(false)
-    }
-  }
-
   return (
-    <section className="padron-section">
-      <section className="padron-table-section" aria-label="Docentes">
+    <div className="w-full flex flex-col gap-5">
+      <PageHeader
+        breadcrumb={[{ label: 'Personas' }, { label: 'Docentes' }]}
+        title="Docentes y Cuerpo Técnico"
+        actions={(
+          <>
+            <button
+              type="button"
+              onClick={() => exportarNominaCSV(docentes, categoriasPorDocente)}
+              disabled={docentes.length === 0}
+              className="inline-flex items-center gap-2 bg-surface-container-low hover:bg-surface-container-high border border-outline-variant/40 text-on-surface px-4 py-2 rounded shadow-sm font-label-lg text-base font-medium transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <span className="material-symbols-outlined text-[18px]" aria-hidden="true">file_download</span>
+              <span className="text-xl">Exportar nómina</span>
+            </button>
+            <button
+              type="button"
+              onClick={abrirModal}
+              className="inline-flex items-center gap-2 bg-primary text-on-primary hover:bg-primary/90 px-4 py-2 rounded shadow-sm font-label-lg text-base font-medium transition-colors cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[18px]" aria-hidden="true">person_add</span>
+              <span className="text-xl"> Nuevo docente</span>
+            </button>
+          </>
+        )}
+      />
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-10">
+        <StatCard label="Total Docentes" value={docentes.length.toLocaleString('es-AR')} icon="school" tone="neutral" />
+      </div>
+      <section aria-label="Docentes">
         <DocentesTable
           data={docentes}
+          categorias={categorias}
+          categoriasPorDocente={categoriasPorDocente}
           isLoading={isLoading}
           error={error}
-          onAdd={abrirModal}
-          onEdit={abrirModalEdicion}
-          onDelete={setDocenteAEliminar}
         />
       </section>
 
@@ -214,29 +171,7 @@ function Docentes() {
         loading={guardando}
         error={errorGuardado}
       />
-
-      <EditDocenteModal
-        opened={Boolean(docenteAEditar)}
-        onClose={() => !editando && setDocenteAEditar(null)}
-        onSubmit={guardarEdicion}
-        formulario={formulario}
-        onChange={actualizarCampo}
-        docentes={docentes}
-        generos={generos}
-        localidades={localidades}
-        loading={editando}
-        error={errorEdicion}
-      />
-
-      <DeleteDocenteModal
-        opened={Boolean(docenteAEliminar)}
-        onClose={() => !eliminando && setDocenteAEliminar(null)}
-        onConfirm={confirmarEliminacion}
-        docente={docenteAEliminar}
-        loading={eliminando}
-        error={errorEliminacion}
-      />
-    </section>
+    </div>
   )
 }
 
