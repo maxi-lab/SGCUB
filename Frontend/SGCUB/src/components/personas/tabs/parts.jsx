@@ -3,10 +3,10 @@
 export function RecordSection({ title, color = 'bg-primary-container', extra, children }) {
   return (
     <section className="flex flex-col gap-4">
-      <div className="flex items-center justify-between pb-1 border-b border-surface-container">
+      <div className="flex items-center justify-between pb-1 border-b border-surface-container mb-3">
         <div className="flex items-center gap-2">
           <span className={`w-1 h-5 rounded ${color}`} />
-          <h2 className="text-base text-on-surface font-bold tracking-tight uppercase">{title}</h2>
+          <h2 className="text-xl text-on-surface font-bold uppercase">{title}</h2>
         </div>
         {extra}
       </div>
@@ -21,7 +21,7 @@ export function TabHeader({ title, description, actions }) {
       <div className="flex flex-col gap-1">
         <div className="flex items-center gap-2">
           <span className="w-1 h-5 bg-primary-container rounded" />
-          <h2 className="text-lg text-on-surface font-bold tracking-tight">{title}</h2>
+          <h2 className="text-xl text-on-surface font-bold tracking-tight">{title}</h2>
         </div>
         {description && <p className="text-base text-on-surface-variant">{description}</p>}
       </div>
@@ -34,9 +34,9 @@ export function Field({ label, value, icon, iconClass = 'text-outline', help, cl
   const isEmpty = value === null || value === undefined || value === ''
   return (
     <div className={`flex flex-col gap-1.5 ${className}`}>
-      <span className="text-sm text-on-surface-variant font-semibold">{label}</span>
+      <span className="text-base text-on-surface-variant font-semibold">{label}</span>
       <div className="relative flex items-center w-full min-h-10 px-3 py-2 bg-surface-container-low rounded-lg text-base text-on-surface">
-        {icon && <span className={`material-symbols-outlined text-[18px] mr-2 ${iconClass}`}>{icon}</span>}
+        {icon && <span className={`material-symbols-outlined text-base mr-2 ${iconClass}`}>{icon}</span>}
         <span className={`truncate ${isEmpty ? 'text-outline' : ''}`}>{isEmpty ? 'No registrado' : value}</span>
       </div>
       {help && <span className="text-xs text-on-surface-variant font-medium">{help}</span>}
@@ -57,10 +57,10 @@ export function KPI({ label, value, icon, tone = 'neutral' }) {
     <div className={`p-4 rounded-xl border flex items-center justify-between gap-2 ${style.caja}`}>
       <div className="flex flex-col min-w-0">
         <span className={`text-sm font-medium ${style.label}`}>{label}</span>
-        <span className={`text-[26px] leading-9 font-bold mt-0.5 truncate ${style.text}`}>{value}</span>
+        <span className={`text-lg leading-9 font-bold mt-0.5 truncate ${style.text}`}>{value}</span>
       </div>
       <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${style.icon}`}>
-        <span className="material-symbols-outlined text-[22px]">{icon}</span>
+        <span className="material-symbols-outlined text-lg">{icon}</span>
       </div>
     </div>
   )
@@ -69,9 +69,9 @@ export function KPI({ label, value, icon, tone = 'neutral' }) {
 export function EmptyState({ icon, title, description }) {
   return (
     <div className="flex flex-col items-center justify-center text-center gap-2 py-12 px-4 border border-dashed border-outline-variant/50 rounded-xl">
-      <span className="material-symbols-outlined text-[36px] text-outline">{icon}</span>
-      <p className="text-base font-semibold text-on-surface">{title}</p>
-      {description && <p className="text-sm text-on-surface-variant max-w-md">{description}</p>}
+      <span className="material-symbols-outlined text-xl text-outline">{icon}</span>
+      <p className="text-lg font-semibold text-on-surface">{title}</p>
+      {description && <p className="text-xl text-on-surface-variant max-w-md">{description}</p>}
     </div>
   )
 }
