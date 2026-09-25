@@ -59,8 +59,11 @@ def estado_socio_detail(request, pk):
 def persona_list_create(request):
     if request.method == "GET":
         dni = request.query_params.get("dni")
+        dni_prefix = request.query_params.get("dni_prefix")
         if dni:
             personas = Persona.objects.filter(dni=dni)
+        elif dni_prefix:
+            personas = Persona.objects.filter(dni__startswith=dni_prefix).order_by("dni")[:5]
         else:
             personas = Persona.objects.all()
         serializer = PersonaSerializer(personas, many=True)
