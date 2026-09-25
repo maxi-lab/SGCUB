@@ -117,6 +117,7 @@ function JugadorDetail() {
           localidades={localidades}
           deportivo={{
             categoria: jugador.categoria?.nombre,
+            categoria_secundaria: jugador.categoria_secundaria?.nombre,
             estado: jugador.estado?.nombre,
             obra_social: jugador.obra_social,
             talla: jugador.tallaIndumentaria,

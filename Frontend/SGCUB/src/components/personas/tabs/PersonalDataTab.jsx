@@ -59,6 +59,7 @@ export default function PersonalDataTab({ persona, localidades = [], deportivo }
             />
             <Field label="Talle de indumentaria" value={deportivo.talla} icon="checkroom" />
             <Field label="Categoría" value={deportivo.categoria} icon="sports_soccer" />
+            <Field label="Categoría secundaria" value={deportivo.categoria_secundaria} icon="sports_soccer" />
           </div>
         </RecordSection>
       )}

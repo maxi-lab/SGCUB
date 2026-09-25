@@ -52,6 +52,10 @@ export const router = createBrowserRouter([
             element: <Jugadores />,
           },
           {
+            path: 'jugadores/nuevo',
+            element: <JugadorForm />,
+          },
+          {
             path: 'jugadores/:id',
             element: <JugadorDetail />,
           },
