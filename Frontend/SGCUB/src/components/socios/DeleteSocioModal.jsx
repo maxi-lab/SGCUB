@@ -6,12 +6,16 @@ function DeleteSocioModal({ opened, onClose, onConfirm, socio, loading, error })
     : 'este socio'
 
   return (
-    <Modal opened={opened} onClose={onClose} title="Eliminar socio" centered>
-      <Text>
+    <Modal opened={opened} onClose={onClose} title={
+    <Text fw={700} size="xl" >
+      Confirmar eliminación
+    </Text>
+    } centered>
+      <Text size="md">
         ¿Seguro que querés eliminar a <strong>{nombreCompleto}</strong>?
       </Text>
       {error && (
-        <Text color="red" size="sm" mt="md">
+        <Text color="red" size="base" mt="md">
           {error}
         </Text>
       )}
