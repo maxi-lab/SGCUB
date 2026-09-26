@@ -22,7 +22,7 @@ function ContactDetailsModal({ contact, onClose }) {
   const name = `${person.nombre ?? ''} ${person.apellido ?? ''}`.trim() || 'Sin nombre'
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-inverse-surface/40" onClick={onClose}>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 bg-inverse-surface/40" onClick={onClose}>
       <div
         role="dialog"
         aria-modal="true"
@@ -30,10 +30,10 @@ function ContactDetailsModal({ contact, onClose }) {
         className="w-full max-w-lg bg-surface-container-lowest rounded-xl shadow-xl overflow-hidden"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-4 px-6 py-4 border-b border-surface-container">
+        <div className="flex items-start justify-between gap-4 px-6 pt-4 border-b border-surface-container">
           <div className="flex flex-col gap-1">
-            <h3 id="titulo-detalle-contacto" className="text-lg font-bold text-on-surface">{name}</h3>
-            <div className="flex items-center gap-2 flex-wrap">
+            <h2 id="titulo-detalle-contacto" className="text-xl font-bold text-on-surface">{name}</h2>
+            <div className="flex items-center gap-2 mb-3 flex-wrap">
               {contact.relacion && (
                 <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-surface-container-high text-on-surface text-base font-medium">{contact.relacion}</span>
               )}
