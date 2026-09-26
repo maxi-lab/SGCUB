@@ -81,6 +81,10 @@ export const router = createBrowserRouter([
             element: <DocenteDetail />,
           },
           {
+            path: 'docentes/:id/editar',
+            element: <DocenteForm />,
+          },
+          {
             path: 'categorias/:id',
             element: <CategoriaDetalle />,
           },
