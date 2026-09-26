@@ -1,11 +1,12 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api/conf'
-import { deleteDocente, postDocente } from '../api/docentes'
-import { postDocenteCategoria } from '../api/docenteCategoria'
+import { deleteDocente, getDocente, postDocente } from '../api/docentes'
+import { deleteDocenteCategoria, docenteCategoriaByDocente, postDocenteCategoria } from '../api/docenteCategoria'
 import { CARGOS } from '../components/docentes/docentesUtils'
-import { formatDni, getErrorMessage } from '../components/personas/format'
+import { ErrorFile, LoadingFile } from '../components/personas/FileStatus'
+import { formatDate, formatDni, getErrorMessage } from '../components/personas/format'
 import PageHeader from '../components/shared/PageHeader'
 import { CAMPOS_OBLIGATORIOS, FORM_INICIAL, claseInput, enfocarCampo, socioAFormulario, validar } from '../components/socios/socioForm'
 import { Campo, SeccionDatosPersonales, SeccionDomicilio, SeccionTitulo } from '../components/socios/SocioFormFields'
@@ -28,6 +29,36 @@ const personaAFormulario = (persona) => {
   const datos = socioAFormulario(persona)
   delete datos.estado_socio
   return datos
+}
+
+const cargoDe = (registro) => (typeof registro.cargo === 'string' ? registro.cargo : registro.cargo?.nombre ?? '')
+const categoriaIdDe = (registro) => String(registro.categoria?.categoria_id ?? registro.categoria_id ?? '')
+
+function registrosAFilas(registros) {
+  const porCargo = new Map()
+  registros.forEach((registro) => {
+    const categoriaId = categoriaIdDe(registro)
+    if (!categoriaId) return
+    const cargo = cargoDe(registro)
+    porCargo.set(cargo, [...(porCargo.get(cargo) ?? []), categoriaId])
+  })
+  const filas = [...porCargo].map(([cargo, categorias]) => ({ clave: nuevaClave(), cargo, categorias }))
+  return filas.length > 0 ? filas : [nuevaAsignacion()]
+}
+
+async function sincronizarAsignaciones(docenteId, registros, asignaciones) {
+  const deseadas = new Map(asignaciones.flatMap((fila) => fila.categorias.map((categoriaId) => [categoriaId, fila.cargo])))
+  const aBorrar = registros.filter((registro) => deseadas.get(categoriaIdDe(registro)) !== cargoDe(registro))
+  const vigentes = new Set(registros.filter((registro) => !aBorrar.includes(registro)).map(categoriaIdDe))
+
+  await Promise.all(aBorrar.map((registro) => deleteDocenteCategoria(registro.docente_categoria_id)))
+  await Promise.all([...deseadas]
+    .filter(([categoriaId]) => !vigentes.has(categoriaId))
+    .map(([categoriaId, cargo]) => postDocenteCategoria({
+      docente_id: Number(docenteId),
+      categoria_id: Number(categoriaId),
+      cargo,
+    })))
 }
 
 function validarAsignaciones(asignaciones) {
@@ -298,6 +329,8 @@ function FilaAsignacion({ fila, indice, errores, categorias, categoriasOcupadas,
 }
 
 function DocenteForm() {
+  const { id } = useParams()
+  const editando = Boolean(id)
   const navigate = useNavigate()
 
   const { docentes } = useDocentes()
@@ -312,8 +345,32 @@ function DocenteForm() {
   const [errorGuardado, setErrorGuardado] = useState('')
   const [personaEncontrada, setPersonaEncontrada] = useState(null)
   const [buscandoPersona, setBuscandoPersona] = useState(false)
+  const [docenteOriginal, setDocenteOriginal] = useState(null)
+  const [registrosOriginales, setRegistrosOriginales] = useState([])
+  const [cargando, setCargando] = useState(editando)
+  const [errorCarga, setErrorCarga] = useState('')
 
-  const localidadPorDefecto = String(localidades.find((l) => l.nombre?.toLowerCase() === 'berisso')?.localidad_id ?? '')
+  useEffect(() => {
+    if (!editando) return undefined
+    let activo = true
+    Promise.all([getDocente(id), docenteCategoriaByDocente(id).catch(() => [])])
+      .then(([docente, registros]) => {
+        if (!activo) return
+        setDocenteOriginal(docente)
+        setFormulario(personaAFormulario(docente.persona_detalle ?? {}))
+        setRegistrosOriginales(registros)
+        setAsignaciones(registrosAFilas(registros))
+      })
+      .catch((requestError) => {
+        if (activo) setErrorCarga(requestError.response?.data?.detail || 'No se pudo cargar el docente.')
+      })
+      .finally(() => activo && setCargando(false))
+    return () => { activo = false }
+  }, [editando, id])
+
+  const localidadPorDefecto = editando
+    ? ''
+    : String(localidades.find((l) => l.nombre?.toLowerCase() === 'berisso')?.localidad_id ?? '')
   const formulario = useMemo(() => ({
     ...formularioEditado,
     domicilio_localidad: formularioEditado.domicilio_localidad || localidadPorDefecto,
@@ -330,8 +387,8 @@ function DocenteForm() {
   const dniIngresado = formulario.dni.trim()
   const docenteDelDni = useMemo(() => {
     if (!/^\d{7,8}$/.test(dniIngresado)) return null
-    return docentes.find((d) => String(d.persona_detalle?.dni) === dniIngresado) ?? null
-  }, [docentes, dniIngresado])
+    return docentes.find((d) => String(d.persona_detalle?.dni) === dniIngresado && String(d.docente_id) !== String(id)) ?? null
+  }, [docentes, dniIngresado, id])
 
   const limpiarError = (campo) => {
     if (errores[campo]) setErrores((actuales) => ({ ...actuales, [campo]: undefined }))
@@ -351,7 +408,7 @@ function DocenteForm() {
   })
 
   const buscarPersonaPorDni = async () => {
-    if (!/^\d{7,8}$/.test(dniIngresado) || docenteDelDni) return
+    if (editando || !/^\d{7,8}$/.test(dniIngresado) || docenteDelDni) return
     setBuscandoPersona(true)
     try {
       const response = await api.get(`padron/persona/?dni=${dniIngresado}`)
@@ -417,6 +474,22 @@ function DocenteForm() {
     }
 
     setGuardando(true)
+    if (editando) {
+      try {
+        await api.patch(`padron/persona/${docenteOriginal.persona}/`, datosPersona)
+        await sincronizarAsignaciones(id, registrosOriginales, asignaciones)
+        navigate(`/padron/docentes/${id}`)
+      } catch (requestError) {
+        // Si la sincronización quedó a medias, se toma el estado real para que un reintento sea consistente.
+        setRegistrosOriginales(await docenteCategoriaByDocente(id).catch(() => registrosOriginales))
+        setErrorGuardado(getErrorMessage(requestError, 'No se pudo modificar el docente.'))
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+      } finally {
+        setGuardando(false)
+      }
+      return
+    }
+
     let docente = null
     try {
       const personaExistente = personaEncontrada
@@ -441,6 +514,12 @@ function DocenteForm() {
     }
   }
 
+  if (cargando) return <LoadingFile text="Cargando datos del docente..." />
+  if (errorCarga) return <ErrorFile message={errorCarga} backTo="/padron/docentes" backText="Volver a docentes" />
+
+  const rutaVolver = editando ? `/padron/docentes/${id}` : '/padron/docentes'
+  const personaOriginal = docenteOriginal?.persona_detalle
+  const nombreEditado = personaOriginal ? `${personaOriginal.nombre ?? ''} ${personaOriginal.apellido ?? ''}`.trim() : ''
   const dniConError = Boolean(errores.dni) || Boolean(docenteDelDni)
   const iconoDni = buscandoPersona ? 'progress_activity' : dniConError ? 'warning' : personaEncontrada ? 'check_circle' : 'fingerprint'
   const colorIconoDni = dniConError ? 'text-error' : personaEncontrada ? 'text-[#00875a]' : 'text-outline'
@@ -451,25 +530,30 @@ function DocenteForm() {
         breadcrumb={[
           { label: 'Personas' },
           { label: 'Docentes', to: '/padron/docentes' },
-          { label: 'Nuevo docente' },
+          ...(editando && nombreEditado ? [{ label: nombreEditado, to: rutaVolver }] : []),
+          { label: editando ? 'Editar' : 'Nuevo docente' },
         ]}
-        title="Alta de Nuevo Docente"
+        title={editando ? 'Editar Docente' : 'Alta de Nuevo Docente'}
         actions={(
           <>
             <div className="px-3 py-1.5 bg-surface-container-lowest border border-outline-variant/30 rounded flex items-center gap-2">
-              <span className="text-base font-semibold text-outline uppercase tracking-wider">Próximo legajo:</span>
-              <span className="font-mono text-base font-bold text-primary">{formatearLegajo(proximoLegajo)}</span>
+              <span className="text-base font-semibold text-outline uppercase tracking-wider">{editando ? 'Legajo:' : 'Próximo legajo:'}</span>
+              <span className="font-mono text-base font-bold text-primary">
+                {formatearLegajo(editando ? docenteOriginal.legajo : proximoLegajo)}
+              </span>
             </div>
             <div className="px-3 py-1.5 bg-surface-container-lowest border border-outline-variant/30 rounded flex items-center gap-2">
               <span className="text-base font-semibold text-outline uppercase tracking-wider">Fecha de ingreso:</span>
-              <span className="text-base font-semibold text-on-surface">{`Hoy (${new Date().toLocaleDateString('es-AR')})`}</span>
+              <span className="text-base font-semibold text-on-surface">
+                {editando ? formatDate(docenteOriginal.fecha_ingreso) : `Hoy (${new Date().toLocaleDateString('es-AR')})`}
+              </span>
             </div>
             <Link
-              to="/padron/docentes"
+              to={rutaVolver}
               className="inline-flex items-center gap-1.5 text-base font-medium text-on-surface-variant hover:text-primary px-3 py-1.5 rounded transition-colors bg-surface-container-lowest border border-outline-variant/30"
             >
               <span className="material-symbols-outlined text-base">arrow_back</span>
-              <span>Volver al listado</span>
+              <span>{editando ? 'Volver a la ficha' : 'Volver al listado'}</span>
             </Link>
           </>
         )}
@@ -563,7 +647,7 @@ function DocenteForm() {
 
             <SeccionDomicilio bindInput={bindInput} errores={errores} localidades={localidades} />
 
-            {/* Datos deportivos */}
+            {/* Datos deportivos, PRIMERO HAY QUE ACTUALIZAR EL BACKEND 
             <div className="flex flex-col gap-4 pt-4 border-t border-outline-variant/20">
               <SeccionTitulo
                 icono="sports_soccer"
@@ -594,7 +678,7 @@ function DocenteForm() {
                 />
               ))}
             </div>
-
+            */}
             {/* Acciones */}
             <div className="mt-8 pt-6 border-t border-outline-variant/20 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div className="text-base text-on-surface-variant flex items-center gap-1.5">
@@ -602,7 +686,7 @@ function DocenteForm() {
               </div>
               <div className="flex items-center gap-3 self-end sm:self-auto">
                 <Link
-                  to="/padron/docentes"
+                  to={rutaVolver}
                   className="px-5 py-2.5 rounded text-sm font-medium text-on-surface hover:bg-surface-container-low transition-colors border border-outline-variant/40"
                 >
                   Cancelar
@@ -615,7 +699,7 @@ function DocenteForm() {
                   <span className={`material-symbols-outlined text-base ${guardando ? 'animate-spin' : ''}`}>
                     {guardando ? 'progress_activity' : 'save'}
                   </span>
-                  <span>{guardando ? 'Guardando...' : 'Guardar docente'}</span>
+                  <span>{guardando ? 'Guardando...' : editando ? 'Guardar cambios' : 'Guardar docente'}</span>
                 </button>
               </div>
             </div>
