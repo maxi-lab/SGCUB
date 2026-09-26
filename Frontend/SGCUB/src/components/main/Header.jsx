@@ -8,7 +8,7 @@ export default function Header({ collapsed = false }) {
         <div className="relative flex items-center">
           <span className="material-symbols-outlined absolute left-3 text-outline text-[20px]">search</span>
           <input 
-            className="w-full h-10 pl-10 pr-20 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface placeholder:text-outline font-body-md text-body-md focus:outline-none focus:border-primary focus:bg-surface-container-lowest transition-colors" 
+            className="w-full h-10 pl-10 pr-20 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface placeholder:text-outline text-base focus:outline-none focus:border-primary focus:bg-surface-container-lowest transition-colors"
             placeholder="Buscar por DNI, Nombre, Apellido o N° de Socio..." 
             type="text" 
           />
@@ -31,8 +31,8 @@ export default function Header({ collapsed = false }) {
             <span className="material-symbols-outlined text-[20px]">person</span>
           </div>
           <div className="flex flex-col text-left">
-            <span className="font-label-lg text-label-lg text-on-surface font-semibold leading-tight">Alvite Damián</span>
-            <span className="font-label-sm text-label-sm text-primary font-medium">Administrativo</span>
+            <span className="text-base text-on-surface font-semibold leading-tight">Alvite Damián</span>
+            <span className="text-sm text-primary font-medium">Administrativo</span>
           </div>
         </div>
         
@@ -40,7 +40,7 @@ export default function Header({ collapsed = false }) {
         
         <button className="flex items-center gap-1 p-2 rounded text-on-surface-variant hover:bg-error-container hover:text-on-error-container transition-colors" title="Cerrar sesión">
           <span className="material-symbols-outlined text-[20px]">logout</span>
-          <span className="font-label-sm text-label-sm">Salir</span>
+          <span className="text-sm">Salir</span>
         </button>
       </div>
 

@@ -22,10 +22,10 @@ export default function Sidebar({ collapsed, onToggle }) {
         </div>
         <div className="app-sidebar-scroll">
           <nav className="app-sidebar-nav">
-            <NavLink end to="/" className={({ isActive }) => `app-sidebar-link flex items-center justify-between px-space-sm py-2 rounded transition-colors font-title-md font-semibold ${isActive ? 'app-sidebar-link--active' : ''}`}>
+            <NavLink end to="/" className={({ isActive }) => `app-sidebar-link flex items-center justify-between px-space-sm py-2 rounded transition-colors text-base font-semibold ${isActive ? 'app-sidebar-link--active' : ''}`}>
               <div className="flex items-center gap-space-sm">
                 <span className="material-symbols-outlined text-[20px]">grid_view</span>
-                <span className="font-body-md text-body-md">Inicio</span>
+                <span className="text-base">Inicio</span>
               </div>
             </NavLink>
             
@@ -34,26 +34,26 @@ export default function Sidebar({ collapsed, onToggle }) {
               <div className={`app-sidebar-section flex items-center justify-between px-space-sm py-2 rounded text-on-surface-variant font-medium select-none cursor-pointer ${personasActive ? 'app-sidebar-section--active' : ''}`}>
                 <div className="flex items-center gap-space-sm">
                   <span className="material-symbols-outlined text-[20px]">groups</span>
-                  <span className="font-body-md text-body-md font-semibold text-on-surface">Personas</span>
+                  <span className="text-base font-semibold text-on-surface">Personas</span>
                 </div>
               </div>
               <div className="flex flex-col gap-0.5 pl-6 border-l-2 border-outline-variant/30 ml-4 my-0.5">
                 <NavLink to="/padron/socios" className={({ isActive }) => `app-sidebar-link flex items-center justify-between px-space-sm py-1.5 rounded text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors ${isActive ? 'app-sidebar-link--active' : ''}`}>
                   <span className="app-sidebar-subitem-main">
                     <span className="app-sidebar-subitem-icon material-symbols-outlined" aria-hidden="true">person</span>
-                    <span className="font-body-sm text-body-sm">Socios</span>
+                    <span className="text-base">Socios</span>
                   </span>
                 </NavLink>
                 <NavLink to="/padron/jugadores" className={({ isActive }) => `app-sidebar-link flex items-center justify-between px-space-sm py-1.5 rounded text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors ${isActive ? 'app-sidebar-link--active' : ''}`}>
                   <span className="app-sidebar-subitem-main">
                     <span className="app-sidebar-subitem-icon material-symbols-outlined" aria-hidden="true">sports</span>
-                    <span className="font-body-sm text-body-sm">Jugadores</span>
+                    <span className="text-base">Jugadores</span>
                   </span>
                 </NavLink>
                 <NavLink to="/padron/docentes" className={({ isActive }) => `app-sidebar-link flex items-center justify-between px-space-sm py-1.5 rounded text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors ${isActive ? 'app-sidebar-link--active' : ''}`}>
                   <span className="app-sidebar-subitem-main">
                     <span className="app-sidebar-subitem-icon material-symbols-outlined" aria-hidden="true">school</span>
-                    <span className="font-body-sm text-body-sm">Docentes</span>
+                    <span className="text-base">Docentes</span>
                   </span>
                 </NavLink>
               </div>
@@ -64,26 +64,26 @@ export default function Sidebar({ collapsed, onToggle }) {
               <div className={`app-sidebar-section flex items-center justify-between px-space-sm py-2 rounded text-on-surface-variant font-medium select-none cursor-pointer ${finanzasActive ? 'app-sidebar-section--active' : ''}`}>
                 <div className="flex items-center gap-space-sm">
                   <span className="material-symbols-outlined text-[20px]">account_balance_wallet</span>
-                  <span className="font-body-md text-body-md font-semibold text-on-surface">Finanzas</span>
+                  <span className="text-base font-semibold text-on-surface">Finanzas</span>
                 </div>
               </div>
               <div className="flex flex-col gap-0.5 pl-6 border-l-2 border-outline-variant/30 ml-4 my-0.5">
                 <NavLink to="/resumen-financiero" className={({ isActive }) => `app-sidebar-link flex items-center justify-between px-space-sm py-1.5 rounded text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors ${isActive ? 'app-sidebar-link--active' : ''}`}>
                   <span className="app-sidebar-subitem-main">
                     <span className="app-sidebar-subitem-icon material-symbols-outlined" aria-hidden="true">account_balance</span>
-                    <span className="font-body-sm text-body-sm">Resumen financiero</span>
+                    <span className="text-base">Resumen financiero</span>
                   </span>
                 </NavLink>
                 <NavLink to="/morosidad" className={({ isActive }) => `app-sidebar-link flex items-center justify-between px-space-sm py-1.5 rounded text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors ${isActive ? 'app-sidebar-link--active' : ''}`}>
                   <span className="app-sidebar-subitem-main">
                     <span className="app-sidebar-subitem-icon material-symbols-outlined" aria-hidden="true">warning</span>
-                    <span className="font-body-sm text-body-sm">Reporte de morosidad</span>
+                    <span className="text-base">Reporte de morosidad</span>
                   </span>
                 </NavLink>
                 <NavLink to="/caja" className={({ isActive }) => `app-sidebar-link flex items-center justify-between px-space-sm py-1.5 rounded text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors ${isActive ? 'app-sidebar-link--active' : ''}`}>
                   <span className="app-sidebar-subitem-main">
                     <span className="app-sidebar-subitem-icon material-symbols-outlined" aria-hidden="true">point_of_sale</span>
-                    <span className="font-body-sm text-body-sm">Caja y cobros</span>
+                    <span className="text-base">Caja y cobros</span>
                   </span>
                 </NavLink>
               </div>
