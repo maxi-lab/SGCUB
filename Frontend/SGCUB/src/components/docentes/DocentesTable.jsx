@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { cargoDe, esActivo } from './docentesUtils'
+import { cargosDe, esActivo } from './docentesUtils'
 
 const nombreCompleto = (docente) =>
   [docente.persona_detalle?.nombre, docente.persona_detalle?.apellido].filter(Boolean).join(' ')
@@ -32,15 +32,15 @@ function DocentesTable({ data, categorias = [], categoriasPorDocente = {}, isLoa
   const docentes = useMemo(() => data ?? [], [data])
 
   const cargosDisponibles = useMemo(
-    () => [...new Set(docentes.map(cargoDe).filter(Boolean))].sort(),
-    [docentes],
+    () => cargosDe(Object.values(categoriasPorDocente).flat()).sort(),
+    [categoriasPorDocente],
   )
 
   const filtrados = useMemo(() => {
     const texto = busqueda.trim().toLowerCase()
     return docentes.filter((docente) => {
       const categoriasDocente = categoriasPorDocente[docente.docente_id] ?? []
-      if (cargo !== 'todos' && cargoDe(docente) !== cargo) return false
+      if (cargo !== 'todos' && !cargosDe(categoriasDocente).includes(cargo)) return false
       if (categoria !== 'todas' && !categoriasDocente.some((item) => String(item.categoria_id) === categoria)) return false
       if (estado === 'activo' && !esActivo(docente)) return false
       if (estado === 'baja' && esActivo(docente)) return false
@@ -51,7 +51,6 @@ function DocentesTable({ data, categorias = [], categoriasPorDocente = {}, isLoa
   }, [docentes, categoriasPorDocente, busqueda, cargo, categoria, estado])
 
   const totalPaginas = Math.max(1, Math.ceil(filtrados.length / filasPorPagina))
-  // Si el filtro dejó menos páginas que la actual, mostramos la última disponible.
   const paginaActual = Math.min(pagina, totalPaginas)
   const desde = (paginaActual - 1) * filasPorPagina
   const visibles = filtrados.slice(desde, desde + filasPorPagina)
@@ -169,7 +168,7 @@ function DocentesTable({ data, categorias = [], categoriasPorDocente = {}, isLoa
                   </span>
                 </td>
                 <td className="py-3 px-4 text-on-surface-variant">{docente.persona_detalle?.dni ?? '—'}</td>
-                <td className="py-3 px-4 text-on-surface-variant">{cargoDe(docente) || '—'}</td>
+                <td className="py-3 px-4 text-on-surface-variant">{cargosDe(categoriasPorDocente[docente.docente_id]).join(', ') || '—'}</td>
                 <td className="py-3 px-4 text-on-surface-variant">
                   {nombresCategorias(categoriasPorDocente[docente.docente_id] ?? [])}
                 </td>

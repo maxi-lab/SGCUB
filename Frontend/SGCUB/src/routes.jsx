@@ -9,6 +9,7 @@ import JugadorDetail from './pages/JugadorDetail'
 import JugadorForm from './pages/JugadorForm'
 import SocioDetail from './pages/SocioDetail'
 import DocenteDetail from './pages/DocenteDetail'
+import DocenteForm from './pages/DocenteForm'
 import SocioForm from './pages/SocioForm'
 import Categorias from './pages/Categorias'
 import Docentes from './pages/Docentes'
@@ -70,6 +71,10 @@ export const router = createBrowserRouter([
           {
             path: 'docentes',
             element: <Docentes />,
+          },
+          {
+            path: 'docentes/nuevo',
+            element: <DocenteForm />,
           },
           {
             path: 'docentes/:id',
