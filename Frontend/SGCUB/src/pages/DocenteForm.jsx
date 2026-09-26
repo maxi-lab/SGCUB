@@ -46,6 +46,7 @@ function registrosAFilas(registros) {
   return filas.length > 0 ? filas : [nuevaAsignacion()]
 }
 
+// eslint-disable-next-line no-unused-vars -- desactivada hasta que el backend soporte cargo y categoría.
 async function sincronizarAsignaciones(docenteId, registros, asignaciones) {
   const deseadas = new Map(asignaciones.flatMap((fila) => fila.categorias.map((categoriaId) => [categoriaId, fila.cargo])))
   const aBorrar = registros.filter((registro) => deseadas.get(categoriaIdDe(registro)) !== cargoDe(registro))
@@ -61,6 +62,7 @@ async function sincronizarAsignaciones(docenteId, registros, asignaciones) {
     })))
 }
 
+// eslint-disable-next-line no-unused-vars -- desactivada hasta que el backend soporte cargo y categoría.
 function validarAsignaciones(asignaciones) {
   const errores = {}
   const cargos = new Set()
@@ -346,6 +348,7 @@ function DocenteForm() {
   const [personaEncontrada, setPersonaEncontrada] = useState(null)
   const [buscandoPersona, setBuscandoPersona] = useState(false)
   const [docenteOriginal, setDocenteOriginal] = useState(null)
+  // eslint-disable-next-line no-unused-vars -- se usa al reactivar sincronizarAsignaciones.
   const [registrosOriginales, setRegistrosOriginales] = useState([])
   const [cargando, setCargando] = useState(editando)
   const [errorCarga, setErrorCarga] = useState('')
@@ -451,7 +454,8 @@ function DocenteForm() {
 
     const nuevosErrores = {
       ...validar(formulario, esGeneroOtro),
-      ...validarAsignaciones(asignaciones),
+      // TODO: reactivar cuando el backend soporte cargo y categoría del docente.
+      // ...validarAsignaciones(asignaciones),
     }
     if (docenteDelDni) nuevosErrores.dni = 'Esta persona ya está registrada como docente.'
     setErrores(nuevosErrores)
@@ -477,11 +481,12 @@ function DocenteForm() {
     if (editando) {
       try {
         await api.patch(`padron/persona/${docenteOriginal.persona}/`, datosPersona)
-        await sincronizarAsignaciones(id, registrosOriginales, asignaciones)
+        // TODO: reactivar cuando el backend soporte cargo y categoría del docente.
+        // await sincronizarAsignaciones(id, registrosOriginales, asignaciones)
         navigate(`/padron/docentes/${id}`)
       } catch (requestError) {
-        // Si la sincronización quedó a medias, se toma el estado real para que un reintento sea consistente.
-        setRegistrosOriginales(await docenteCategoriaByDocente(id).catch(() => registrosOriginales))
+        // TODO: reactivar junto con sincronizarAsignaciones.
+        // setRegistrosOriginales(await docenteCategoriaByDocente(id).catch(() => registrosOriginales))
         setErrorGuardado(getErrorMessage(requestError, 'No se pudo modificar el docente.'))
         window.scrollTo({ top: 0, behavior: 'smooth' })
       } finally {
@@ -499,11 +504,12 @@ function DocenteForm() {
         : (await api.post('padron/persona/', datosPersona)).data.persona_id
 
       docente = await postDocente({ persona: personaId, legajo: proximoLegajo })
-      await Promise.all(asignaciones.flatMap((fila) => fila.categorias.map((categoriaId) => postDocenteCategoria({
-        docente_id: docente.docente_id,
-        categoria_id: Number(categoriaId),
-        cargo: fila.cargo,
-      }))))
+      // TODO: reactivar cuando el backend soporte cargo y categoría del docente.
+      // await Promise.all(asignaciones.flatMap((fila) => fila.categorias.map((categoriaId) => postDocenteCategoria({
+      //   docente_id: docente.docente_id,
+      //   categoria_id: Number(categoriaId),
+      //   cargo: fila.cargo,
+      // }))))
       navigate(`/padron/docentes/${docente.docente_id}`)
     } catch (requestError) {
       if (docente) await deleteDocente(docente.docente_id).catch(() => {})
@@ -647,7 +653,6 @@ function DocenteForm() {
 
             <SeccionDomicilio bindInput={bindInput} errores={errores} localidades={localidades} />
 
-            {/* Datos deportivos, PRIMERO HAY QUE ACTUALIZAR EL BACKEND 
             <div className="flex flex-col gap-4 pt-4 border-t border-outline-variant/20">
               <SeccionTitulo
                 icono="sports_soccer"
@@ -678,8 +683,6 @@ function DocenteForm() {
                 />
               ))}
             </div>
-            */}
-            {/* Acciones */}
             <div className="mt-8 pt-6 border-t border-outline-variant/20 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div className="text-base text-on-surface-variant flex items-center gap-1.5">
                 <span className="text-error font-bold">*</span> Campos obligatorios
