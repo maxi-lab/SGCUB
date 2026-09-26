@@ -6,6 +6,7 @@ import AdminPage from './pages/AdminPage'
 import Socios from './pages/Socios'
 import Jugadores from './pages/Jugadores'
 import JugadorDetail from './pages/JugadorDetail'
+import JugadorForm from './pages/JugadorForm'
 import SocioDetail from './pages/SocioDetail'
 import DocenteDetail from './pages/DocenteDetail'
 import SocioForm from './pages/SocioForm'
@@ -51,8 +52,16 @@ export const router = createBrowserRouter([
             element: <Jugadores />,
           },
           {
+            path: 'jugadores/nuevo',
+            element: <JugadorForm />,
+          },
+          {
             path: 'jugadores/:id',
             element: <JugadorDetail />,
+          },
+          {
+            path: 'jugadores/:id/editar',
+            element: <JugadorForm />,
           },
           {
             path: 'categorias',

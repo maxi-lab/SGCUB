@@ -38,7 +38,7 @@ function ContactDetailsModal({ contact, onClose }) {
                 <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-surface-container-high text-on-surface text-base font-medium">{contact.relacion}</span>
               )}
               <span className={`text-base font-semibold ${contact.responsable_legal ? 'text-emerald-700' : 'text-on-surface-variant'}`}>
-                {contact.responsable_legal ? 'Es responsable legal del jugador' : 'Solo contacto de emergencia'}
+                {contact.responsable_legal ? 'Responsable legal autorizado' : 'Solo contacto de emergencia'}
               </span>
             </div>
           </div>
@@ -95,10 +95,9 @@ function DeleteContactModal({ contact, onClose, onConfirm }) {
         className="w-full max-w-md bg-surface-container-lowest rounded-xl shadow-xl overflow-hidden"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-4 px-6 py-4 border-b border-surface-container">
+        <div className="flex items-start justify-between gap-4 px-6 pt-4 border-b border-surface-container">
           <div>
-            <h3 id="delete-contact-title" className="text-lg font-bold text-on-surface">Eliminar contacto</h3>
-            <p className="mt-1 text-base text-on-surface-variant">¿Estás seguro de eliminar a {name}?</p>
+            <h3 id="delete-contact-title" className="text-xl font-bold text-on-surface">Eliminar contacto</h3>
           </div>
           <button
             type="button"
@@ -111,7 +110,7 @@ function DeleteContactModal({ contact, onClose, onConfirm }) {
           </button>
         </div>
         <div className="p-6">
-          <p className="text-base text-on-surface-variant">Esta acción quitará el vínculo familiar del jugador.</p>
+          <p className="mt-1 text-base text-on-surface-variant">¿Estás seguro de eliminar a {name}?, esta acción quitará el vínculo familiar del jugador.</p>
           {error && <p className="mt-4 px-3 py-2 rounded-lg bg-error-container/40 text-base text-on-error-container" role="alert">{error}</p>}
         </div>
         <div className="flex justify-end gap-2 px-6 py-4 border-t border-surface-container">
