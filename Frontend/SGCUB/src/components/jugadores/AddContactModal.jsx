@@ -116,7 +116,6 @@ export default function AddContactModal({ onClose, onSubmit }) {
     }
   }
 
-  // Los datos de una persona existente no se editan desde acá: solo se completa el vínculo.
   const datosBloqueados = saving || Boolean(personaSeleccionada)
 
   return (
