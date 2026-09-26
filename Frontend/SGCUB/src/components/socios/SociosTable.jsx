@@ -96,7 +96,7 @@ function SociosTable({ data, isLoading, error }) {
               search
             </span>
             <input
-              className="w-full h-10 pl-11 pr-4 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface placeholder:text-outline font-body-sm text-lg focus:outline-none focus:border-primary focus:bg-surface-container-lowest transition-colors"
+              className="w-full h-10 pl-11 pr-4 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface placeholder:text-outline font-body-sm text-base focus:outline-none focus:border-primary focus:bg-surface-container-lowest transition-colors"
               placeholder="Filtrar por DNI, Nombre o Apellido..."
               type="text"
               value={busqueda}
@@ -109,7 +109,7 @@ function SociosTable({ data, isLoading, error }) {
           </div>
           <div className="flex items-center gap-2">
             <select
-              className="h-10 px-3 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-lg font-medium focus:outline-none focus:border-primary cursor-pointer"
+              className="h-10 px-3 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-base font-medium focus:outline-none focus:border-primary cursor-pointer"
               value={estado}
               onChange={(event) => {
                 setEstado(event.target.value)
@@ -125,7 +125,7 @@ function SociosTable({ data, isLoading, error }) {
           </div>
         </div>
         <div className="flex items-center justify-between sm:justify-end gap-3 pt-2 lg:pt-0">
-          <span className="text-lg text-on-surface-variant whitespace-nowrap">
+          <span className="text-base text-on-surface-variant whitespace-nowrap">
             {filtrados.length === 0
               ? 'Sin resultados'
               : `Mostrando ${desde + 1}-${desde + visibles.length} de ${filtrados.length.toLocaleString('es-AR')} socios`}
@@ -134,7 +134,7 @@ function SociosTable({ data, isLoading, error }) {
             type="button"
             onClick={() => exportarCSV(filtrados)}
             disabled={filtrados.length === 0}
-            className="inline-flex items-center gap-1.5 h-10 px-3 bg-surface-container-low hover:bg-surface-container-high border border-outline-variant/40 text-on-surface rounded text-lg font-medium transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+            className="inline-flex items-center gap-1.5 h-10 px-3 bg-surface-container-low hover:bg-surface-container-high border border-outline-variant/40 text-on-surface rounded text-base font-medium transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <span className="material-symbols-outlined text-[16px]" aria-hidden="true">file_download</span>
             <span>Exportar padrón (CSV / Excel)</span>
@@ -144,9 +144,9 @@ function SociosTable({ data, isLoading, error }) {
 
       {/* Tabla */}
       <div className="overflow-x-auto">
-        <table className="w-full text-left text-base border-collapse">
+        <table className="w-full text-left text-sm border-collapse">
           <thead>
-            <tr className="bg-surface-container-low/60 border-b border-outline-variant/30 text-base font-semibold text-on-surface-variant uppercase tracking-wider">
+            <tr className="bg-surface-container-low/60 border-b border-outline-variant/30 text-sm font-semibold text-on-surface-variant uppercase tracking-wider">
               <th className="py-3 px-4" scope="col">N° Socio</th>
               <th className="py-3 px-4" scope="col">Nombre y Apellido</th>
               <th className="py-3 px-4 pl-5" scope="col">DNI</th>
@@ -155,7 +155,7 @@ function SociosTable({ data, isLoading, error }) {
               <th className="py-3 px-4" scope="col">Estado</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-outline-variant/20 font-body-sm text-lg text-on-surface">
+          <tbody className="divide-y divide-outline-variant/20 font-body-sm text- text-on-surface">
             {isLoading && (
               <tr>
                 <td className="py-10 px-4 text-center text-on-surface-variant" colSpan={6}>
@@ -183,7 +183,7 @@ function SociosTable({ data, isLoading, error }) {
                 </td>
                 <td className="py-3 px-4">
                   <div className="flex items-center gap-2.5">
-                    <span className="font-medium text-on-surface block text-lg group-hover:text-primary transition-colors">
+                    <span className="font-medium text-on-surface block text-base group-hover:text-primary transition-colors">
                       {socio.nombre} {socio.apellido}
                     </span>
                   </div>
@@ -193,12 +193,12 @@ function SociosTable({ data, isLoading, error }) {
                 <td className="py-3 px-4 text-on-surface-variant">{formatearFecha(socio.fecha_alta)}</td>
                 <td className="py-3 px-4">
                   {esActivo(socio) ? (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-lg font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-sm font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
                       Activo
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-lg font-medium bg-surface-container-high text-on-surface-variant border border-outline-variant/30">
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-base font-medium bg-surface-container-high text-on-surface-variant border border-outline-variant/30">
                       <span className="w-1.5 h-1.5 rounded-full bg-outline" />
                       Inactivo
                     </span>
@@ -210,12 +210,11 @@ function SociosTable({ data, isLoading, error }) {
         </table>
       </div>
 
-      {/* Paginación */}
-      <div className="p-4 border-t border-outline-variant/20 flex flex-col sm:flex-row items-center justify-between gap-3 text-lg text-on-surface-variant">
+      <div className="p-4 border-t border-outline-variant/20 flex flex-col sm:flex-row items-center justify-between gap-3 text-base text-on-surface-variant">
         <div className="flex items-center gap-2">
           <label className="font-label-md" htmlFor="rows-per-page">Filas por página:</label>
           <select
-            className="h-8 px-2 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-lg focus:outline-none focus:border-primary cursor-pointer"
+            className="h-8 px-2 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-base focus:outline-none focus:border-primary cursor-pointer"
             id="rows-per-page"
             value={filasPorPagina}
             onChange={(event) => {

@@ -41,11 +41,11 @@ export default function PersonalDataTab({ persona, localidades = [], deportivo }
           color="bg-primary"
           extra={deportivo.estado && (
             <span
-              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-sm font-semibold ${
+              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-base font-semibold ${
                 isActiveStatus(deportivo.estado) ? 'bg-emerald-50 text-emerald-700' : 'bg-surface-container-high text-on-surface-variant'
               }`}
             >
-              <span className="material-symbols-outlined text-[16px]">sports</span>
+              <span className="material-symbols-outlined">sports</span>
               Estado deportivo: {deportivo.estado}
             </span>
           )}
