@@ -13,7 +13,7 @@ import {
   Accordion,
 } from '@mantine/core'
 import { IconAlertCircle } from '@tabler/icons-react'
-import ContactoEmergenciaForm from './ContactoEmergenciaForm'
+import AddContactModal from './AddContactModal'
 
 function EditJugadorModal({
   opened,
@@ -131,7 +131,7 @@ function EditJugadorModal({
                 <Text weight={600} size="sm">Contactos de Emergencia</Text>
               </Accordion.Control>
               <Accordion.Panel>
-                <ContactoEmergenciaForm
+                <AddContactModal
                   contactos={formulario.contactos_emergencia || []}
                   onChange={(value) => onChange('contactos_emergencia', value)}
                 />

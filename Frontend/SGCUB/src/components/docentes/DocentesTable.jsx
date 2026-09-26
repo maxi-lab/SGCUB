@@ -2,9 +2,11 @@ import { useMemo } from 'react'
 import { ActionIcon, Button, Group, Text } from '@mantine/core'
 import { IconEdit, IconPlus, IconTrash } from '@tabler/icons-react'
 import { MantineReactTable, useMantineReactTable } from 'mantine-react-table'
+import { useNavigate } from 'react-router-dom'
 import '../shared/quiet-table.css'
 
 function DocentesTable({ data, isLoading, error, onAdd, onEdit, onDelete }) {
+  const navigate = useNavigate()
   const columns = useMemo(
     () => [
       {
@@ -88,6 +90,14 @@ function DocentesTable({ data, isLoading, error, onAdd, onEdit, onDelete }) {
     initialState: {
       density: 'compact',
     },
+    mantineTableBodyRowProps: ({ row }) => ({
+      onClick: () => {
+        navigate(`/padron/docentes/${row.original.docente_id}`)
+      },
+      sx: {
+        cursor: 'pointer',
+      },
+    }),
     renderTopToolbarCustomActions: () => (
       <Button leftIcon={<IconPlus size={16} />} onClick={onAdd}>
         Agregar

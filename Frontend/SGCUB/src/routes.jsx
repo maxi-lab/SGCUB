@@ -3,12 +3,14 @@ import MainLayout from './layouts/MainLayout'
 import AdminLayout from './layouts/AdminLayout'
 import Principal from './pages/Principal'
 import AdminPage from './pages/AdminPage'
-import Padron from './pages/Padron'
+import Socios from './pages/Socios'
 import Jugadores from './pages/Jugadores'
-import JugadorDetalle from './pages/JugadorDetalle'
-import SocioDetalle from './pages/SocioDetalle'
+import JugadorDetail from './pages/JugadorDetail'
+import JugadorForm from './pages/JugadorForm'
+import SocioDetail from './pages/SocioDetail'
+import DocenteDetail from './pages/DocenteDetail'
+import SocioForm from './pages/SocioForm'
 import Categorias from './pages/Categorias'
-import PadronLayout from './layouts/PadronLayout'
 import Docentes from './pages/Docentes'
 import CategoriaDetalle from './pages/CategoriaDetalle'
 import EnDesarrollo from './pages/EnDesarrollo'
@@ -24,7 +26,6 @@ export const router = createBrowserRouter([
       },
       {
         path: 'padron',
-        element: <PadronLayout />,
         children: [
           {
             index: true,
@@ -32,19 +33,35 @@ export const router = createBrowserRouter([
           },
           {
             path: 'socios',
-            element: <Padron />,
+            element: <Socios />,
+          },
+          {
+            path: 'socios/nuevo',
+            element: <SocioForm />,
           },
           {
             path: 'socios/:id',
-            element: <SocioDetalle />,
+            element: <SocioDetail />,
+          },
+          {
+            path: 'socios/:id/editar',
+            element: <SocioForm />,
           },
           {
             path: 'jugadores',
             element: <Jugadores />,
           },
           {
+            path: 'jugadores/nuevo',
+            element: <JugadorForm />,
+          },
+          {
             path: 'jugadores/:id',
-            element: <JugadorDetalle />,
+            element: <JugadorDetail />,
+          },
+          {
+            path: 'jugadores/:id/editar',
+            element: <JugadorForm />,
           },
           {
             path: 'categorias',
@@ -53,6 +70,10 @@ export const router = createBrowserRouter([
           {
             path: 'docentes',
             element: <Docentes />,
+          },
+          {
+            path: 'docentes/:id',
+            element: <DocenteDetail />,
           },
           {
             path: 'categorias/:id',
