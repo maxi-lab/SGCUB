@@ -1,15 +1,33 @@
+import { useEffect, useState } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import './sidebar.css';
 
+const DURACION_CONTRAER = 220;
+
 export default function Sidebar({ collapsed, onToggle }) {
   const { pathname } = useLocation();
+
+  const [contrayendo, setContrayendo] = useState(false);
+  const [collapsedAnterior, setCollapsedAnterior] = useState(collapsed);
+  if (collapsed !== collapsedAnterior) {
+    setCollapsedAnterior(collapsed);
+    setContrayendo(collapsed);
+  }
+
+  useEffect(() => {
+    if (!contrayendo) return undefined;
+    const timer = setTimeout(() => setContrayendo(false), DURACION_CONTRAER);
+    return () => clearTimeout(timer);
+  }, [contrayendo]);
+
+  const claseEstado = contrayendo ? 'app-sidebar--collapsing' : collapsed ? 'app-sidebar--collapsed' : '';
   const personasActive = ['/padron/socios', '/padron/jugadores', '/padron/docentes']
     .some((route) => pathname === route || pathname.startsWith(`${route}/`));
   const finanzasActive = ['/resumen-financiero', '/morosidad', '/caja']
     .some((route) => pathname === route || pathname.startsWith(`${route}/`));
 
   return (
-    <aside className={`app-sidebar ${collapsed ? 'app-sidebar--collapsed' : ''}`}>
+    <aside className={`app-sidebar ${claseEstado}`}>
       <div className="app-sidebar-content">
         <div className="app-sidebar-brand">
           <Link to="/" className="app-sidebar-brand-inner" aria-label="Ir al inicio">
