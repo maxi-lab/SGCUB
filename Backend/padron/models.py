@@ -101,7 +101,6 @@ def get_default_estado_administrativo():
 
 
 class SequentialNumberMixin:
-    """Al crear, asigna el siguiente número del campo `sequential_field` (número de socio, legajo)."""
 
     sequential_field = None
     NUMBER_ASSIGNMENT_ATTEMPTS = 5
@@ -111,7 +110,6 @@ class SequentialNumberMixin:
         if getattr(self, field):
             return super().save(*args, **kwargs)
         manager = type(self).objects
-        # Dos altas simultáneas pueden calcular el mismo número: se reintenta con el siguiente
         for attempt in range(self.NUMBER_ASSIGNMENT_ATTEMPTS):
             last_number = manager.aggregate(max_number=models.Max(field))["max_number"]
             setattr(self, field, (last_number or 0) + 1)
@@ -138,7 +136,7 @@ class Socio(SequentialNumberMixin, models.Model):
         related_name="socios",
         null=False,
         blank=False,
-        default=get_default_estado_sadministrativo,
+        default=get_default_estado_administrativo,
     )
     fecha_alta = models.DateField(default=django.utils.timezone.localdate)
     numero_socio = models.PositiveIntegerField(unique=True, null=True, blank=True)
@@ -154,7 +152,6 @@ class Socio(SequentialNumberMixin, models.Model):
 
     @transaction.atomic
     def deactivate(self):
-        """Baja lógica: el socio no se elimina, pasa a estado Inactivo junto con su perfil deportivo."""
         self.estado_administrativo, _ = EstadoAdministrativo.objects.get_or_create(nombre=ESTADO_ADMINISTRATIVO_INACTIVO)
         self.save(update_fields=["estado_administrativo"])
         player = getattr(self, "jugador", None)
@@ -236,11 +233,24 @@ def get_default_estado_deportivo():
     estado, _ = EstadoDeportivo.objects.get_or_create(nombre=ESTADO_DEPORTIVO_ACTIVO)
     return estado.pk
 
+SIZES_CHOICES = [
+    ("XS", "Extra chica"),
+    ("S", "Chica"),
+    ("M", "Mediana"),
+    ("L", "Grande"),
+    ("XL", "Extra grande"),
+    ("XXL", "Doble extra grande"),
+]
 
 class Jugador(models.Model):
     jugador_id = models.AutoField(primary_key=True)
     obra_social = models.CharField(max_length=50, default="", blank=True)
-    tallaIndumentaria = models.CharField(max_length=50, default="", blank=True)
+    tallaIndumentaria = models.CharField(
+        max_length=3, 
+        choices=SIZES_CHOICES, 
+        default="", 
+        blank=True
+    )
     socio = models.OneToOneField(
         Socio,
         on_delete=models.PROTECT,
@@ -288,7 +298,6 @@ class Jugador(models.Model):
             self.socio.activate()
 
     def deactivate(self):
-        """Baja lógica: el jugador no se elimina, pasa a estado deportivo Inactivo."""
         self.estado, _ = EstadoDeportivo.objects.get_or_create(nombre=ESTADO_DEPORTIVO_INACTIVO)
         self.save(update_fields=["estado"])
 
@@ -315,7 +324,6 @@ class Docente(SequentialNumberMixin, models.Model):
     )
     legajo = models.PositiveIntegerField(unique=True)
     fecha_ingreso = models.DateField(default=django.utils.timezone.localdate)
-    # Estado administrativo propio del perfil docente, independiente del estado como socio
     estado = models.ForeignKey(
         EstadoAdministrativo,
         on_delete=models.PROTECT,
@@ -329,14 +337,12 @@ class Docente(SequentialNumberMixin, models.Model):
         db_table = "docente"
 
     def has_assignments(self, exclude=None):
-        """Indica si tiene al menos un cargo con una categoría, sin contar las asignaciones que cumplan `exclude`."""
         assignments = self.categorias_docente.filter(cargo__isnull=False)
         if exclude:
             assignments = assignments.exclude(**exclude)
         return assignments.exists()
 
     def deactivate(self):
-        """Baja lógica: el docente no se elimina, pasa a estado Inactivo."""
         self.estado, _ = EstadoAdministrativo.objects.get_or_create(nombre=ESTADO_ADMINISTRATIVO_INACTIVO)
         self.save(update_fields=["estado"])
 
