@@ -97,7 +97,7 @@ function JugadoresTable({ data, categorias = [], isLoading, error, onEdit, onDel
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-left text-base border-collapse">
-          <thead><tr className="bg-surface-container-low/60 border-b border-outline-variant/30 text-sm font-semibold text-on-surface-variant uppercase tracking-wider"><th className="py-3 px-4" scope="col">N° Socio</th><th className="py-3 px-4" scope="col">Nombre y Apellido</th><th className="py-3 px-4" scope="col">DNI</th><th className="py-3 px-4" scope="col">Categoría principal</th><th className="py-3 px-4" scope="col">Categoría secundaria</th><th className="py-3 px-4" scope="col">Estado</th></tr></thead>
+          <thead><tr className="bg-surface-container-low/60 border-b border-outline-variant/30 text-sm font-semibold text-on-surface-variant uppercase tracking-wider"><th className="py-3 px-4 w-28 whitespace-nowrap" scope="col">N° Socio</th><th className="py-3 px-4" scope="col">Nombre y Apellido</th><th className="py-3 px-4" scope="col">DNI</th><th className="py-3 px-4" scope="col">Categoría principal</th><th className="py-3 px-4" scope="col">Categoría secundaria</th><th className="py-3 px-4" scope="col">Estado</th></tr></thead>
           <tbody className="divide-y divide-outline-variant/20 font-body-sm text-sm text-on-surface">
             {isLoading && <tr><td className="py-10 px-4 text-center text-on-surface-variant" colSpan={6}>Cargando jugadores...</td></tr>}
             {!isLoading && visibles.length === 0 && <tr><td className="py-10 px-4 text-center text-on-surface-variant" colSpan={6}>{error ? 'No se pudieron cargar los jugadores.' : 'No hay jugadores que coincidan con el filtro.'}</td></tr>}

@@ -147,7 +147,7 @@ function SociosTable({ data, isLoading, error }) {
         <table className="w-full text-left text-sm border-collapse">
           <thead>
             <tr className="bg-surface-container-low/60 border-b border-outline-variant/30 text-sm font-semibold text-on-surface-variant uppercase tracking-wider">
-              <th className="py-3 px-4" scope="col">N° Socio</th>
+              <th className="py-3 px-4 w-28 whitespace-nowrap" scope="col">N° Socio</th>
               <th className="py-3 px-4" scope="col">Nombre y Apellido</th>
               <th className="py-3 px-4 pl-5" scope="col">DNI</th>
               <th className="py-3 px-4" scope="col">Teléfono</th>
