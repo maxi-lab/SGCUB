@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { cargosDe, esActivo } from './docentesUtils'
+import { cargosDe, esActivo, exportarNominaCSV } from './docentesUtils'
 
 const nombreCompleto = (docente) =>
   [docente.persona_detalle?.nombre, docente.persona_detalle?.apellido].filter(Boolean).join(' ')
@@ -120,6 +120,15 @@ function DocentesTable({ data, categorias = [], categoriasPorDocente = {}, isLoa
               ? 'Sin resultados'
               : `Mostrando ${desde + 1}-${desde + visibles.length} de ${filtrados.length.toLocaleString('es-AR')} docentes`}
           </span>
+          <button
+            type="button"
+            onClick={() => exportarNominaCSV(filtrados, categoriasPorDocente)}
+            disabled={filtrados.length === 0}
+            className="inline-flex items-center gap-1.5 h-10 px-3 bg-surface-container-low hover:bg-surface-container-high border border-outline-variant/40 text-on-surface rounded text-lg font-medium transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">file_download</span>
+            <span>Exportar nómina</span>
+          </button>
         </div>
       </div>
 
