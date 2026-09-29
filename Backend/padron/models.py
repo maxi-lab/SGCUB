@@ -56,7 +56,7 @@ class Persona(models.Model):
     apellido = models.CharField(max_length=50, default="")
     dni = models.CharField(max_length=20, unique=True, default="")
     telefono = models.CharField(max_length=20, default="")
-    email = models.EmailField(max_length=100, unique=True, blank=True, null=True,)
+    email = models.EmailField(max_length=100, blank=True, null=True,)
     fecha_nacimiento = models.DateField(blank=True, null=True)
     genero = models.ForeignKey(Genero, on_delete=models.PROTECT, blank=True, null=True, related_name="personas")
     genero_otro = models.CharField(max_length=100, blank=True, null=True)
@@ -64,6 +64,14 @@ class Persona(models.Model):
 
     class Meta:
         db_table = "persona"
+
+    @property
+    def edad(self):
+        if not self.fecha_nacimiento:
+            return None
+        today = date.today()
+        age = (today.month, today.day) >= (self.fecha_nacimiento.month, self.fecha_nacimiento.day)
+        return today.year - self.fecha_nacimiento.year - (0 if age else 1)
 
     def __str__(self):
         return f"{self.nombre} {self.apellido}"
@@ -89,7 +97,7 @@ class Socio(models.Model):
     socio_id = models.AutoField(primary_key=True)
     persona = models.OneToOneField(
         Persona,
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name="socio"
     )
     estado_socio = models.ForeignKey(
@@ -221,7 +229,7 @@ class Docente(models.Model):
     docente_id = models.AutoField(primary_key=True)
     persona = models.OneToOneField(
         Persona,
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name="docente"
     )
     legajo = models.IntegerField()
@@ -239,7 +247,7 @@ class ContactoEmergencia(models.Model):
 
     persona = models.ForeignKey(
         Persona,
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name="contactos_emergencia",
     )
 

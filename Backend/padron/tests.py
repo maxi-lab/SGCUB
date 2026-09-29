@@ -1,8 +1,11 @@
+from django.db.models import ProtectedError
 from rest_framework import status
 from rest_framework.test import APITestCase
 from padron.serializers import SocioSerializer 
 
-from .models import Categoria, Docente, Jugador, Persona, Socio
+from datetime import date
+
+from .models import Categoria, ContactoEmergencia, Genero, Docente, Jugador, Localidad, Persona, Socio
 
 
 class PadronViewTests(APITestCase):
@@ -14,6 +17,8 @@ class PadronViewTests(APITestCase):
             "telefono": "123456789",
         }
         self.persona_counter = 1
+        self.genero = Genero.objects.create(nombre="Masculino")
+        self.localidad = Localidad.objects.create(nombre="La Plata")
         self.socio_data = {}
         self.categoria_data = {
             "nombre": "Inferior",
@@ -27,24 +32,26 @@ class PadronViewTests(APITestCase):
     # ------------------------------------------------------------------
     # Helpers para crear vía API (usados en los tests que prueban POST)
     # ------------------------------------------------------------------
+    def datos_alta_persona(self, **kwargs):
+        """Payload de alta con todos los campos obligatorios de una persona."""
+        return {
+            **self.persona_data,
+            "email": "juan.perez@example.com",
+            "fecha_nacimiento": "1990-05-10",
+            "genero": self.genero.pk,
+            "domicilio_calle": "Calle 7",
+            "domicilio_numero": "1234",
+            "domicilio_localidad": self.localidad.pk,
+            **kwargs,
+        }
+
     def create_persona(self, data=None):
         return self.client.post(
-            "/api/padron/persona/", data if data is not None else self.persona_data, format="json"
+            "/api/padron/persona/", data if data is not None else self.datos_alta_persona(), format="json"
         )
 
-    def create_socio(self, persona_data=None, data=None):
-        if data is not None:
-            payload = data
-        else:
-            persona_data = persona_data or self.persona_data
-            payload = {
-                "nombre": persona_data["nombre"],
-                "apellido": persona_data["apellido"],
-                "dni": persona_data["dni"],
-                "telefono": persona_data.get("telefono", "123456789"),
-                "email": persona_data.get("email", None),
-                **self.socio_data,
-            }
+    def create_socio(self, data=None):
+        payload = data if data is not None else {**self.datos_alta_persona(), **self.socio_data}
         return self.client.post("/api/padron/socio/", payload, format="json")
 
     def create_categoria(self, data=None):
@@ -157,18 +164,106 @@ class PadronViewTests(APITestCase):
         response = self.client.put("/api/padron/persona/9999/", payload, format="json")
         self.assertEqual(status.HTTP_404_NOT_FOUND, response.status_code)
 
-    def test_persona_delete(self):
+    def test_persona_delete_no_permitido(self):
         persona = self.crear_persona_orm()
         response = self.client.delete(f"/api/padron/persona/{persona.persona_id}/", format="json")
-        self.assertEqual(status.HTTP_204_NO_CONTENT, response.status_code)
-        self.assertEqual(
-            status.HTTP_404_NOT_FOUND,
-            self.client.get(f"/api/padron/persona/{persona.persona_id}/", format="json").status_code,
-        )
+        self.assertEqual(status.HTTP_405_METHOD_NOT_ALLOWED, response.status_code)
+        self.assertTrue(Persona.objects.filter(pk=persona.pk).exists())
 
-    def test_persona_delete_no_existe(self):
-        response = self.client.delete("/api/padron/persona/9999/", format="json")
-        self.assertEqual(status.HTTP_404_NOT_FOUND, response.status_code)
+    def test_persona_con_perfil_no_se_puede_borrar(self):
+        socio = self.crear_socio_orm()
+        with self.assertRaises(ProtectedError):
+            socio.persona.delete()
+
+    def test_persona_post_campos_obligatorios(self):
+        response = self.create_persona({"nombre": "Juan", "apellido": "Perez", "dni": "12345678"})
+        self.assertEqual(status.HTTP_400_BAD_REQUEST, response.status_code)
+        for campo in ("telefono", "email", "fecha_nacimiento", "genero",
+                      "domicilio_calle", "domicilio_numero", "domicilio_localidad"):
+            self.assertIn(campo, response.data)
+
+    def test_persona_post_dni_formato_invalido(self):
+        for dni in ("123456", "123456789", "12.345.678", "abcdefg"):
+            response = self.create_persona(self.datos_alta_persona(dni=dni))
+            self.assertEqual(status.HTTP_400_BAD_REQUEST, response.status_code, dni)
+            self.assertIn("dni", response.data)
+
+    def test_persona_post_dni_7_digitos(self):
+        response = self.create_persona(self.datos_alta_persona(dni="1234567"))
+        self.assertEqual(status.HTTP_201_CREATED, response.status_code)
+
+    def test_persona_post_email_invalido(self):
+        response = self.create_persona(self.datos_alta_persona(email="no-es-un-email"))
+        self.assertEqual(status.HTTP_400_BAD_REQUEST, response.status_code)
+        self.assertIn("email", response.data)
+
+    def test_persona_post_email_duplicado(self):
+        self.crear_persona_orm(dni="11111111", email="juan.perez@example.com")
+        response = self.create_persona()
+        self.assertEqual(status.HTTP_201_CREATED, response.status_code)
+
+    def test_persona_post_dni_duplicado_informa_ficha(self):
+        socio = self.crear_socio_orm()
+        response = self.create_persona(self.datos_alta_persona(dni=socio.persona.dni))
+        self.assertEqual(status.HTTP_400_BAD_REQUEST, response.status_code)
+        self.assertEqual(str(socio.persona.pk), response.data["persona_existente"]["persona_id"])
+        self.assertNotIn("docente_id", response.data["persona_existente"])
+        self.assertEqual(str(socio.pk), response.data["persona_existente"]["socio_id"])
+
+    def test_persona_patch_dni_de_otra_persona(self):
+        persona = self.crear_persona_orm()
+        otra = self.crear_persona_orm(dni="22222222")
+        response = self.client.patch(
+            f"/api/padron/persona/{persona.persona_id}/", {"dni": otra.dni}, format="json"
+        )
+        self.assertEqual(status.HTTP_400_BAD_REQUEST, response.status_code)
+        self.assertIn("dni", response.data)
+
+    def test_persona_patch_no_permite_vaciar_obligatorio(self):
+        persona = self.crear_persona_orm()
+        response = self.client.patch(
+            f"/api/padron/persona/{persona.persona_id}/", {"nombre": ""}, format="json"
+        )
+        self.assertEqual(status.HTTP_400_BAD_REQUEST, response.status_code)
+        self.assertIn("nombre", response.data)
+
+    def test_persona_edad(self):
+        hoy = date.today()
+        persona = self.crear_persona_orm(fecha_nacimiento=date(hoy.year - 20, 1, 1))
+        self.assertEqual(20, persona.edad)
+        persona.fecha_nacimiento = date(hoy.year - 20, 12, 31)
+        self.assertEqual(20 if (hoy.month, hoy.day) == (12, 31) else 19, persona.edad)
+        response = self.client.get(f"/api/padron/persona/{persona.persona_id}/", format="json")
+        self.assertEqual(20, response.data["edad"])
+
+    def test_persona_edad_sin_fecha_nacimiento(self):
+        self.assertIsNone(self.crear_persona_orm().edad)
+
+    def test_persona_busqueda(self):
+        self.crear_persona_orm(nombre="Juan", apellido="Perez", dni="30111222")
+        self.crear_persona_orm(nombre="Maria", apellido="Gomez", dni="40111222")
+        self.crear_persona_orm(nombre="Juana", apellido="Gomez", dni="50111222")
+
+        def buscar(q):
+            response = self.client.get("/api/padron/persona/", {"q": q})
+            self.assertEqual(status.HTTP_200_OK, response.status_code)
+            return sorted(p["dni"] for p in response.data)
+
+        self.assertEqual(["30111222", "50111222"], buscar("juan"))
+        self.assertEqual(["40111222", "50111222"], buscar("GOMEZ"))
+        self.assertEqual(["40111222"], buscar("4011"))
+        self.assertEqual(["50111222"], buscar("juana gomez"))
+
+    def test_contacto_emergencia_no_exige_datos_de_alta(self):
+        socio = self.crear_socio_orm()
+        jugador = Jugador.objects.create(socio=socio)
+        response = self.client.post("/api/padron/contacto-emergencia/", {
+            "jugador": jugador.pk,
+            "relacion": "Madre",
+            "persona": {"dni": "33444555", "nombre": "Ana", "apellido": "Perez", "telefono": "221555"},
+        }, format="json")
+        self.assertEqual(status.HTTP_201_CREATED, response.status_code, response.data)
+        self.assertTrue(ContactoEmergencia.objects.filter(persona__dni="33444555").exists())
 
     # ==================================================================
     # SOCIO
@@ -188,6 +283,18 @@ class PadronViewTests(APITestCase):
         self.assertIn("nombre", response.data)
         self.assertIn("apellido", response.data)
         self.assertIn("dni", response.data)
+
+    def test_socio_post_dni_de_socio_existente_informa_ficha(self):
+        socio = self.crear_socio_orm()
+        response = self.create_socio(self.datos_alta_persona(dni=socio.persona.dni))
+        self.assertEqual(status.HTTP_400_BAD_REQUEST, response.status_code)
+        self.assertEqual(str(socio.pk), response.data["persona_existente"]["socio_id"])
+
+    def test_socio_post_reutiliza_persona_existente(self):
+        persona = self.crear_persona_orm(dni="31222333")
+        response = self.create_socio(self.datos_alta_persona(dni="31222333"))
+        self.assertEqual(status.HTTP_201_CREATED, response.status_code, response.data)
+        self.assertEqual(persona.pk, Socio.objects.get(pk=response.data["socio_id"]).persona_id)
 
     def test_socio_get_list(self):
         self.crear_socio_orm()
@@ -350,6 +457,11 @@ class PadronViewTests(APITestCase):
             "dni": "99887766",
             "telefono": "221987654",
             "email": "mariano@example.com",
+            "fecha_nacimiento": "2012-03-01",
+            "genero": self.genero.pk,
+            "domicilio_calle": "Calle 50",
+            "domicilio_numero": "100",
+            "domicilio_localidad": self.localidad.pk,
         }
         payload = {
             "nuevo_socio": nuevo_socio_payload,
@@ -407,7 +519,7 @@ class PadronViewTests(APITestCase):
                 "apellido": jugador.socio.persona.apellido,
                 "dni": jugador.socio.persona.dni,
                 "telefono": "9999999",
-                "email": jugador.socio.persona.email,
+                "email": "juan.actualizado@example.com",
             },
             "obra_social": "SWISS MEDICAL",
         }
