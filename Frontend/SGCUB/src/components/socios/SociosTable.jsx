@@ -178,12 +178,12 @@ function SociosTable({ data, isLoading, error }) {
                 onClick={() => navigate(`/padron/socios/${socio.socio_id}`)}
                 className="hover:bg-surface-container-low/80 transition-colors cursor-pointer group"
               >
-                <td className="py-3 px-4 font-bold text-primary pl-6">
+                <td className="py-3 px-4 font-bold text-primary text-base pl-6">
                   {socio.numero_socio ? `#${socio.numero_socio}` : '—'}
                 </td>
                 <td className="py-3 px-4">
                   <div className="flex items-center gap-2.5">
-                    <span className="font-medium text-on-surface block text-base group-hover:text-primary transition-colors">
+                    <span className="font-medium text-on-surface block text-base group-hover: transition-colors">
                       {socio.nombre} {socio.apellido}
                     </span>
                   </div>
@@ -198,7 +198,7 @@ function SociosTable({ data, isLoading, error }) {
                       Activo
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-base font-medium bg-surface-container-high text-on-surface-variant border border-outline-variant/30">
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-sm font-medium bg-surface-container-high text-on-surface-variant border border-outline-variant/30">
                       <span className="w-1.5 h-1.5 rounded-full bg-outline" />
                       Inactivo
                     </span>

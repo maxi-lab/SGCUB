@@ -127,7 +127,7 @@ function DocentesTable({ data, categorias = [], categoriasPorDocente = {}, isLoa
       <div className="overflow-x-auto">
         <table className="w-full text-left text-base border-collapse">
           <thead>
-            <tr className="bg-surface-container-low/60 border-b border-outline-variant/30 text-base font-semibold text-on-surface-variant uppercase tracking-wider">
+            <tr className="bg-surface-container-low/60 border-b border-outline-variant/30 text-sm font-semibold text-on-surface-variant uppercase tracking-wider">
               <th className="py-3 px-4" scope="col">Legajo</th>
               <th className="py-3 px-4" scope="col">Nombre y Apellido</th>
               <th className="py-3 px-4" scope="col">DNI</th>
@@ -159,27 +159,31 @@ function DocentesTable({ data, categorias = [], categoriasPorDocente = {}, isLoa
                 onClick={() => navigate(`/padron/docentes/${docente.docente_id}`)}
                 className="hover:bg-surface-container-low/80 transition-colors cursor-pointer group"
               >
-                <td className="py-3 px-4 font-bold text-primary">
+                <td className="py-3 px-4 font-bold text-primary text-base pl-6">
                   {docente.legajo ? `#${docente.legajo}` : '—'}
                 </td>
                 <td className="py-3 px-4">
-                  <span className="font-medium text-on-surface block text-lg group-hover:text-primary transition-colors">
+                  <span className="font-medium text-on-surface block text-base group-hover: transition-colors">
                     {nombreCompleto(docente) || '—'}
                   </span>
                 </td>
-                <td className="py-3 px-4 text-on-surface-variant">{docente.persona_detalle?.dni ?? '—'}</td>
-                <td className="py-3 px-4 text-on-surface-variant">{cargosDe(categoriasPorDocente[docente.docente_id]).join(', ') || '—'}</td>
-                <td className="py-3 px-4 text-on-surface-variant">
+                <td className="py-3 px-4 text-on-surface-variant text-sm">
+                  {docente.persona_detalle?.dni ?? '—'}
+                </td>
+                <td className="py-3 px-4 text-on-surface-variant text-sm">
+                  {cargosDe(categoriasPorDocente[docente.docente_id]).join(', ') || '—'}
+                </td>
+                <td className="py-3 px-4 text-on-surface-variant text-sm">
                   {nombresCategorias(categoriasPorDocente[docente.docente_id] ?? [])}
                 </td>
                 <td className="py-3 px-4">
                   {esActivo(docente) ? (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-lg font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-sm font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
                       Activo
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-lg font-medium bg-surface-container-high text-on-surface-variant border border-outline-variant/30">
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-sm font-medium bg-surface-container-high text-on-surface-variant border border-outline-variant/30">
                       <span className="w-1.5 h-1.5 rounded-full bg-outline" />
                       De baja
                     </span>
