@@ -6,7 +6,7 @@ from padron.serializers import SocioSerializer
 from datetime import date
 from unittest.mock import patch
 
-from .models import Categoria, ContactoEmergencia, Docente, EstadoDeportivo, EstadoSocio, Genero, Jugador, Localidad, Persona, Socio
+from .models import CargoDocente, Categoria, ContactoEmergencia, Docente, DocenteCategoria, EstadoDeportivo, EstadoSocio, Genero, Jugador, Localidad, Persona, Socio
 
 
 class PadronViewTests(APITestCase):
@@ -27,7 +27,6 @@ class PadronViewTests(APITestCase):
             "edad_maxima": 12,
             "genero": "M",
         }
-        self.docente_data = {"legajo": 1001}
 
     # ------------------------------------------------------------------
     # Helpers para crear vía API (usados en los tests que prueban POST)
@@ -83,10 +82,15 @@ class PadronViewTests(APITestCase):
             format="json",
         )
 
-    def create_docente(self, persona_id, legajo=None):
+    def cargo(self, nombre="Director técnico o formador"):
+        return CargoDocente.objects.get(nombre=nombre)
+
+    def create_docente(self, persona_id, asignaciones=None, **kwargs):
+        if asignaciones is None:
+            asignaciones = [{"cargo": self.cargo().pk, "categorias": [self.crear_categoria_orm().pk]}]
         return self.client.post(
             "/api/padron/docente/",
-            {"persona": persona_id, "legajo": legajo or self.docente_data["legajo"]},
+            {"persona": persona_id, "asignaciones": asignaciones, **kwargs},
             format="json",
         )
 
@@ -129,9 +133,7 @@ class PadronViewTests(APITestCase):
 
     def crear_docente_orm(self, persona=None, legajo=None):
         persona = persona or self.crear_persona_orm()
-        return Docente.objects.create(
-            persona=persona, legajo=legajo or self.docente_data["legajo"]
-        )
+        return Docente.objects.create(persona=persona, legajo=legajo)
 
     # ==================================================================
     # PERSONA
@@ -786,10 +788,96 @@ class PadronViewTests(APITestCase):
     # ==================================================================
     def test_docente_post(self):
         persona = self.crear_persona_orm()
-        response = self.create_docente(persona.persona_id)
-        self.assertEqual(status.HTTP_201_CREATED, response.status_code)
-        self.assertEqual(self.docente_data["legajo"], response.data["legajo"])
-        self.assertIn("docente_id", response.data)
+        categoria = self.crear_categoria_orm()
+        response = self.create_docente(
+            persona.persona_id, [{"cargo": self.cargo().pk, "categorias": [categoria.pk]}]
+        )
+        self.assertEqual(status.HTTP_201_CREATED, response.status_code, response.data)
+        self.assertEqual(1, response.data["legajo"])
+        self.assertEqual(date.today().isoformat(), response.data["fecha_ingreso"])
+        self.assertEqual("Activo", response.data["estado_nombre"])
+        self.assertEqual(1, len(response.data["asignaciones"]))
+        self.assertEqual("Director técnico o formador", response.data["asignaciones"][0]["cargo_nombre"])
+        self.assertEqual(categoria.pk, response.data["asignaciones"][0]["categorias"][0]["categoria_id"])
+
+    def test_docente_post_varios_cargos_con_categorias(self):
+        primera = self.crear_categoria_orm(nombre="Primera", edad_maxima=99)
+        tercera = self.crear_categoria_orm(nombre="Tercera", edad_maxima=20)
+        reserva = self.crear_categoria_orm(nombre="Reserva", edad_maxima=23)
+        octava = self.crear_categoria_orm(nombre="Octava", edad_maxima=14)
+        dt, ayudante = self.cargo(), self.cargo("Ayudante técnico")
+        response = self.create_docente(self.crear_persona_orm().pk, [
+            {"cargo": dt.pk, "categorias": [primera.pk, tercera.pk]},
+            {"cargo": ayudante.pk, "categorias": [reserva.pk, octava.pk]},
+        ])
+        self.assertEqual(status.HTTP_201_CREATED, response.status_code, response.data)
+        asignaciones = {a["cargo_nombre"]: sorted(c["nombre"] for c in a["categorias"]) for a in response.data["asignaciones"]}
+        self.assertEqual({
+            "Director técnico o formador": ["Primera", "Tercera"],
+            "Ayudante técnico": ["Octava", "Reserva"],
+        }, asignaciones)
+        self.assertEqual(4, DocenteCategoria.objects.filter(docente_id=response.data["docente_id"]).count())
+
+    def test_docente_post_legajo_automatico_ignora_el_enviado(self):
+        self.crear_docente_orm(legajo=41)
+        response = self.create_docente(self.crear_persona_orm(dni="22333444").pk, legajo=1, fecha_ingreso="2000-01-01")
+        self.assertEqual(status.HTTP_201_CREATED, response.status_code, response.data)
+        self.assertEqual(42, response.data["legajo"])
+        self.assertEqual(date.today().isoformat(), response.data["fecha_ingreso"])
+
+    def test_docente_post_ignora_estado_enviado(self):
+        inactivo = EstadoSocio.objects.get(nombre="Inactivo")
+        response = self.create_docente(self.crear_persona_orm().pk, estado=inactivo.pk)
+        self.assertEqual(status.HTTP_201_CREATED, response.status_code, response.data)
+        self.assertEqual("Activo", response.data["estado_nombre"])
+
+    def test_docente_post_sin_cargos(self):
+        response = self.create_docente(self.crear_persona_orm().pk, asignaciones=[])
+        self.assertEqual(status.HTTP_400_BAD_REQUEST, response.status_code)
+        self.assertIn("asignaciones", response.data)
+
+    def test_docente_post_cargo_sin_categorias(self):
+        response = self.create_docente(self.crear_persona_orm().pk, [{"cargo": self.cargo().pk, "categorias": []}])
+        self.assertEqual(status.HTTP_400_BAD_REQUEST, response.status_code)
+        self.assertIn("asignaciones", response.data)
+
+    def test_docente_post_cargo_repetido(self):
+        categoria, otra = self.crear_categoria_orm(), self.crear_categoria_orm(nombre="Otra")
+        response = self.create_docente(self.crear_persona_orm().pk, [
+            {"cargo": self.cargo().pk, "categorias": [categoria.pk]},
+            {"cargo": self.cargo().pk, "categorias": [otra.pk]},
+        ])
+        self.assertEqual(status.HTTP_400_BAD_REQUEST, response.status_code)
+        self.assertIn("asignaciones", response.data)
+
+    def test_docente_post_categoria_en_dos_cargos(self):
+        categoria = self.crear_categoria_orm()
+        response = self.create_docente(self.crear_persona_orm().pk, [
+            {"cargo": self.cargo().pk, "categorias": [categoria.pk]},
+            {"cargo": self.cargo("Ayudante técnico").pk, "categorias": [categoria.pk]},
+        ])
+        self.assertEqual(status.HTTP_400_BAD_REQUEST, response.status_code)
+        self.assertIn("asignaciones", response.data)
+
+    def test_docente_post_persona_ya_es_docente(self):
+        docente = self.crear_docente_orm()
+        response = self.create_docente(docente.persona.pk)
+        self.assertEqual(status.HTTP_400_BAD_REQUEST, response.status_code)
+        self.assertEqual(str(docente.pk), response.data["persona_existente"]["docente_id"])
+
+    def test_docente_estado_independiente_del_socio(self):
+        socio = self.crear_socio_orm()
+        socio.deactivate()
+        response = self.create_docente(socio.persona.pk)
+        self.assertEqual(status.HTTP_201_CREATED, response.status_code, response.data)
+        self.assertEqual("Activo", response.data["estado_nombre"])
+        socio.refresh_from_db()
+        self.assertEqual("Inactivo", socio.estado_socio.nombre)
+
+    def test_cargo_docente_list(self):
+        response = self.client.get("/api/padron/cargo-docente/")
+        self.assertEqual(status.HTTP_200_OK, response.status_code)
+        self.assertEqual(4, len(response.data))
 
     def test_docente_post_persona_inexistente(self):
         response = self.create_docente(9999)
@@ -811,34 +899,63 @@ class PadronViewTests(APITestCase):
         response = self.client.get("/api/padron/docente/9999/", format="json")
         self.assertEqual(status.HTTP_404_NOT_FOUND, response.status_code)
 
-    def test_docente_put(self):
-        docente = self.crear_docente_orm()
-        persona = self.crear_persona_orm(nombre="Maria", dni="87654321")
-        payload = {
-            "persona": persona.persona_id,
-            "legajo": 2002,
-        }
-        response = self.client.put(f"/api/padron/docente/{docente.docente_id}/", payload, format="json")
-        self.assertEqual(status.HTTP_200_OK, response.status_code)
-        self.assertEqual(2002, response.data["legajo"])
-        self.assertEqual(persona.persona_id, response.data["persona"])
-
-    def test_docente_patch(self):
+    def test_docente_patch_no_cambia_legajo(self):
         docente = self.crear_docente_orm()
         response = self.client.patch(
             f"/api/padron/docente/{docente.docente_id}/", {"legajo": 3003}, format="json"
         )
         self.assertEqual(status.HTTP_200_OK, response.status_code)
-        self.assertEqual(3003, response.data["legajo"])
+        self.assertEqual(docente.legajo, response.data["legajo"])
 
-    def test_docente_delete(self):
+    def test_docente_patch_reemplaza_asignaciones(self):
+        response = self.create_docente(self.crear_persona_orm().pk)
+        docente_id = response.data["docente_id"]
+        nueva = self.crear_categoria_orm(nombre="Nueva")
+        response = self.client.patch(f"/api/padron/docente/{docente_id}/", {
+            "asignaciones": [{"cargo": self.cargo("Entrenador de arqueros").pk, "categorias": [nueva.pk]}],
+        }, format="json")
+        self.assertEqual(status.HTTP_200_OK, response.status_code, response.data)
+        self.assertEqual(1, len(response.data["asignaciones"]))
+        self.assertEqual("Entrenador de arqueros", response.data["asignaciones"][0]["cargo_nombre"])
+        self.assertEqual(1, DocenteCategoria.objects.filter(docente_id=docente_id).count())
+
+    def test_docente_patch_no_puede_quedar_sin_cargos(self):
+        response = self.create_docente(self.crear_persona_orm().pk)
+        response = self.client.patch(
+            f"/api/padron/docente/{response.data['docente_id']}/", {"asignaciones": []}, format="json"
+        )
+        self.assertEqual(status.HTTP_400_BAD_REQUEST, response.status_code)
+
+    def test_docente_patch_reactiva(self):
+        docente = self.crear_docente_orm()
+        docente.deactivate()
+        activo = EstadoSocio.objects.get(nombre="Activo")
+        response = self.client.patch(f"/api/padron/docente/{docente.pk}/", {"estado": activo.pk}, format="json")
+        self.assertEqual(status.HTTP_200_OK, response.status_code)
+        self.assertEqual("Activo", response.data["estado_nombre"])
+
+    def test_docente_delete_es_baja_logica(self):
         docente = self.crear_docente_orm()
         response = self.client.delete(f"/api/padron/docente/{docente.docente_id}/", format="json")
-        self.assertEqual(status.HTTP_204_NO_CONTENT, response.status_code)
-        self.assertEqual(
-            status.HTTP_404_NOT_FOUND,
-            self.client.get(f"/api/padron/docente/{docente.docente_id}/", format="json").status_code,
-        )
+        self.assertEqual(status.HTTP_200_OK, response.status_code)
+        self.assertEqual("Inactivo", response.data["estado_nombre"])
+        self.assertTrue(Docente.objects.filter(pk=docente.pk).exists())
+
+    def test_docente_categoria_post_con_cargo(self):
+        docente = self.crear_docente_orm()
+        categoria = self.crear_categoria_orm()
+        response = self.client.post("/api/padron/docente-categoria/", {
+            "docente_id": docente.pk, "categoria_id": categoria.pk, "cargo_id": self.cargo().pk,
+        }, format="json")
+        self.assertEqual(status.HTTP_201_CREATED, response.status_code, response.data)
+        self.assertEqual("Director técnico o formador", response.data["cargo"]["nombre"])
+
+    def test_docente_categoria_post_sin_cargo(self):
+        response = self.client.post("/api/padron/docente-categoria/", {
+            "docente_id": self.crear_docente_orm().pk, "categoria_id": self.crear_categoria_orm().pk,
+        }, format="json")
+        self.assertEqual(status.HTTP_400_BAD_REQUEST, response.status_code)
+        self.assertIn("cargo_id", response.data)
 
     def test_docente_delete_no_existe(self):
         response = self.client.delete("/api/padron/docente/9999/", format="json")

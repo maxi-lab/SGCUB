@@ -100,7 +100,32 @@ def get_default_estado_socio():
     return estado.pk
 
 
-class Socio(models.Model):
+class SequentialNumberMixin:
+    """Al crear, asigna el siguiente número del campo `sequential_field` (número de socio, legajo)."""
+
+    sequential_field = None
+    NUMBER_ASSIGNMENT_ATTEMPTS = 5
+
+    def save(self, *args, **kwargs):
+        field = self.sequential_field
+        if getattr(self, field):
+            return super().save(*args, **kwargs)
+        manager = type(self).objects
+        # Dos altas simultáneas pueden calcular el mismo número: se reintenta con el siguiente
+        for attempt in range(self.NUMBER_ASSIGNMENT_ATTEMPTS):
+            last_number = manager.aggregate(max_number=models.Max(field))["max_number"]
+            setattr(self, field, (last_number or 0) + 1)
+            try:
+                with transaction.atomic():
+                    return super().save(*args, **kwargs)
+            except IntegrityError:
+                number_taken = manager.filter(**{field: getattr(self, field)}).exists()
+                setattr(self, field, None)
+                if not number_taken or attempt == self.NUMBER_ASSIGNMENT_ATTEMPTS - 1:
+                    raise
+
+
+class Socio(SequentialNumberMixin, models.Model):
     socio_id = models.AutoField(primary_key=True)
     persona = models.OneToOneField(
         Persona,
@@ -118,25 +143,10 @@ class Socio(models.Model):
     fecha_alta = models.DateField(default=django.utils.timezone.localdate)
     numero_socio = models.PositiveIntegerField(unique=True, null=True, blank=True)
 
+    sequential_field = "numero_socio"
+
     class Meta:
         db_table = "socio"
-
-    NUMBER_ASSIGNMENT_ATTEMPTS = 5
-
-    def save(self, *args, **kwargs):
-        if self.numero_socio:
-            return super().save(*args, **kwargs)
-        for attempt in range(self.NUMBER_ASSIGNMENT_ATTEMPTS):
-            last_number = Socio.objects.aggregate(max_number=models.Max("numero_socio"))["max_number"]
-            self.numero_socio = (last_number or 0) + 1
-            try:
-                with transaction.atomic():
-                    return super().save(*args, **kwargs)
-            except IntegrityError:
-                number_taken = Socio.objects.filter(numero_socio=self.numero_socio).exists()
-                self.numero_socio = None
-                if not number_taken or attempt == self.NUMBER_ASSIGNMENT_ATTEMPTS - 1:
-                    raise
 
     @property
     def is_inactive(self):
@@ -285,19 +295,43 @@ class Jugador(models.Model):
     def __str__(self):
         return f"{self.socio.persona.nombre} {self.socio.persona.apellido} - Socio ID: {self.socio.socio_id}"
 
-class Docente(models.Model):
+class CargoDocente(models.Model):
+    cargo_id = models.AutoField(primary_key=True)
+    nombre = models.CharField(max_length=100, unique=True)
+
+    class Meta:
+        db_table = "cargo_docente"
+
+    def __str__(self):
+        return self.nombre
+
+
+class Docente(SequentialNumberMixin, models.Model):
     docente_id = models.AutoField(primary_key=True)
     persona = models.OneToOneField(
         Persona,
         on_delete=models.PROTECT,
         related_name="docente"
     )
-    legajo = models.IntegerField()
+    legajo = models.PositiveIntegerField(unique=True)
     fecha_ingreso = models.DateField(default=django.utils.timezone.localdate)
-    
-    
+    # Estado administrativo propio del perfil docente, independiente del estado como socio
+    estado = models.ForeignKey(
+        EstadoSocio,
+        on_delete=models.PROTECT,
+        related_name="docentes",
+        default=get_default_estado_socio,
+    )
+
+    sequential_field = "legajo"
+
     class Meta:
         db_table = "docente"
+
+    def deactivate(self):
+        """Baja lógica: el docente no se elimina, pasa a estado Inactivo."""
+        self.estado, _ = EstadoSocio.objects.get_or_create(nombre=ESTADO_SOCIO_INACTIVO)
+        self.save(update_fields=["estado"])
 
     def __str__(self):
         return f"Docente {self.legajo}"
@@ -342,6 +376,14 @@ class DocenteCategoria(models.Model):
         Categoria,
         on_delete=models.CASCADE,
         related_name="docentes_categoria",
+    )
+
+    # Un docente puede tener varios cargos, cada uno en sus categorías (DT en 1era y 3era, ayudante en 8va)
+    cargo = models.ForeignKey(
+        CargoDocente,
+        on_delete=models.PROTECT,
+        related_name="asignaciones",
+        null=True,  # asignaciones cargadas antes de que existiera el cargo
     )
 
     class Meta:

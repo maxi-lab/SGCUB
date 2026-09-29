@@ -2,7 +2,7 @@ import re
 
 from rest_framework import serializers
 from django.db import transaction
-from .models import DocenteCategoria, Persona, Socio, Categoria, Jugador, Docente, EstadoDeportivo, ContactoEmergencia, EstadoSocio, Genero, Localidad, Domicilio, EDAD_MAYORIA, age_from
+from .models import CargoDocente, DocenteCategoria, Persona, Socio, Categoria, Jugador, Docente, EstadoDeportivo, ContactoEmergencia, EstadoSocio, Genero, Localidad, Domicilio, EDAD_MAYORIA, age_from
 
 
 DNI_REGEX = re.compile(r"\d{7,8}")
@@ -574,18 +574,119 @@ class JugadorSerializerDetail(serializers.ModelSerializer):
         read_only_fields = ["jugador_id"]
 
 
+class CargoDocenteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CargoDocente
+        fields = ["cargo_id", "nombre"]
+
+
+class AsignacionDocenteSerializer(serializers.Serializer):
+    """Un cargo del docente con las categorías en las que lo ejerce."""
+    cargo = serializers.PrimaryKeyRelatedField(queryset=CargoDocente.objects.all())
+    categorias = serializers.PrimaryKeyRelatedField(queryset=Categoria.objects.all(), many=True, allow_empty=False)
+
+
+def group_teacher_assignments(teacher):
+    groups = {}
+    assignments = sorted(
+        teacher.categorias_docente.all(),
+        key=lambda a: (a.cargo.nombre if a.cargo else "", a.categoria.nombre),
+    )
+    for assignment in assignments:
+        group = groups.setdefault(assignment.cargo_id, {
+            "cargo": assignment.cargo_id,
+            "cargo_nombre": assignment.cargo.nombre if assignment.cargo else None,
+            "categorias": [],
+        })
+        group["categorias"].append(CategoriaSerializer(assignment.categoria).data)
+    return list(groups.values())
+
+
 class DocenteSerializer(serializers.ModelSerializer):
     persona = serializers.PrimaryKeyRelatedField(queryset=Persona.objects.all())
     persona_detalle = PersonaSerializer(source="persona", read_only=True)
+    estado = serializers.PrimaryKeyRelatedField(queryset=EstadoSocio.objects.all(), required=False)
+    estado_nombre = serializers.CharField(source="estado.nombre", read_only=True)
+    # Escritura: [{"cargo": id, "categorias": [ids]}]. Lectura: agrupado por cargo con el detalle de cada categoría.
+    asignaciones = AsignacionDocenteSerializer(many=True, required=False, write_only=True)
 
     class Meta:
         model = Docente
-        fields = ["docente_id", "persona", "persona_detalle", "legajo", "fecha_ingreso"]
-        read_only_fields = ["docente_id"]
+        fields = [
+            "docente_id", "persona", "persona_detalle", "legajo", "fecha_ingreso",
+            "estado", "estado_nombre", "asignaciones",
+        ]
+        read_only_fields = ["docente_id", "legajo", "fecha_ingreso"]
+
+    def to_representation(self, teacher):
+        data = super().to_representation(teacher)
+        data["asignaciones"] = group_teacher_assignments(teacher)
+        return data
+
+    def validate(self, attrs):
+        is_creation = self.instance is None
+        person = attrs.get("persona")
+        if person is not None and person != getattr(self.instance, "persona", None):
+            existing = getattr(person, "docente", None)
+            if existing is not None:
+                raise serializers.ValidationError({
+                    "persona": ["Esta persona ya está registrada como docente."],
+                    "persona_existente": {"docente_id": existing.pk},
+                })
+
+        assignments = attrs.get("asignaciones")
+        if is_creation and not assignments:
+            raise serializers.ValidationError({"asignaciones": ["Debe asignar al menos un cargo con sus categorías."]})
+        if assignments is not None:
+            self._validate_assignments(assignments)
+        return attrs
+
+    def _validate_assignments(self, assignments):
+        if not assignments:
+            raise serializers.ValidationError({"asignaciones": ["El docente debe tener al menos un cargo."]})
+        positions = [assignment["cargo"] for assignment in assignments]
+        if len(positions) != len(set(positions)):
+            raise serializers.ValidationError({"asignaciones": ["Cada cargo se puede agregar una sola vez."]})
+        categories = [category for assignment in assignments for category in assignment["categorias"]]
+        if len(categories) != len(set(categories)):
+            raise serializers.ValidationError({"asignaciones": ["Una categoría no puede estar asignada a más de un cargo del mismo docente."]})
+
+    def _save_assignments(self, teacher, assignments):
+        teacher.categorias_docente.all().delete()
+        DocenteCategoria.objects.bulk_create([
+            DocenteCategoria(docente=teacher, cargo=assignment["cargo"], categoria=category)
+            for assignment in assignments
+            for category in assignment["categorias"]
+        ])
+
+    @transaction.atomic
+    def create(self, validated_data):
+        assignments = validated_data.pop("asignaciones")
+        # El alta siempre queda en estado Activo; legajo y fecha de ingreso se asignan solos
+        validated_data.pop("estado", None)
+        teacher = Docente.objects.create(**validated_data)
+        self._save_assignments(teacher, assignments)
+        return teacher
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        assignments = validated_data.pop("asignaciones", None)
+        teacher = super().update(instance, validated_data)
+        if assignments is not None:
+            self._save_assignments(teacher, assignments)
+        return teacher
+
 
 class DocenteCategoriaSerializer(serializers.ModelSerializer):
     docente = DocenteSerializer(read_only=True)
     categoria = CategoriaSerializer(read_only=True)
+    cargo = CargoDocenteSerializer(read_only=True)
+    cargo_id = serializers.PrimaryKeyRelatedField(
+        source="cargo",
+        queryset=CargoDocente.objects.all(),
+        write_only=True,
+        required=True,
+    )
     docente_id = serializers.PrimaryKeyRelatedField(
         source="docente",
         queryset=Docente.objects.all(),
@@ -601,5 +702,5 @@ class DocenteCategoriaSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = DocenteCategoria
-        fields = ["docente_categoria_id", "docente", "categoria", "docente_id", "categoria_id"]
+        fields = ["docente_categoria_id", "docente", "categoria", "cargo", "docente_id", "categoria_id", "cargo_id"]
         read_only_fields = ["docente_categoria_id"]

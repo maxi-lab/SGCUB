@@ -7,8 +7,9 @@ from drf_spectacular.utils import extend_schema
 from .services import recategorizar_jugadores
 from .services import pasr_de_anio_vigente_a_categoria
 
-from .models import Persona, Socio, Categoria, Jugador, Docente, EstadoDeportivo, ContactoEmergencia, EstadoSocio, Genero, Localidad, DocenteCategoria
+from .models import CargoDocente, Persona, Socio, Categoria, Jugador, Docente, EstadoDeportivo, ContactoEmergencia, EstadoSocio, Genero, Localidad, DocenteCategoria
 from .serializers import (
+    CargoDocenteSerializer,
     DocenteCategoriaSerializer,
     PersonaSerializer,
     SocioSerializer,
@@ -282,7 +283,9 @@ def jugador_detail(request, pk):
 @api_view(["GET", "POST"])
 def docente_list_create(request):
     if request.method == "GET":
-        teachers = Docente.objects.all()
+        teachers = Docente.objects.select_related(
+            "persona__genero", "persona__domicilio__localidad", "persona__socio__jugador", "estado"
+        ).prefetch_related("categorias_docente__cargo", "categorias_docente__categoria")
         serializer = DocenteSerializer(teachers, many=True)
         return Response(serializer.data)
 
@@ -302,22 +305,23 @@ def docente_detail(request, pk):
         serializer = DocenteSerializer(teacher)
         return Response(serializer.data)
 
-    if request.method == "PUT":
-        serializer = DocenteSerializer(teacher, data=request.data, partial=True)
-        if serializer.is_valid():
-            teacher = serializer.save()
-            return Response(DocenteSerializer(teacher).data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    if request.method == "DELETE":
+        # Baja lógica: el registro se conserva con estado Inactivo
+        teacher.deactivate()
+        return Response(DocenteSerializer(teacher).data)
 
-    if request.method == "PATCH":
-        serializer = DocenteSerializer(teacher, data=request.data, partial=True)
-        if serializer.is_valid():
-            teacher = serializer.save()
-            return Response(DocenteSerializer(teacher).data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    serializer = DocenteSerializer(teacher, data=request.data, partial=True)
+    if serializer.is_valid():
+        teacher = serializer.save()
+        return Response(DocenteSerializer(teacher).data)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    teacher.delete()
-    return Response(status=status.HTTP_204_NO_CONTENT)
+
+@extend_schema(tags=["Padron / Docente"], responses=CargoDocenteSerializer)
+@api_view(["GET"])
+def cargo_docente_list(request):
+    positions = CargoDocente.objects.order_by("nombre")
+    return Response(CargoDocenteSerializer(positions, many=True).data)
 
 
 @extend_schema(tags=["Padron / ContactoEmergencia"], request=ContactoEmergenciaSerializer, responses=ContactoEmergenciaSerializer)
@@ -414,7 +418,7 @@ def docente_categoria_list(request):
             )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    teacher_categories = DocenteCategoria.objects.select_related("docente", "categoria")
+    teacher_categories = DocenteCategoria.objects.select_related("docente", "categoria", "cargo")
 
     teacher_id = (
         request.query_params.get("idDocente")
@@ -440,7 +444,7 @@ def docente_categoria_list(request):
 @api_view(["GET", "DELETE"])
 def docente_categoria_detail(request, pk):
     teacher_category = get_object_or_404(
-        DocenteCategoria.objects.select_related("docente", "categoria"),
+        DocenteCategoria.objects.select_related("docente", "categoria", "cargo"),
         pk=pk,
     )
     if request.method == "DELETE":
