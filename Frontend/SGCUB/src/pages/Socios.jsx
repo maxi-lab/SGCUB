@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import DeleteSocioModal from '../components/socios/DeleteSocioModal'
+import DeleteSocioModal from '../components/socios/DeactivateSocioModal'
 import SociosTable from '../components/socios/SociosTable'
 import PageHeader from '../components/shared/PageHeader'
 import StatCard from '../components/shared/StatCard'

@@ -42,12 +42,24 @@ export const putSocio = async (socioId, socio) => {
   }
 }
 
-export const deleteSocio = async (socioId) => {
+export const deactivateSocio = async (socioId) => {
   try {
     const response = await api.delete(`${sociosEndpoint}${socioId}/`)
     return response.data
   } catch (error) {
     console.error('Error al eliminar el socio:', error)
+    throw error
+  }
+}
+
+export const activateSocio = async (socioId) => {
+  try {
+    const { data: estados } = await api.get('padron/estado-socio/')
+    const activo = estados.find((estado) => estado.nombre === 'Activo')
+    const response = await api.patch(`${sociosEndpoint}${socioId}/`, { estado_administrativo: activo?.estado_id })
+    return response.data
+  } catch (error) {
+    console.error('Error al dar de alta el socio:', error)
     throw error
   }
 }
