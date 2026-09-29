@@ -34,6 +34,11 @@ class TipoMovimientoChoices(models.TextChoices):
     CARGO = "Cargo", "Cargo"
 
 
+class EstadoCuentaCorrienteChoices(models.TextChoices):
+    ACTIVO = "Activo", "Activo"
+    INACTIVO = "Inactivo", "Inactivo"
+
+
 class Cuota(models.Model):
     cuota_id = models.AutoField(primary_key=True)
     cuenta_corriente = models.ForeignKey(
@@ -151,6 +156,11 @@ class CuentaCorriente(models.Model):
         related_name="cuenta_corriente",
     )
     saldo = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    estado_cuenta_corriente = models.CharField(
+        max_length=40,
+        choices=EstadoCuentaCorrienteChoices.choices,
+        default=EstadoCuentaCorrienteChoices.ACTIVO,
+    )
 
     class Meta:
         db_table = "cuenta_corriente"
