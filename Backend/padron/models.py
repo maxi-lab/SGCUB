@@ -80,23 +80,23 @@ class Persona(models.Model):
         return f"{self.nombre} {self.apellido}"
 
 
-class EstadoSocio(models.Model):
+class EstadoAdministrativo(models.Model):
     estado_id = models.AutoField(primary_key=True)
     nombre = models.CharField(max_length=50)
 
     class Meta:
-        db_table = "estado_socio"
+        db_table = "estado_administrativo"
 
     def __str__(self):
         return self.nombre
 
 
-ESTADO_SOCIO_ACTIVO = "Activo"
-ESTADO_SOCIO_INACTIVO = "Inactivo"
+ESTADO_ADMINISTRATIVO_ACTIVO = "Activo"
+ESTADO_ADMINISTRATIVO_INACTIVO = "Inactivo"
 
 
-def get_default_estado_socio():
-    estado, _ = EstadoSocio.objects.get_or_create(nombre=ESTADO_SOCIO_ACTIVO)
+def get_default_estado_administrativo():
+    estado, _ = EstadoAdministrativo.objects.get_or_create(nombre=ESTADO_ADMINISTRATIVO_ACTIVO)
     return estado.pk
 
 
@@ -132,13 +132,13 @@ class Socio(SequentialNumberMixin, models.Model):
         on_delete=models.PROTECT,
         related_name="socio"
     )
-    estado_socio = models.ForeignKey(
-        EstadoSocio,
+    estado_administrativo = models.ForeignKey(
+        EstadoAdministrativo,
         on_delete=models.PROTECT,
         related_name="socios",
         null=False,
         blank=False,
-        default=get_default_estado_socio,
+        default=get_default_estado_sadministrativo,
     )
     fecha_alta = models.DateField(default=django.utils.timezone.localdate)
     numero_socio = models.PositiveIntegerField(unique=True, null=True, blank=True)
@@ -150,20 +150,20 @@ class Socio(SequentialNumberMixin, models.Model):
 
     @property
     def is_inactive(self):
-        return self.estado_socio.nombre == ESTADO_SOCIO_INACTIVO
+        return self.estado_administrativo.nombre == ESTADO_ADMINISTRATIVO_INACTIVO
 
     @transaction.atomic
     def deactivate(self):
         """Baja lógica: el socio no se elimina, pasa a estado Inactivo junto con su perfil deportivo."""
-        self.estado_socio, _ = EstadoSocio.objects.get_or_create(nombre=ESTADO_SOCIO_INACTIVO)
-        self.save(update_fields=["estado_socio"])
+        self.estado_administrativo, _ = EstadoAdministrativo.objects.get_or_create(nombre=ESTADO_ADMINISTRATIVO_INACTIVO)
+        self.save(update_fields=["estado_administrativo"])
         player = getattr(self, "jugador", None)
         if player is not None:
             player.deactivate()
 
     def activate(self):
-        self.estado_socio, _ = EstadoSocio.objects.get_or_create(nombre=ESTADO_SOCIO_ACTIVO)
-        self.save(update_fields=["estado_socio"])
+        self.estado_administrativo, _ = EstadoAdministrativo.objects.get_or_create(nombre=ESTADO_ADMINISTRATIVO_ACTIVO)
+        self.save(update_fields=["estado_administrativo"])
 
     def __str__(self):
         return f"{self.persona.nombre} {self.persona.apellido}"
@@ -317,10 +317,10 @@ class Docente(SequentialNumberMixin, models.Model):
     fecha_ingreso = models.DateField(default=django.utils.timezone.localdate)
     # Estado administrativo propio del perfil docente, independiente del estado como socio
     estado = models.ForeignKey(
-        EstadoSocio,
+        EstadoAdministrativo,
         on_delete=models.PROTECT,
         related_name="docentes",
-        default=get_default_estado_socio,
+        default=get_default_estado_administrativo,
     )
 
     sequential_field = "legajo"
@@ -337,7 +337,7 @@ class Docente(SequentialNumberMixin, models.Model):
 
     def deactivate(self):
         """Baja lógica: el docente no se elimina, pasa a estado Inactivo."""
-        self.estado, _ = EstadoSocio.objects.get_or_create(nombre=ESTADO_SOCIO_INACTIVO)
+        self.estado, _ = EstadoAdministrativo.objects.get_or_create(nombre=ESTADO_ADMINISTRATIVO_INACTIVO)
         self.save(update_fields=["estado"])
 
     def __str__(self):
