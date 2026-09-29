@@ -8,7 +8,7 @@ const ESTADO_OPTIONS = [
   { value: 'Paga', label: 'Paga' },
 ]
 
-function EditCuotaModal({ opened, onClose, onSubmit, formulario, onChange, loading, error }) {
+function EditCuotaModal({ opened, onClose, onSubmit, formulario, onChange, loading, error, cuentasOptions = [] }) {
   return (
     <Modal opened={opened} onClose={onClose} title="Editar cuota" centered size="md">
       <form onSubmit={onSubmit}>
@@ -47,12 +47,14 @@ function EditCuotaModal({ opened, onClose, onSubmit, formulario, onChange, loadi
             />
           </Group>
 
-          <TextInput
+          <Select
             label="Cuenta corriente"
-            placeholder="ID de la cuenta corriente"
-            type="number"
-            value={formulario.cuenta_corriente ?? ''}
-            onChange={(event) => onChange('cuenta_corriente', event.currentTarget.value)}
+            placeholder="Seleccione el socio"
+            data={cuentasOptions}
+            searchable
+            clearable
+            value={formulario.cuenta_corriente ? String(formulario.cuenta_corriente) : null}
+            onChange={(value) => onChange('cuenta_corriente', value || '')}
             required
           />
 

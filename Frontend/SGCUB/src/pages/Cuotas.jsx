@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { deleteCuota, deleteItemCuota, getCuotas, getCuentasCorrientes, patchCuota, patchItemCuota, postCuota, postItemCuota } from '../api/cuotas'
+import { getSocios } from '../api/socios'
 import AddCuotaModal from '../components/cuota/AddCuotaModal'
 import CuotaTable from '../components/cuota/CuotaTable'
 import DeleteCuotaModal from '../components/cuota/DeleteCuotaModal'
@@ -20,6 +21,7 @@ const FORMULARIO_INICIAL = {
 function Cuotas() {
   const [cuotas, setCuotas] = useState([])
   const [cuentas, setCuentas] = useState([])
+  const [socios, setSocios] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
   const [modalAgregar, setModalAgregar] = useState(false)
@@ -34,12 +36,14 @@ function Cuotas() {
     try {
       setIsLoading(true)
       setError('')
-      const [respuestaCuotas, respuestaCuentas] = await Promise.all([
+      const [respuestaCuotas, respuestaCuentas, respuestaSocios] = await Promise.all([
         getCuotas(),
         getCuentasCorrientes(),
+        getSocios(),
       ])
       setCuotas(respuestaCuotas ?? [])
       setCuentas(respuestaCuentas ?? [])
+      setSocios(respuestaSocios ?? [])
     } catch (requestError) {
       setError(requestError.response?.data?.detail || 'No se pudieron cargar las cuotas.')
     } finally {
@@ -55,6 +59,13 @@ function Cuotas() {
     () => Object.fromEntries((cuentas ?? []).map((cuenta) => [String(cuenta.cuenta_corriente_id), cuenta])),
     [cuentas],
   )
+
+  const cuentasOptions = useMemo(() => cuentas.map((cuenta) => {
+    const socioId = typeof cuenta.socio === 'object' ? cuenta.socio?.socio_id : cuenta.socio
+    const socio = socios.find((item) => String(item.socio_id) === String(socioId))
+    const nombre = socio ? `${socio.apellido}, ${socio.nombre}` : `Socio ${socioId}`
+    return { value: String(cuenta.cuenta_corriente_id), label: `${nombre} - Cuenta ${cuenta.cuenta_corriente_id}` }
+  }), [cuentas, socios])
 
   const cuotaConDetalle = useMemo(
     () =>
@@ -231,6 +242,7 @@ function Cuotas() {
         onChange={(campo, valor) => setFormulario((actual) => ({ ...actual, [campo]: valor }))}
         loading={guardando}
         error={errorFormulario}
+        cuentasOptions={cuentasOptions}
       />
 
       <EditCuotaModal
@@ -241,6 +253,7 @@ function Cuotas() {
         onChange={(campo, valor) => setFormulario((actual) => ({ ...actual, [campo]: valor }))}
         loading={guardando}
         error={errorFormulario}
+        cuentasOptions={cuentasOptions}
       />
 
       <DeleteCuotaModal
