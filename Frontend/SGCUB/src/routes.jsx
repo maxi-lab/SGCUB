@@ -17,6 +17,7 @@ import CategoriaDetalle from './pages/CategoriaDetalle'
 import Cuotas from './pages/Cuotas'
 import EstadoCuenta from './pages/EstadoCuenta'
 import EnDesarrollo from './pages/EnDesarrollo'
+import Caja from './pages/Caja'
 
 export const router = createBrowserRouter([
   {
@@ -119,7 +120,7 @@ export const router = createBrowserRouter([
       },
       {
         path: 'caja',
-        element: <EnDesarrollo title="Caja y cobros" />,
+        element: <Caja />,
       },
       {
         path: 'documental',

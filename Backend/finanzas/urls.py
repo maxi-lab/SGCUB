@@ -18,6 +18,7 @@ from .views import (
     movimiento_cuenta_list_create,
     pago_detail,
     pago_list_create,
+    registrar_pago,
 )
 
 urlpatterns = [
@@ -26,6 +27,7 @@ urlpatterns = [
     path("item-cuota/", item_cuota_list_create, name="item-cuota-list"),
     path("item-cuota/<int:pk>/", item_cuota_detail, name="item-cuota-detail"),
     path("pago/", pago_list_create, name="pago-list"),
+    path("pago/registrar/", registrar_pago, name="registrar-pago"),
     path("pago/<int:pk>/", pago_detail, name="pago-detail"),
     path("item-pago/", item_pago_list_create, name="item-pago-list"),
     path("item-pago/<int:pk>/", item_pago_detail, name="item-pago-detail"),

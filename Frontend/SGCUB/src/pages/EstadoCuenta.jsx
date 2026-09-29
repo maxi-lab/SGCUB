@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { formatDni, formatNumber } from '../components/personas/format'
 import PageHeader from '../components/shared/PageHeader'
 import EstadoCuentaPanel from '../components/finanzas/EstadoCuentaPanel'
@@ -7,9 +7,18 @@ import useSocio from './useSocio'
 
 function EstadoCuenta() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { socios, isLoading, error } = useSocio()
   const [busqueda, setBusqueda] = useState('')
   const [socioSeleccionado, setSocioSeleccionado] = useState(null)
+  const socioInicialId = searchParams.get('socio')
+
+  useEffect(() => {
+    if (!socioSeleccionado && socioInicialId && socios.length) {
+      const socioInicial = socios.find((socio) => String(socio.socio_id) === String(socioInicialId))
+      if (socioInicial) setSocioSeleccionado(socioInicial)
+    }
+  }, [socioInicialId, socios, socioSeleccionado])
 
   const resultados = useMemo(() => {
     const termino = busqueda.trim().toLowerCase()
