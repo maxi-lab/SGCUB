@@ -96,7 +96,7 @@ function SociosTable({ data, isLoading, error }) {
               search
             </span>
             <input
-              className="w-full h-10 pl-11 pr-4 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface placeholder:text-outline font-body-sm text-base focus:outline-none focus:border-primary focus:bg-surface-container-lowest transition-colors"
+              className="w-full h-10 pl-11 pr-4 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface placeholder:text-outline font-body-sm text-sm focus:outline-none focus:border-primary focus:bg-surface-container-lowest transition-colors"
               placeholder="Filtrar por DNI, Nombre o Apellido..."
               type="text"
               value={busqueda}
@@ -109,7 +109,7 @@ function SociosTable({ data, isLoading, error }) {
           </div>
           <div className="flex items-center gap-2">
             <select
-              className="h-10 px-3 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-base font-medium focus:outline-none focus:border-primary cursor-pointer"
+              className="h-10 px-3 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-sm focus:outline-none focus:border-primary cursor-pointer"
               value={estado}
               onChange={(event) => {
                 setEstado(event.target.value)

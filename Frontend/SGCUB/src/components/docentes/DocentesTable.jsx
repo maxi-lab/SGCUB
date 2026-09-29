@@ -61,11 +61,11 @@ function DocentesTable({ data, categorias = [], categoriasPorDocente = {}, isLoa
       <div className="p-4 border-b border-outline-variant/20 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
         <div className="flex flex-1 flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
           <div className="relative flex-1 max-w-md">
-            <span className="material-symbols-outlined absolute left-4 top-1.5 text-outline text-[18px]" aria-hidden="true">
+            <span className="material-symbols-outlined absolute left-4 top-1.5 text-outline text-sm" aria-hidden="true">
               search
             </span>
             <input
-              className="w-full h-10 pl-11 pr-4 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface placeholder:text-outline font-body-sm text-lg focus:outline-none focus:border-primary focus:bg-surface-container-lowest transition-colors"
+              className="w-full h-10 pl-11 pr-4 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface placeholder:text-outline font-body-sm text-sm focus:outline-none focus:border-primary focus:bg-surface-container-lowest transition-colors"
               placeholder="Filtrar por DNI, Nombre, Apellido o Legajo..."
               type="text"
               value={busqueda}
@@ -77,7 +77,7 @@ function DocentesTable({ data, categorias = [], categoriasPorDocente = {}, isLoa
             />
           </div>
           <select
-            className="h-10 px-3 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-lg font-medium focus:outline-none focus:border-primary cursor-pointer"
+            className="h-10 px-3 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-sm font-medium focus:outline-none focus:border-primary cursor-pointer"
             value={cargo}
             onChange={(event) => {
               setCargo(event.target.value)
@@ -89,7 +89,7 @@ function DocentesTable({ data, categorias = [], categoriasPorDocente = {}, isLoa
             {cargosDisponibles.map((item) => <option key={item} value={item}>{item}</option>)}
           </select>
           <select
-            className="h-10 px-3 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-lg font-medium focus:outline-none focus:border-primary cursor-pointer"
+            className="h-10 px-3 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-sm font-medium focus:outline-none focus:border-primary cursor-pointer"
             value={categoria}
             onChange={(event) => {
               setCategoria(event.target.value)
@@ -101,7 +101,7 @@ function DocentesTable({ data, categorias = [], categoriasPorDocente = {}, isLoa
             {categorias.map((item) => <option key={item.categoria_id} value={item.categoria_id}>{item.nombre}</option>)}
           </select>
           <select
-            className="h-10 px-3 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-lg font-medium focus:outline-none focus:border-primary cursor-pointer"
+            className="h-10 px-3 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-sm font-medium focus:outline-none focus:border-primary cursor-pointer"
             value={estado}
             onChange={(event) => {
               setEstado(event.target.value)
@@ -115,7 +115,7 @@ function DocentesTable({ data, categorias = [], categoriasPorDocente = {}, isLoa
           </select>
         </div>
         <div className="flex items-center justify-between sm:justify-end gap-3 pt-2 lg:pt-0">
-          <span className="text-lg text-on-surface-variant whitespace-nowrap">
+          <span className="text-base text-on-surface-variant whitespace-nowrap">
             {filtrados.length === 0
               ? 'Sin resultados'
               : `Mostrando ${desde + 1}-${desde + visibles.length} de ${filtrados.length.toLocaleString('es-AR')} docentes`}
