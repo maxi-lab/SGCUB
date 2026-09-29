@@ -374,6 +374,44 @@ class PadronViewTests(APITestCase):
             self.client.get(f"/api/padron/socio/{socio.socio_id}/", format="json").status_code,
         )
 
+    def test_socio_delete_da_de_baja_su_jugador(self):
+        jugador = self.crear_jugador_orm()
+        response = self.client.delete(f"/api/padron/socio/{jugador.socio.socio_id}/", format="json")
+        self.assertEqual(status.HTTP_200_OK, response.status_code)
+        jugador.refresh_from_db()
+        self.assertEqual("Inactivo", jugador.estado.nombre)
+
+    def test_socio_patch_inactivo_da_de_baja_su_jugador(self):
+        jugador = self.crear_jugador_orm()
+        inactivo, _ = EstadoSocio.objects.get_or_create(nombre="Inactivo")
+        response = self.client.patch(
+            f"/api/padron/socio/{jugador.socio.socio_id}/", {"estado_socio": inactivo.pk}, format="json"
+        )
+        self.assertEqual(status.HTTP_200_OK, response.status_code)
+        jugador.refresh_from_db()
+        self.assertEqual("Inactivo", jugador.estado.nombre)
+
+    def test_jugador_patch_activo_reactiva_su_socio(self):
+        jugador = self.crear_jugador_orm()
+        jugador.socio.deactivate()
+        activo = EstadoDeportivo.objects.get(nombre="Activo")
+        response = self.client.patch(
+            f"/api/padron/jugador/{jugador.jugador_id}/", {"estado": activo.pk}, format="json"
+        )
+        self.assertEqual(status.HTTP_200_OK, response.status_code, response.data)
+        jugador.socio.refresh_from_db()
+        self.assertEqual("Activo", jugador.socio.estado_socio.nombre)
+
+    def test_jugador_post_con_socio_inactivo_lo_reactiva(self):
+        socio = self.crear_socio_menor_orm()
+        socio.deactivate()
+        response = self.client.post("/api/padron/jugador/", {
+            "socio": socio.socio_id, **self.datos_jugador(self.crear_categoria_orm().pk),
+        }, format="json")
+        self.assertEqual(status.HTTP_201_CREATED, response.status_code, response.data)
+        socio.refresh_from_db()
+        self.assertEqual("Activo", socio.estado_socio.nombre)
+
     def test_socio_post_asigna_activo_numero_y_fecha(self):
         inactivo = EstadoSocio.objects.create(nombre="Inactivo")
         self.crear_socio_orm(numero_socio=41)

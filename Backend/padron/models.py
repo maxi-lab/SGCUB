@@ -138,9 +138,21 @@ class Socio(models.Model):
                 if not number_taken or attempt == self.NUMBER_ASSIGNMENT_ATTEMPTS - 1:
                     raise
 
+    @property
+    def is_inactive(self):
+        return self.estado_socio.nombre == ESTADO_SOCIO_INACTIVO
+
+    @transaction.atomic
     def deactivate(self):
-        """Baja lógica: el socio no se elimina, pasa a estado Inactivo."""
+        """Baja lógica: el socio no se elimina, pasa a estado Inactivo junto con su perfil deportivo."""
         self.estado_socio, _ = EstadoSocio.objects.get_or_create(nombre=ESTADO_SOCIO_INACTIVO)
+        self.save(update_fields=["estado_socio"])
+        player = getattr(self, "jugador", None)
+        if player is not None:
+            player.deactivate()
+
+    def activate(self):
+        self.estado_socio, _ = EstadoSocio.objects.get_or_create(nombre=ESTADO_SOCIO_ACTIVO)
         self.save(update_fields=["estado_socio"])
 
     def __str__(self):
@@ -255,6 +267,15 @@ class Jugador(models.Model):
         db_table = "jugador"
         verbose_name = "Jugador"
         verbose_name_plural = "Jugadores"
+
+    @property
+    def is_active(self):
+        return self.estado.nombre == ESTADO_DEPORTIVO_ACTIVO
+
+    def activate_member_if_inactive(self):
+        """Un jugador activo requiere un socio activo: al darlo de alta se reactiva su socio."""
+        if self.is_active and self.socio.is_inactive:
+            self.socio.activate()
 
     def deactivate(self):
         """Baja lógica: el jugador no se elimina, pasa a estado deportivo Inactivo."""

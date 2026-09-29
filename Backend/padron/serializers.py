@@ -273,7 +273,10 @@ class SocioSerializer(serializers.ModelSerializer):
         person_data = validated_data.pop("persona", None)
         if person_data:
             self._save_person(instance.persona, person_data)
-        return super().update(instance, validated_data)
+        member = super().update(instance, validated_data)
+        if "estado_socio" in validated_data and member.is_inactive:
+            member.deactivate()
+        return member
 
 
 class CategoriaSerializer(serializers.ModelSerializer):
@@ -502,6 +505,7 @@ class JugadorSerializer(serializers.ModelSerializer):
 
         contacts_data = validated_data.pop("contactos_emergencia", [])
         player = Jugador.objects.create(**validated_data)
+        player.activate_member_if_inactive()
         for contact_data in contacts_data:
             contact_data["jugador"] = player
             ContactoEmergenciaSerializer().create(contact_data)
@@ -520,6 +524,8 @@ class JugadorSerializer(serializers.ModelSerializer):
 
         contacts_data = validated_data.pop("contactos_emergencia", None)
         player = super().update(instance, validated_data)
+        if "estado" in validated_data:
+            player.activate_member_if_inactive()
         if contacts_data is not None:
             contact_ids = set()
             for contact_data in contacts_data:
