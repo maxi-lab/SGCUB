@@ -4,8 +4,9 @@ from rest_framework.test import APITestCase
 from padron.serializers import SocioSerializer 
 
 from datetime import date
+from unittest.mock import patch
 
-from .models import Categoria, ContactoEmergencia, Genero, Docente, Jugador, Localidad, Persona, Socio
+from .models import Categoria, ContactoEmergencia, Docente, EstadoDeportivo, EstadoSocio, Genero, Jugador, Localidad, Persona, Socio
 
 
 class PadronViewTests(APITestCase):
@@ -23,7 +24,6 @@ class PadronViewTests(APITestCase):
         self.categoria_data = {
             "nombre": "Inferior",
             "anio_vigente": 2026,
-            "edad_minima": 10,
             "edad_maxima": 12,
             "genero": "M",
         }
@@ -59,10 +59,27 @@ class PadronViewTests(APITestCase):
             "/api/padron/categoria/", data if data is not None else self.categoria_data, format="json"
         )
 
-    def create_jugador(self, socio_id, categoria_id):
+    def contacto_payload(self, dni="20111222", responsable_legal=True):
+        return {
+            "persona": {"dni": dni, "nombre": "Ana", "apellido": "Perez", "telefono": "221555"},
+            "relacion": "Madre",
+            "responsable_legal": responsable_legal,
+        }
+
+    def datos_jugador(self, categoria_id, **kwargs):
+        """Payload deportivo con los campos obligatorios (sin el socio)."""
+        return {
+            "categoria": categoria_id,
+            "obra_social": "OSDE",
+            "tallaIndumentaria": "M",
+            "contactos_emergencia": [self.contacto_payload()],
+            **kwargs,
+        }
+
+    def create_jugador(self, socio_id, categoria_id, **kwargs):
         return self.client.post(
             "/api/padron/jugador/",
-            {"socio": socio_id, "categoria": categoria_id},
+            {"socio": socio_id, **self.datos_jugador(categoria_id, **kwargs)},
             format="json",
         )
 
@@ -95,10 +112,20 @@ class PadronViewTests(APITestCase):
         data = {**self.categoria_data, **kwargs}
         return Categoria.objects.create(**data)
 
+    def crear_socio_menor_orm(self, **kwargs):
+        """Socio de 11 años: entra en la categoría de prueba (hasta 12 en la temporada 2026)."""
+        persona = self.crear_persona_orm(fecha_nacimiento=date(2015, 3, 1), **kwargs)
+        return self.crear_socio_orm(persona=persona)
+
     def crear_jugador_orm(self, socio=None, categoria=None):
-        socio = socio or self.crear_socio_orm()
+        socio = socio or self.crear_socio_menor_orm()
         categoria = categoria or self.crear_categoria_orm()
-        return Jugador.objects.create(socio=socio, categoria=categoria)
+        jugador = Jugador.objects.create(socio=socio, categoria=categoria, obra_social="OSDE", tallaIndumentaria="M")
+        ContactoEmergencia.objects.create(
+            jugador=jugador, relacion="Madre", responsable_legal=True,
+            persona=self.crear_persona_orm(dni=f"2{socio.persona.dni[1:]}"),
+        )
+        return jugador
 
     def crear_docente_orm(self, persona=None, legajo=None):
         persona = persona or self.crear_persona_orm()
@@ -335,14 +362,87 @@ class PadronViewTests(APITestCase):
         self.assertEqual(status.HTTP_200_OK, response.status_code)
         self.assertEqual("555555", response.data["telefono"])
 
-    def test_socio_delete(self):
+    def test_socio_delete_es_baja_logica(self):
         socio = self.crear_socio_orm()
         response = self.client.delete(f"/api/padron/socio/{socio.socio_id}/", format="json")
-        self.assertEqual(status.HTTP_204_NO_CONTENT, response.status_code)
+        self.assertEqual(status.HTTP_200_OK, response.status_code)
+        self.assertEqual("Inactivo", response.data["estado_socio_nombre"])
+        socio.refresh_from_db()
+        self.assertEqual("Inactivo", socio.estado_socio.nombre)
         self.assertEqual(
-            status.HTTP_404_NOT_FOUND,
+            status.HTTP_200_OK,
             self.client.get(f"/api/padron/socio/{socio.socio_id}/", format="json").status_code,
         )
+
+    def test_socio_post_asigna_activo_numero_y_fecha(self):
+        inactivo = EstadoSocio.objects.create(nombre="Inactivo")
+        self.crear_socio_orm(numero_socio=41)
+        response = self.create_socio({
+            **self.datos_alta_persona(dni="32111222"),
+            "estado_socio": inactivo.pk,
+            "numero_socio": 1,
+            "fecha_alta": "2000-01-01",
+        })
+        self.assertEqual(status.HTTP_201_CREATED, response.status_code, response.data)
+        self.assertEqual("Activo", response.data["estado_socio_nombre"])
+        self.assertEqual(42, response.data["numero_socio"])
+        self.assertEqual(date.today().isoformat(), response.data["fecha_alta"])
+
+    def test_socio_numero_se_reintenta_si_esta_ocupado(self):
+        self.crear_socio_orm(numero_socio=5)
+        socio = Socio(persona=self.crear_persona_orm())
+        real_aggregate = Socio.objects.aggregate
+        calls = []
+
+        def stale_aggregate(*args, **kwargs):
+            # Simula otra alta concurrente: el primer cálculo ve un máximo desactualizado
+            calls.append(1)
+            return {"max_number": 4} if len(calls) == 1 else real_aggregate(*args, **kwargs)
+
+        with patch.object(Socio.objects, "aggregate", side_effect=stale_aggregate):
+            socio.save()
+        self.assertEqual(6, socio.numero_socio)
+
+    def test_jugador_post_nuevo_socio_de_socio_existente_lo_reutiliza(self):
+        socio = self.crear_socio_menor_orm(dni="34555666")
+        response = self.client.post("/api/padron/jugador/", {
+            "nuevo_socio": self.datos_alta_persona(dni="34555666", fecha_nacimiento="2015-03-01"),
+            **self.datos_jugador(self.crear_categoria_orm().pk),
+        }, format="json")
+        self.assertEqual(status.HTTP_201_CREATED, response.status_code, response.data)
+        self.assertEqual(socio.socio_id, response.data["socio"]["socio_id"])
+        self.assertEqual(1, Socio.objects.filter(persona__dni="34555666").count())
+
+    def test_socio_patch_sin_email_no_lo_borra(self):
+        socio = self.crear_socio_orm(persona=self.crear_persona_orm(email="socio@example.com"))
+        response = self.client.patch(
+            f"/api/padron/socio/{socio.socio_id}/", {"telefono": "555555"}, format="json"
+        )
+        self.assertEqual(status.HTTP_200_OK, response.status_code)
+        self.assertEqual("socio@example.com", response.data["email"])
+
+    def test_socio_patch_reactiva(self):
+        socio = self.crear_socio_orm()
+        socio.deactivate()
+        activo = EstadoSocio.objects.get(nombre="Activo")
+        response = self.client.patch(
+            f"/api/padron/socio/{socio.socio_id}/", {"estado_socio": activo.pk}, format="json"
+        )
+        self.assertEqual(status.HTTP_200_OK, response.status_code)
+        self.assertEqual("Activo", response.data["estado_socio_nombre"])
+
+    def test_socio_con_domicilio_existente_no_duplica_domicilio(self):
+        persona = self.crear_persona_orm(dni="33222111")
+        self.client.patch(f"/api/padron/persona/{persona.pk}/", {
+            "domicilio_calle": "Calle 1", "domicilio_numero": "10", "domicilio_localidad": self.localidad.pk,
+        }, format="json")
+        persona.refresh_from_db()
+        domicilio_id = persona.domicilio_id
+        response = self.create_socio(self.datos_alta_persona(dni="33222111", domicilio_calle="Calle 2"))
+        self.assertEqual(status.HTTP_201_CREATED, response.status_code, response.data)
+        persona.refresh_from_db()
+        self.assertEqual(domicilio_id, persona.domicilio_id)
+        self.assertEqual("Calle 2", persona.domicilio.calle)
 
     def test_socio_delete_no_existe(self):
         response = self.client.delete("/api/padron/socio/9999/", format="json")
@@ -356,7 +456,6 @@ class PadronViewTests(APITestCase):
         self.assertEqual(status.HTTP_201_CREATED, response.status_code)
         self.assertEqual(self.categoria_data["nombre"], response.data["nombre"])
         self.assertEqual(self.categoria_data["anio_vigente"], response.data["anio_vigente"])
-        self.assertEqual(self.categoria_data["edad_minima"], response.data["edad_minima"])
         self.assertEqual(self.categoria_data["edad_maxima"], response.data["edad_maxima"])
         self.assertEqual(self.categoria_data["genero"], response.data["genero"])
         self.assertIn("categoria_id", response.data)
@@ -366,15 +465,8 @@ class PadronViewTests(APITestCase):
         self.assertEqual(status.HTTP_400_BAD_REQUEST, response.status_code)
         self.assertIn("nombre", response.data)
         self.assertIn("anio_vigente", response.data)
-        self.assertIn("edad_minima", response.data)
         self.assertIn("edad_maxima", response.data)
         self.assertIn("genero", response.data)
-
-    def test_categoria_post_edad_maxima_menor_que_minima(self):
-        data = {**self.categoria_data, "edad_minima": 15, "edad_maxima": 10}
-        response = self.create_categoria(data)
-        self.assertEqual(status.HTTP_400_BAD_REQUEST, response.status_code)
-        self.assertIn("edad_maxima", response.data)
 
     def test_categoria_post_genero_invalido(self):
         data = {**self.categoria_data, "genero": "X"}
@@ -383,10 +475,10 @@ class PadronViewTests(APITestCase):
         self.assertIn("genero", response.data)
 
     def test_categoria_post_edad_negativa(self):
-        data = {**self.categoria_data, "edad_minima": -1}
+        data = {**self.categoria_data, "edad_maxima": -1}
         response = self.create_categoria(data)
         self.assertEqual(status.HTTP_400_BAD_REQUEST, response.status_code)
-        self.assertIn("edad_minima", response.data)
+        self.assertIn("edad_maxima", response.data)
 
     def test_categoria_post_duplicada(self):
         self.crear_categoria_orm()
@@ -438,16 +530,87 @@ class PadronViewTests(APITestCase):
     # ==================================================================
     # JUGADOR
     # ==================================================================
-    # JUGADOR
-    # ==================================================================
     def test_jugador_post(self):
-        socio = self.crear_socio_orm()
+        socio = self.crear_socio_menor_orm()
         categoria = self.crear_categoria_orm()
         response = self.create_jugador(socio.socio_id, categoria.categoria_id)
-        self.assertEqual(status.HTTP_201_CREATED, response.status_code)
+        self.assertEqual(status.HTTP_201_CREATED, response.status_code, response.data)
         self.assertEqual(socio.socio_id, response.data["socio"]["socio_id"])
         self.assertEqual(categoria.categoria_id, response.data["categoria"]["categoria_id"])
-        self.assertIn("jugador_id", response.data)
+        self.assertEqual("Activo", response.data["estado"]["nombre"])
+        self.assertIsNone(response.data["categoria_secundaria"])
+        self.assertEqual(1, len(response.data["contactos_emergencia"]))
+
+    def test_jugador_post_ignora_estado_enviado(self):
+        inactivo = EstadoDeportivo.objects.create(nombre="Inactivo")
+        response = self.create_jugador(
+            self.crear_socio_menor_orm().socio_id, self.crear_categoria_orm().pk, estado=inactivo.pk
+        )
+        self.assertEqual(status.HTTP_201_CREATED, response.status_code, response.data)
+        self.assertEqual("Activo", response.data["estado"]["nombre"])
+
+    def test_jugador_post_campos_obligatorios(self):
+        socio = self.crear_socio_menor_orm()
+        response = self.client.post("/api/padron/jugador/", {"socio": socio.socio_id}, format="json")
+        self.assertEqual(status.HTTP_400_BAD_REQUEST, response.status_code)
+        for campo in ("categoria", "obra_social", "tallaIndumentaria"):
+            self.assertIn(campo, response.data)
+
+    def test_jugador_post_sin_vinculo_familiar(self):
+        response = self.create_jugador(
+            self.crear_socio_menor_orm().socio_id, self.crear_categoria_orm().pk, contactos_emergencia=[]
+        )
+        self.assertEqual(status.HTTP_400_BAD_REQUEST, response.status_code)
+        self.assertIn("contactos_emergencia", response.data)
+
+    def test_jugador_post_menor_sin_responsable_legal(self):
+        response = self.create_jugador(
+            self.crear_socio_menor_orm().socio_id, self.crear_categoria_orm().pk,
+            contactos_emergencia=[self.contacto_payload(responsable_legal=False)],
+        )
+        self.assertEqual(status.HTTP_400_BAD_REQUEST, response.status_code)
+        self.assertIn("responsable legal", str(response.data["contactos_emergencia"]))
+
+    def test_jugador_post_mayor_sin_responsable_legal(self):
+        socio = self.crear_socio_orm(persona=self.crear_persona_orm(fecha_nacimiento=date(1990, 1, 1)))
+        categoria = self.crear_categoria_orm(nombre="Primera", edad_maxima=99)
+        response = self.create_jugador(
+            socio.socio_id, categoria.pk, contactos_emergencia=[self.contacto_payload(responsable_legal=False)]
+        )
+        self.assertEqual(status.HTTP_201_CREATED, response.status_code, response.data)
+
+    def test_jugador_post_edad_supera_categoria(self):
+        socio = self.crear_socio_orm(persona=self.crear_persona_orm(fecha_nacimiento=date(2012, 3, 1)))
+        response = self.create_jugador(socio.socio_id, self.crear_categoria_orm().pk)  # 14 años, tope 12
+        self.assertEqual(status.HTTP_400_BAD_REQUEST, response.status_code)
+        self.assertIn("categoria", response.data)
+
+    def test_jugador_post_mas_chico_que_la_categoria_es_valido(self):
+        socio = self.crear_socio_orm(persona=self.crear_persona_orm(fecha_nacimiento=date(2018, 3, 1)))
+        response = self.create_jugador(socio.socio_id, self.crear_categoria_orm().pk)
+        self.assertEqual(status.HTTP_201_CREATED, response.status_code, response.data)
+
+    def test_jugador_post_socio_sin_fecha_nacimiento(self):
+        response = self.create_jugador(self.crear_socio_orm().socio_id, self.crear_categoria_orm().pk)
+        self.assertEqual(status.HTTP_400_BAD_REQUEST, response.status_code)
+        self.assertIn("fecha_nacimiento", response.data)
+
+    def test_jugador_post_categoria_secundaria(self):
+        principal = self.crear_categoria_orm()
+        secundaria = self.crear_categoria_orm(nombre="Superior", edad_maxima=14)
+        response = self.create_jugador(
+            self.crear_socio_menor_orm().socio_id, principal.pk, categoria_secundaria=secundaria.pk
+        )
+        self.assertEqual(status.HTTP_201_CREATED, response.status_code, response.data)
+        self.assertEqual(secundaria.pk, response.data["categoria_secundaria"]["categoria_id"])
+
+    def test_jugador_post_categoria_secundaria_igual_a_principal(self):
+        principal = self.crear_categoria_orm()
+        response = self.create_jugador(
+            self.crear_socio_menor_orm().socio_id, principal.pk, categoria_secundaria=principal.pk
+        )
+        self.assertEqual(status.HTTP_400_BAD_REQUEST, response.status_code)
+        self.assertIn("categoria_secundaria", response.data)
 
     def test_jugador_post_nuevo_socio_directo(self):
         categoria = self.crear_categoria_orm()
@@ -457,20 +620,15 @@ class PadronViewTests(APITestCase):
             "dni": "99887766",
             "telefono": "221987654",
             "email": "mariano@example.com",
-            "fecha_nacimiento": "2012-03-01",
+            "fecha_nacimiento": "2015-03-01",
             "genero": self.genero.pk,
             "domicilio_calle": "Calle 50",
             "domicilio_numero": "100",
             "domicilio_localidad": self.localidad.pk,
         }
-        payload = {
-            "nuevo_socio": nuevo_socio_payload,
-            "categoria": categoria.categoria_id,
-            "obra_social": "OSDE",
-            "tallaIndumentaria": "Remera L",
-        }
+        payload = {"nuevo_socio": nuevo_socio_payload, **self.datos_jugador(categoria.categoria_id)}
         response = self.client.post("/api/padron/jugador/", payload, format="json")
-        self.assertEqual(status.HTTP_201_CREATED, response.status_code)
+        self.assertEqual(status.HTTP_201_CREATED, response.status_code, response.data)
         self.assertEqual("Mariano", response.data["socio"]["nombre"])
         self.assertEqual("99887766", response.data["socio"]["dni"])
         self.assertTrue(Socio.objects.filter(persona__dni="99887766").exists())
@@ -482,7 +640,7 @@ class PadronViewTests(APITestCase):
         self.assertEqual(status.HTTP_400_BAD_REQUEST, response.status_code)
 
     def test_jugador_post_categoria_inexistente(self):
-        socio = self.crear_socio_orm()
+        socio = self.crear_socio_menor_orm()
         response = self.create_jugador(socio.socio_id, 9999)
         self.assertEqual(status.HTTP_400_BAD_REQUEST, response.status_code)
 
@@ -505,10 +663,55 @@ class PadronViewTests(APITestCase):
     def test_jugador_put(self):
         jugador = self.crear_jugador_orm()
         otra_categoria = self.crear_categoria_orm(nombre="Superior")
-        payload = {"socio": jugador.socio.socio_id, "categoria": otra_categoria.categoria_id}
+        payload = {"socio": jugador.socio.socio_id, **self.datos_jugador(otra_categoria.categoria_id)}
         response = self.client.put(f"/api/padron/jugador/{jugador.jugador_id}/", payload, format="json")
-        self.assertEqual(status.HTTP_200_OK, response.status_code)
+        self.assertEqual(status.HTTP_200_OK, response.status_code, response.data)
         self.assertEqual(otra_categoria.categoria_id, response.data["categoria"]["categoria_id"])
+
+    def test_jugador_patch_sin_contactos_conserva_los_existentes(self):
+        jugador = self.crear_jugador_orm()
+        response = self.client.patch(
+            f"/api/padron/jugador/{jugador.jugador_id}/", {"obra_social": "IOMA"}, format="json"
+        )
+        self.assertEqual(status.HTTP_200_OK, response.status_code, response.data)
+        self.assertEqual(1, jugador.contactos_emergencia.count())
+
+    def test_jugador_patch_categoria_que_no_corresponde(self):
+        jugador = self.crear_jugador_orm()
+        chica = self.crear_categoria_orm(nombre="Chica", edad_maxima=9)
+        response = self.client.patch(
+            f"/api/padron/jugador/{jugador.jugador_id}/", {"categoria": chica.pk}, format="json"
+        )
+        self.assertEqual(status.HTTP_400_BAD_REQUEST, response.status_code)
+        self.assertIn("categoria", response.data)
+
+    def test_jugador_patch_quitar_responsable_legal_de_menor(self):
+        jugador = self.crear_jugador_orm()
+        contacto = jugador.contactos_emergencia.get()
+        response = self.client.patch(f"/api/padron/jugador/{jugador.jugador_id}/", {
+            "contactos_emergencia": [{
+                "contacto_emergencia_id": contacto.pk,
+                **self.contacto_payload(dni=contacto.persona.dni, responsable_legal=False),
+            }],
+        }, format="json")
+        self.assertEqual(status.HTTP_400_BAD_REQUEST, response.status_code)
+        self.assertIn("contactos_emergencia", response.data)
+
+    def test_contacto_no_se_puede_borrar_si_es_el_unico(self):
+        jugador = self.crear_jugador_orm()
+        contacto = jugador.contactos_emergencia.get()
+        response = self.client.delete(f"/api/padron/contacto-emergencia/{contacto.pk}/")
+        self.assertEqual(status.HTTP_400_BAD_REQUEST, response.status_code)
+        self.assertTrue(ContactoEmergencia.objects.filter(pk=contacto.pk).exists())
+
+    def test_contacto_no_puede_dejar_menor_sin_responsable_legal(self):
+        jugador = self.crear_jugador_orm()
+        contacto = jugador.contactos_emergencia.get()
+        response = self.client.patch(
+            f"/api/padron/contacto-emergencia/{contacto.pk}/", {"responsable_legal": False}, format="json"
+        )
+        self.assertEqual(status.HTTP_400_BAD_REQUEST, response.status_code)
+        self.assertIn("responsable_legal", response.data)
 
     def test_jugador_patch_with_nuevo_socio(self):
         jugador = self.crear_jugador_orm()
@@ -528,14 +731,13 @@ class PadronViewTests(APITestCase):
         self.assertEqual("Juan Actualizado", response.data["socio"]["nombre"])
         self.assertEqual("SWISS MEDICAL", response.data["obra_social"])
 
-    def test_jugador_delete(self):
+    def test_jugador_delete_es_baja_logica(self):
         jugador = self.crear_jugador_orm()
         response = self.client.delete(f"/api/padron/jugador/{jugador.jugador_id}/", format="json")
-        self.assertEqual(status.HTTP_204_NO_CONTENT, response.status_code)
-        self.assertEqual(
-            status.HTTP_404_NOT_FOUND,
-            self.client.get(f"/api/padron/jugador/{jugador.jugador_id}/", format="json").status_code,
-        )
+        self.assertEqual(status.HTTP_200_OK, response.status_code)
+        self.assertEqual("Inactivo", response.data["estado"]["nombre"])
+        jugador.refresh_from_db()
+        self.assertEqual("Inactivo", jugador.estado.nombre)
 
     def test_jugador_delete_no_existe(self):
         response = self.client.delete("/api/padron/jugador/9999/", format="json")

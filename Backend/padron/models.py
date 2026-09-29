@@ -1,7 +1,6 @@
 from datetime import date
 
-from django.core.exceptions import ValidationError
-from django.db import models
+from django.db import IntegrityError, models, transaction
 import django.utils.timezone
 
 
@@ -50,6 +49,14 @@ def get_anio_actual():
     return date.today().year
 
 
+def age_from(birth_date):
+    if not birth_date:
+        return None
+    today = date.today()
+    had_birthday = (today.month, today.day) >= (birth_date.month, birth_date.day)
+    return today.year - birth_date.year - (0 if had_birthday else 1)
+
+
 class Persona(models.Model):
     persona_id = models.AutoField(primary_key=True)
     nombre = models.CharField(max_length=50, default="")
@@ -67,11 +74,7 @@ class Persona(models.Model):
 
     @property
     def edad(self):
-        if not self.fecha_nacimiento:
-            return None
-        today = date.today()
-        age = (today.month, today.day) >= (self.fecha_nacimiento.month, self.fecha_nacimiento.day)
-        return today.year - self.fecha_nacimiento.year - (0 if age else 1)
+        return age_from(self.fecha_nacimiento)
 
     def __str__(self):
         return f"{self.nombre} {self.apellido}"
@@ -88,8 +91,12 @@ class EstadoSocio(models.Model):
         return self.nombre
 
 
+ESTADO_SOCIO_ACTIVO = "Activo"
+ESTADO_SOCIO_INACTIVO = "Inactivo"
+
+
 def get_default_estado_socio():
-    estado, _ = EstadoSocio.objects.get_or_create(nombre="Activo")
+    estado, _ = EstadoSocio.objects.get_or_create(nombre=ESTADO_SOCIO_ACTIVO)
     return estado.pk
 
 
@@ -114,14 +121,27 @@ class Socio(models.Model):
     class Meta:
         db_table = "socio"
 
+    NUMBER_ASSIGNMENT_ATTEMPTS = 5
+
     def save(self, *args, **kwargs):
-        if not self.numero_socio:
-            last_socio = Socio.objects.filter(numero_socio__isnull=False).order_by('-numero_socio').first()
-            if last_socio and last_socio.numero_socio:
-                self.numero_socio = last_socio.numero_socio + 1
-            else:
-                self.numero_socio = 1
-        super().save(*args, **kwargs)
+        if self.numero_socio:
+            return super().save(*args, **kwargs)
+        for attempt in range(self.NUMBER_ASSIGNMENT_ATTEMPTS):
+            last_number = Socio.objects.aggregate(max_number=models.Max("numero_socio"))["max_number"]
+            self.numero_socio = (last_number or 0) + 1
+            try:
+                with transaction.atomic():
+                    return super().save(*args, **kwargs)
+            except IntegrityError:
+                number_taken = Socio.objects.filter(numero_socio=self.numero_socio).exists()
+                self.numero_socio = None
+                if not number_taken or attempt == self.NUMBER_ASSIGNMENT_ATTEMPTS - 1:
+                    raise
+
+    def deactivate(self):
+        """Baja lógica: el socio no se elimina, pasa a estado Inactivo."""
+        self.estado_socio, _ = EstadoSocio.objects.get_or_create(nombre=ESTADO_SOCIO_INACTIVO)
+        self.save(update_fields=["estado_socio"])
 
     def __str__(self):
         return f"{self.persona.nombre} {self.persona.apellido}"
@@ -155,11 +175,12 @@ class Categoria(models.Model):
             )
         ]
 
-    def clean(self):
-        if self.edad_maxima < self.edad_minima:
-            raise ValidationError(
-                {"edad_maxima": "La edad máxima no puede ser menor que la edad mínima."}
-            )
+    def competition_age(self, birth_date):
+        """Edad que el jugador cumple en el año de la temporada (al 31/12 del anio_vigente)."""
+        return self.anio_vigente - birth_date.year
+
+    def accepts_age(self, birth_date):
+        return self.competition_age(birth_date) <= self.edad_maxima
 
     def __str__(self):
         return f"{self.nombre} ({self.anio_vigente})"
@@ -184,8 +205,13 @@ class EstadoDeportivo(models.Model):
         return self.nombre
 
 
+ESTADO_DEPORTIVO_ACTIVO = "Activo"
+ESTADO_DEPORTIVO_INACTIVO = "Inactivo"
+EDAD_MAYORIA = 18
+
+
 def get_default_estado_deportivo():
-    estado, _ = EstadoDeportivo.objects.get_or_create(nombre="Activo")
+    estado, _ = EstadoDeportivo.objects.get_or_create(nombre=ESTADO_DEPORTIVO_ACTIVO)
     return estado.pk
 
 
@@ -195,7 +221,7 @@ class Jugador(models.Model):
     tallaIndumentaria = models.CharField(max_length=50, default="", blank=True)
     socio = models.OneToOneField(
         Socio,
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name="jugador"
     )
 
@@ -206,6 +232,14 @@ class Jugador(models.Model):
         null=False,
         blank=False,
         default=get_default_categoria,
+    )
+
+    categoria_secundaria = models.ForeignKey(
+        Categoria,
+        on_delete=models.PROTECT,
+        related_name="jugadores_secundarios",
+        null=True,
+        blank=True,
     )
 
     estado = models.ForeignKey(
@@ -221,6 +255,11 @@ class Jugador(models.Model):
         db_table = "jugador"
         verbose_name = "Jugador"
         verbose_name_plural = "Jugadores"
+
+    def deactivate(self):
+        """Baja lógica: el jugador no se elimina, pasa a estado deportivo Inactivo."""
+        self.estado, _ = EstadoDeportivo.objects.get_or_create(nombre=ESTADO_DEPORTIVO_INACTIVO)
+        self.save(update_fields=["estado"])
 
     def __str__(self):
         return f"{self.socio.persona.nombre} {self.socio.persona.apellido} - Socio ID: {self.socio.socio_id}"

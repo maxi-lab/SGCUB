@@ -22,6 +22,7 @@ from .serializers import (
     EstadoSocioSerializer,
     GeneroSerializer,
     LocalidadSerializer,
+    player_contacts_error,
 )
 
 
@@ -105,7 +106,9 @@ def persona_detail(request, pk):
 @api_view(["GET", "POST"])
 def socio_list_create(request):
     if request.method == "GET":
-        members = Socio.objects.all()
+        members = Socio.objects.select_related(
+            "persona__genero", "persona__domicilio__localidad", "estado_socio"
+        )
         serializer = SocioSerializer(members, many=True)
         return Response(serializer.data)
 
@@ -133,22 +136,16 @@ def socio_detail(request, pk):
         serializer = SocioSerializer(member)
         return Response(serializer.data)
 
-    if request.method == "PUT":
-        serializer = SocioSerializer(member, data=request.data, partial=True)
-        if serializer.is_valid():
-            member = serializer.save()
-            return Response(SocioSerializer(member).data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    if request.method == "DELETE":
+        # Baja lógica: el registro se conserva con estado Inactivo
+        member.deactivate()
+        return Response(SocioSerializer(member).data)
 
-    if request.method == "PATCH":
-        serializer = SocioSerializer(member, data=request.data, partial=True)
-        if serializer.is_valid():
-            member = serializer.save()
-            return Response(SocioSerializer(member).data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    member.delete()
-    return Response(status=status.HTTP_204_NO_CONTENT)
+    serializer = SocioSerializer(member, data=request.data, partial=True)
+    if serializer.is_valid():
+        member = serializer.save()
+        return Response(SocioSerializer(member).data)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 @extend_schema(tags=["Padron / Categoria"], request=CategoriaSerializer, responses=CategoriaSerializer)
@@ -239,7 +236,10 @@ def estado_detail(request, pk):
 @api_view(["GET", "POST"])
 def jugador_list_create(request):
     if request.method == "GET":
-        players = Jugador.objects.all()
+        players = Jugador.objects.select_related(
+            "socio__persona__genero", "socio__persona__domicilio__localidad", "socio__estado_socio",
+            "categoria", "categoria_secundaria", "estado",
+        ).prefetch_related("contactos_emergencia__persona")
         serializer = JugadorListSerializer(players, many=True)
         return Response(serializer.data)
 
@@ -273,8 +273,9 @@ def jugador_detail(request, pk):
             return Response(JugadorSerializerDetail(player).data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    player.delete()
-    return Response(status=status.HTTP_204_NO_CONTENT)
+    # Baja lógica: el registro se conserva con estado deportivo Inactivo
+    player.deactivate()
+    return Response(JugadorSerializerDetail(player).data)
 
 
 @extend_schema(tags=["Padron / Docente"], request=DocenteSerializer, responses=DocenteSerializer)
@@ -375,6 +376,13 @@ def contacto_emergencia_detail(request, pk):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
+    player = contact.jugador
+    remaining_flags = list(
+        player.contactos_emergencia.exclude(pk=contact.pk).values_list("responsable_legal", flat=True)
+    )
+    error = player_contacts_error(player.socio.persona.fecha_nacimiento, remaining_flags)
+    if error:
+        return Response({"detail": error}, status=status.HTTP_400_BAD_REQUEST)
     contact.delete()
     return Response(status=status.HTTP_204_NO_CONTENT)
 

@@ -2,7 +2,7 @@ import re
 
 from rest_framework import serializers
 from django.db import transaction
-from .models import DocenteCategoria, Persona, Socio, Categoria, Jugador, Docente, EstadoDeportivo, ContactoEmergencia, EstadoSocio, Genero, Localidad, Domicilio
+from .models import DocenteCategoria, Persona, Socio, Categoria, Jugador, Docente, EstadoDeportivo, ContactoEmergencia, EstadoSocio, Genero, Localidad, Domicilio, EDAD_MAYORIA, age_from
 
 
 DNI_REGEX = re.compile(r"\d{7,8}")
@@ -60,6 +60,16 @@ def get_persona_profiles(person):
 def duplicated_dni_error(person, message="Ya existe una persona con este DNI."):
     profiles = {key: pk for key, pk in get_persona_profiles(person).items() if pk is not None}
     return serializers.ValidationError({"dni": [message], "persona_existente": profiles})
+
+
+def player_contacts_error(birth_date, legal_guardian_flags):
+    """Un jugador necesita al menos un vínculo familiar y, si es menor, un responsable legal."""
+    if not legal_guardian_flags:
+        return "Debe registrar al menos un vínculo familiar."
+    age = age_from(birth_date)
+    if age is not None and age < EDAD_MAYORIA and not any(legal_guardian_flags):
+        return "El jugador es menor de edad: al menos un vínculo familiar debe ser responsable legal."
+    return None
 
 
 def validate_dni_uniqueness(dni, current_person=None):
@@ -217,7 +227,7 @@ class SocioSerializer(serializers.ModelSerializer):
             person = Persona.objects.filter(dni=dni).first()
             member = getattr(person, "socio", None)
             if member is not None:
-                if hasattr(member, "jugador"):
+                if hasattr(member, "jugador") and member.jugador != getattr(self.root, "instance", None):
                     raise duplicated_dni_error(person, "La persona con este DNI ya está registrada como jugador.")
                 if self.parent is None:
                     raise duplicated_dni_error(person, "Ya existe un socio con este DNI.")
@@ -225,42 +235,44 @@ class SocioSerializer(serializers.ModelSerializer):
         validate_dni_uniqueness(dni, person)
         return attrs
 
-    @transaction.atomic
-    def create(self, validated_data):
-        person_data = validated_data.pop("persona")
-        dni = person_data.get("dni")
-        if not person_data.get("email"):
-            person_data["email"] = None
-
+    def _save_person(self, person, person_data):
         address_data = person_data.pop("domicilio", None)
         if address_data:
             address_data = {k: v for k, v in address_data.items() if v is not None}
-            if address_data:
-                person_data["domicilio"] = Domicilio.objects.create(**address_data)
+            if person.domicilio:
+                for attr, value in address_data.items():
+                    setattr(person.domicilio, attr, value)
+                person.domicilio.save()
+            elif address_data.get("calle") and address_data.get("numero") and address_data.get("localidad"):
+                person.domicilio = Domicilio.objects.create(**address_data)
 
-        person, _ = Persona.objects.update_or_create(dni=dni, defaults=person_data)
+        for attr, value in person_data.items():
+            setattr(person, attr, value)
+        person.save()
+        return person
+
+    @transaction.atomic
+    def create(self, validated_data):
+        person_data = validated_data.pop("persona")
+        # El alta siempre queda en estado Activo (default del modelo)
+        validated_data.pop("estado_socio", None)
+        if not person_data.get("email"):
+            person_data["email"] = None
+
+        # Si la persona ya existe (contacto, docente o socio) se reutiliza en lugar de duplicarla
+        person = Persona.objects.filter(dni=person_data.get("dni")).first() or Persona()
+        self._save_person(person, person_data)
+
+        existing_member = getattr(person, "socio", None)
+        if existing_member is not None:
+            return existing_member
         return Socio.objects.create(persona=person, **validated_data)
 
     @transaction.atomic
     def update(self, instance, validated_data):
         person_data = validated_data.pop("persona", None)
         if person_data:
-            if not person_data.get("email"):
-                person_data["email"] = None
-
-            address_data = person_data.pop("domicilio", None)
-            if address_data:
-                address_data = {k: v for k, v in address_data.items() if v is not None}
-                if instance.persona.domicilio:
-                    for attr, value in address_data.items():
-                        setattr(instance.persona.domicilio, attr, value)
-                    instance.persona.domicilio.save()
-                elif address_data:
-                    instance.persona.domicilio = Domicilio.objects.create(**address_data)
-
-            for attr, value in person_data.items():
-                setattr(instance.persona, attr, value)
-            instance.persona.save()
+            self._save_person(instance.persona, person_data)
         return super().update(instance, validated_data)
 
 
@@ -332,9 +344,16 @@ class ContactoEmergenciaSerializer(serializers.ModelSerializer):
         fields = ['contacto_emergencia_id', 'persona', 'jugador', 'responsable_legal', 'relacion']
 
     def validate(self, attrs):
-        person_data = attrs.get('persona', {})
-        if not person_data.get('telefono'):
+        if 'persona' in attrs and not attrs['persona'].get('telefono'):
             raise serializers.ValidationError({'persona': {'telefono': 'El teléfono es obligatorio para los contactos de emergencia.'}})
+
+        # Editado por separado (no dentro del jugador): no puede dejar a un menor sin responsable legal
+        if self.parent is None and self.instance is not None and "responsable_legal" in attrs:
+            player = self.instance.jugador
+            flags = list(player.contactos_emergencia.exclude(pk=self.instance.pk).values_list("responsable_legal", flat=True))
+            error = player_contacts_error(player.socio.persona.fecha_nacimiento, flags + [attrs["responsable_legal"]])
+            if error:
+                raise serializers.ValidationError({"responsable_legal": [error]})
         return attrs
 
     @transaction.atomic
@@ -364,8 +383,11 @@ class ContactoEmergenciaSerializer(serializers.ModelSerializer):
 class JugadorSerializer(serializers.ModelSerializer):
     socio = serializers.PrimaryKeyRelatedField(queryset=Socio.objects.all(), required=False, allow_null=True)
     nuevo_socio = SocioSerializer(required=False, write_only=True, allow_null=True)
-    categoria = serializers.PrimaryKeyRelatedField(queryset=Categoria.objects.all(), allow_null=True, required=False)
-    estado = serializers.PrimaryKeyRelatedField(queryset=EstadoDeportivo.objects.all(), allow_null=True, required=False)
+    categoria = serializers.PrimaryKeyRelatedField(queryset=Categoria.objects.all())
+    categoria_secundaria = serializers.PrimaryKeyRelatedField(queryset=Categoria.objects.all(), allow_null=True, required=False)
+    obra_social = serializers.CharField(max_length=50)
+    tallaIndumentaria = serializers.CharField(max_length=50)
+    estado = serializers.PrimaryKeyRelatedField(queryset=EstadoDeportivo.objects.all(), required=False)
     contactos_emergencia = ContactoEmergenciaSerializer(many=True, required=False)
 
     def __init__(self, *args, **kwargs):
@@ -379,17 +401,26 @@ class JugadorSerializer(serializers.ModelSerializer):
             "socio",
             "nuevo_socio",
             "categoria",
+            "categoria_secundaria",
             "obra_social",
             "tallaIndumentaria",
             "estado",
             "contactos_emergencia",
         ]
 
+    def _birth_date(self, attrs):
+        new_member_person = (attrs.get("nuevo_socio") or {}).get("persona", {})
+        if "fecha_nacimiento" in new_member_person:
+            return new_member_person["fecha_nacimiento"]
+        member = attrs.get("socio") or getattr(self.instance, "socio", None)
+        return member.persona.fecha_nacimiento if member else None
+
     def validate(self, attrs):
         member = attrs.get('socio')
         new_member = attrs.get('nuevo_socio')
+        is_creation = self.instance is None
 
-        if self.instance is None and not member and not new_member:
+        if is_creation and not member and not new_member:
             raise serializers.ValidationError({"socio": "Debe seleccionar un socio existente o ingresar los datos de un nuevo socio."})
 
         if member:
@@ -399,13 +430,7 @@ class JugadorSerializer(serializers.ModelSerializer):
             if players.exists():
                 raise serializers.ValidationError({"socio": "Este socio ya tiene un jugador asociado."})
 
-        if new_member and self.instance is None:
-            person_data = new_member.get('persona', {})
-            dni = person_data.get('dni')
-            if dni:
-                person = Persona.objects.filter(dni=dni).first()
-                if person and hasattr(person, 'socio') and hasattr(person.socio, 'jugador'):
-                    raise serializers.ValidationError({"nuevo_socio": "La persona con este DNI ya tiene un socio registrado como jugador."})
+        self._validate_categories_and_contacts(attrs, is_creation)
 
         for contact in attrs.get('contactos_emergencia', []):
             person_data = contact.get('persona', {})
@@ -431,6 +456,39 @@ class JugadorSerializer(serializers.ModelSerializer):
                     raise serializers.ValidationError({'contactos_emergencia': 'El contacto indicado no pertenece al jugador.'})
         return attrs
 
+    def _validate_categories_and_contacts(self, attrs, is_creation):
+        errors = {}
+        birth_date = self._birth_date(attrs)
+        birth_date_changed = "fecha_nacimiento" in (attrs.get("nuevo_socio") or {}).get("persona", {})
+        if is_creation and birth_date is None:
+            errors["fecha_nacimiento"] = ["El socio debe tener fecha de nacimiento para registrarlo como jugador."]
+
+        category = attrs.get("categoria", getattr(self.instance, "categoria", None))
+        category_changed = is_creation or category != getattr(self.instance, "categoria", None)
+        if birth_date and category and (category_changed or birth_date_changed) and not category.accepts_age(birth_date):
+            errors["categoria"] = [
+                f"El jugador tiene {category.competition_age(birth_date)} años en la temporada {category.anio_vigente} "
+                f"y la categoría {category.nombre} admite hasta {category.edad_maxima}."
+            ]
+
+        secondary = attrs.get("categoria_secundaria", getattr(self.instance, "categoria_secundaria", None))
+        if secondary is not None and secondary == category:
+            errors["categoria_secundaria"] = ["La categoría secundaria debe ser distinta de la principal."]
+
+        if "contactos_emergencia" in attrs:
+            flags = [contact.get("responsable_legal", False) for contact in attrs["contactos_emergencia"]]
+        elif self.instance is not None:
+            flags = list(self.instance.contactos_emergencia.values_list("responsable_legal", flat=True))
+        else:
+            flags = []
+        if is_creation or "contactos_emergencia" in attrs or birth_date_changed:
+            contacts_error = player_contacts_error(birth_date, flags)
+            if contacts_error:
+                errors["contactos_emergencia"] = [contacts_error]
+
+        if errors:
+            raise serializers.ValidationError(errors)
+
     @transaction.atomic
     def create(self, validated_data):
         new_member_data = validated_data.pop("nuevo_socio", None)
@@ -439,15 +497,8 @@ class JugadorSerializer(serializers.ModelSerializer):
             member = member_serializer.create(new_member_data)
             validated_data["socio"] = member
 
-        if not validated_data.get("categoria"):
-            from .models import get_default_categoria
-            validated_data.pop("categoria", None)
-            validated_data["categoria_id"] = get_default_categoria()
-
-        if not validated_data.get("estado"):
-            from .models import get_default_estado_deportivo
-            validated_data.pop("estado", None)
-            validated_data["estado_id"] = get_default_estado_deportivo()
+        # El alta siempre queda en estado deportivo Activo (default del modelo)
+        validated_data.pop("estado", None)
 
         contacts_data = validated_data.pop("contactos_emergencia", [])
         player = Jugador.objects.create(**validated_data)
@@ -488,6 +539,7 @@ class JugadorSerializer(serializers.ModelSerializer):
 class JugadorListSerializer(serializers.ModelSerializer):
     socio = SocioSerializer(read_only=True)
     categoria = CategoriaSerializer(read_only=True)
+    categoria_secundaria = CategoriaSerializer(read_only=True)
     estado = EstadoDeportivoSerializer(read_only=True)
     contactos_emergencia = ContactoEmergenciaSerializer(many=True, read_only=True)
 
@@ -497,12 +549,13 @@ class JugadorListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Jugador
-        fields = ["jugador_id", "socio", "categoria", "obra_social", "tallaIndumentaria", "estado", "contactos_emergencia"]
+        fields = ["jugador_id", "socio", "categoria", "categoria_secundaria", "obra_social", "tallaIndumentaria", "estado", "contactos_emergencia"]
 
 
 class JugadorSerializerDetail(serializers.ModelSerializer):
     socio = SocioSerializer(read_only=True)
     categoria = CategoriaSerializer(read_only=True)
+    categoria_secundaria = CategoriaSerializer(read_only=True)
     estado = EstadoDeportivoSerializer(read_only=True)
     contactos_emergencia = serializers.SerializerMethodField()
 
@@ -511,7 +564,7 @@ class JugadorSerializerDetail(serializers.ModelSerializer):
 
     class Meta:
         model = Jugador
-        fields = ["jugador_id", "socio", "categoria", "obra_social", "tallaIndumentaria", "contactos_emergencia", "estado"]
+        fields = ["jugador_id", "socio", "categoria", "categoria_secundaria", "obra_social", "tallaIndumentaria", "contactos_emergencia", "estado"]
         read_only_fields = ["jugador_id"]
 
 
