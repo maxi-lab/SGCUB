@@ -6,7 +6,7 @@ from padron.serializers import SocioSerializer
 from datetime import date
 from unittest.mock import patch
 
-from .models import CargoDocente, Categoria, ContactoEmergencia, Docente, DocenteCategoria, EstadoDeportivo, EstadoSocio, Genero, Jugador, Localidad, Persona, Socio
+from .models import CargoDocente, Categoria, VinculoFamiliar, Docente, DocenteCategoria, EstadoDeportivo, EstadoSocio, Genero, Jugador, Localidad, Persona, Socio
 
 
 class PadronViewTests(APITestCase):
@@ -71,7 +71,7 @@ class PadronViewTests(APITestCase):
             "categoria": categoria_id,
             "obra_social": "OSDE",
             "tallaIndumentaria": "M",
-            "contactos_emergencia": [self.contacto_payload()],
+            "vinculos_familiares": [self.contacto_payload()],
             **kwargs,
         }
 
@@ -125,7 +125,7 @@ class PadronViewTests(APITestCase):
         socio = socio or self.crear_socio_menor_orm()
         categoria = categoria or self.crear_categoria_orm()
         jugador = Jugador.objects.create(socio=socio, categoria=categoria, obra_social="OSDE", tallaIndumentaria="M")
-        ContactoEmergencia.objects.create(
+        VinculoFamiliar.objects.create(
             jugador=jugador, relacion="Madre", responsable_legal=True,
             persona=self.crear_persona_orm(dni=f"2{socio.persona.dni[1:]}"),
         )
@@ -288,16 +288,16 @@ class PadronViewTests(APITestCase):
         self.assertEqual(["40111222"], buscar("4011"))
         self.assertEqual(["50111222"], buscar("juana gomez"))
 
-    def test_contacto_emergencia_no_exige_datos_de_alta(self):
+    def test_vinculo_familiar_no_exige_datos_de_alta(self):
         socio = self.crear_socio_orm()
         jugador = Jugador.objects.create(socio=socio)
-        response = self.client.post("/api/padron/contacto-emergencia/", {
+        response = self.client.post("/api/padron/vinculo-familiar/", {
             "jugador": jugador.pk,
             "relacion": "Madre",
             "persona": {"dni": "33444555", "nombre": "Ana", "apellido": "Perez", "telefono": "221555"},
         }, format="json")
         self.assertEqual(status.HTTP_201_CREATED, response.status_code, response.data)
-        self.assertTrue(ContactoEmergencia.objects.filter(persona__dni="33444555").exists())
+        self.assertTrue(VinculoFamiliar.objects.filter(persona__dni="33444555").exists())
 
     # ==================================================================
     # SOCIO
@@ -584,7 +584,7 @@ class PadronViewTests(APITestCase):
         self.assertEqual(categoria.categoria_id, response.data["categoria"]["categoria_id"])
         self.assertEqual("Activo", response.data["estado"]["nombre"])
         self.assertIsNone(response.data["categoria_secundaria"])
-        self.assertEqual(1, len(response.data["contactos_emergencia"]))
+        self.assertEqual(1, len(response.data["vinculos_familiares"]))
 
     def test_jugador_post_ignora_estado_enviado(self):
         inactivo = EstadoDeportivo.objects.create(nombre="Inactivo")
@@ -603,24 +603,24 @@ class PadronViewTests(APITestCase):
 
     def test_jugador_post_sin_vinculo_familiar(self):
         response = self.create_jugador(
-            self.crear_socio_menor_orm().socio_id, self.crear_categoria_orm().pk, contactos_emergencia=[]
+            self.crear_socio_menor_orm().socio_id, self.crear_categoria_orm().pk, vinculos_familiares=[]
         )
         self.assertEqual(status.HTTP_400_BAD_REQUEST, response.status_code)
-        self.assertIn("contactos_emergencia", response.data)
+        self.assertIn("vinculos_familiares", response.data)
 
     def test_jugador_post_menor_sin_responsable_legal(self):
         response = self.create_jugador(
             self.crear_socio_menor_orm().socio_id, self.crear_categoria_orm().pk,
-            contactos_emergencia=[self.contacto_payload(responsable_legal=False)],
+            vinculos_familiares=[self.contacto_payload(responsable_legal=False)],
         )
         self.assertEqual(status.HTTP_400_BAD_REQUEST, response.status_code)
-        self.assertIn("responsable legal", str(response.data["contactos_emergencia"]))
+        self.assertIn("responsable legal", str(response.data["vinculos_familiares"]))
 
     def test_jugador_post_mayor_sin_responsable_legal(self):
         socio = self.crear_socio_orm(persona=self.crear_persona_orm(fecha_nacimiento=date(1990, 1, 1)))
         categoria = self.crear_categoria_orm(nombre="Primera", edad_maxima=99)
         response = self.create_jugador(
-            socio.socio_id, categoria.pk, contactos_emergencia=[self.contacto_payload(responsable_legal=False)]
+            socio.socio_id, categoria.pk, vinculos_familiares=[self.contacto_payload(responsable_legal=False)]
         )
         self.assertEqual(status.HTTP_201_CREATED, response.status_code, response.data)
 
@@ -719,7 +719,7 @@ class PadronViewTests(APITestCase):
             f"/api/padron/jugador/{jugador.jugador_id}/", {"obra_social": "IOMA"}, format="json"
         )
         self.assertEqual(status.HTTP_200_OK, response.status_code, response.data)
-        self.assertEqual(1, jugador.contactos_emergencia.count())
+        self.assertEqual(1, jugador.vinculos_familiares.count())
 
     def test_jugador_patch_categoria_que_no_corresponde(self):
         jugador = self.crear_jugador_orm()
@@ -732,28 +732,28 @@ class PadronViewTests(APITestCase):
 
     def test_jugador_patch_quitar_responsable_legal_de_menor(self):
         jugador = self.crear_jugador_orm()
-        contacto = jugador.contactos_emergencia.get()
+        contacto = jugador.vinculos_familiares.get()
         response = self.client.patch(f"/api/padron/jugador/{jugador.jugador_id}/", {
-            "contactos_emergencia": [{
-                "contacto_emergencia_id": contacto.pk,
+            "vinculos_familiares": [{
+                "vinculo_familiar_id": contacto.pk,
                 **self.contacto_payload(dni=contacto.persona.dni, responsable_legal=False),
             }],
         }, format="json")
         self.assertEqual(status.HTTP_400_BAD_REQUEST, response.status_code)
-        self.assertIn("contactos_emergencia", response.data)
+        self.assertIn("vinculos_familiares", response.data)
 
     def test_contacto_no_se_puede_borrar_si_es_el_unico(self):
         jugador = self.crear_jugador_orm()
-        contacto = jugador.contactos_emergencia.get()
-        response = self.client.delete(f"/api/padron/contacto-emergencia/{contacto.pk}/")
+        contacto = jugador.vinculos_familiares.get()
+        response = self.client.delete(f"/api/padron/vinculo-familiar/{contacto.pk}/")
         self.assertEqual(status.HTTP_400_BAD_REQUEST, response.status_code)
-        self.assertTrue(ContactoEmergencia.objects.filter(pk=contacto.pk).exists())
+        self.assertTrue(VinculoFamiliar.objects.filter(pk=contacto.pk).exists())
 
     def test_contacto_no_puede_dejar_menor_sin_responsable_legal(self):
         jugador = self.crear_jugador_orm()
-        contacto = jugador.contactos_emergencia.get()
+        contacto = jugador.vinculos_familiares.get()
         response = self.client.patch(
-            f"/api/padron/contacto-emergencia/{contacto.pk}/", {"responsable_legal": False}, format="json"
+            f"/api/padron/vinculo-familiar/{contacto.pk}/", {"responsable_legal": False}, format="json"
         )
         self.assertEqual(status.HTTP_400_BAD_REQUEST, response.status_code)
         self.assertIn("responsable_legal", response.data)

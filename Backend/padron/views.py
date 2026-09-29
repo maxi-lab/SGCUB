@@ -7,7 +7,7 @@ from drf_spectacular.utils import extend_schema
 from .services import recategorizar_jugadores
 from .services import pasr_de_anio_vigente_a_categoria
 
-from .models import CargoDocente, Persona, Socio, Categoria, Jugador, Docente, EstadoDeportivo, ContactoEmergencia, EstadoSocio, Genero, Localidad, DocenteCategoria
+from .models import CargoDocente, Persona, Socio, Categoria, Jugador, Docente, EstadoDeportivo, VinculoFamiliar, EstadoSocio, Genero, Localidad, DocenteCategoria
 from .serializers import (
     CargoDocenteSerializer,
     DocenteCategoriaSerializer,
@@ -19,7 +19,7 @@ from .serializers import (
     JugadorListSerializer,
     JugadorSerializerDetail,
     DocenteSerializer,
-    ContactoEmergenciaSerializer,
+    VinculoFamiliarSerializer,
     EstadoSocioSerializer,
     GeneroSerializer,
     LocalidadSerializer,
@@ -251,7 +251,7 @@ def jugador_list_create(request):
         players = Jugador.objects.select_related(
             "socio__persona__genero", "socio__persona__domicilio__localidad", "socio__estado_socio",
             "categoria", "categoria_secundaria", "estado",
-        ).prefetch_related("contactos_emergencia__persona")
+        ).prefetch_related("vinculos_familiares__persona")
         serializer = JugadorListSerializer(players, many=True)
         return Response(serializer.data)
 
@@ -335,25 +335,25 @@ def cargo_docente_list(request):
     return Response(CargoDocenteSerializer(positions, many=True).data)
 
 
-@extend_schema(tags=["Padron / ContactoEmergencia"], request=ContactoEmergenciaSerializer, responses=ContactoEmergenciaSerializer)
+@extend_schema(tags=["Padron / VinculoFamiliar"], request=VinculoFamiliarSerializer, responses=VinculoFamiliarSerializer)
 @api_view(["GET", "POST"])
-def contacto_emergencia_list_create(request):
+def vinculo_familiar_list_create(request):
     if request.method == "GET":
-        contacts = ContactoEmergencia.objects.select_related(
+        contacts = VinculoFamiliar.objects.select_related(
             "persona",
             "jugador",
         )
 
-        serializer = ContactoEmergenciaSerializer(contacts, many=True)
+        serializer = VinculoFamiliarSerializer(contacts, many=True)
         return Response(serializer.data)
 
-    serializer = ContactoEmergenciaSerializer(data=request.data)
+    serializer = VinculoFamiliarSerializer(data=request.data)
 
     if serializer.is_valid():
         contact = serializer.save()
 
         return Response(
-            ContactoEmergenciaSerializer(contact).data,
+            VinculoFamiliarSerializer(contact).data,
             status=status.HTTP_201_CREATED,
         )
 
@@ -363,20 +363,20 @@ def contacto_emergencia_list_create(request):
     )
 
 
-@extend_schema(tags=["Padron / ContactoEmergencia"], request=ContactoEmergenciaSerializer, responses=ContactoEmergenciaSerializer)
+@extend_schema(tags=["Padron / VinculoFamiliar"], request=VinculoFamiliarSerializer, responses=VinculoFamiliarSerializer)
 @api_view(["GET", "PUT", "PATCH", "DELETE"])
-def contacto_emergencia_detail(request, pk):
+def vinculo_familiar_detail(request, pk):
     contact = get_object_or_404(
-        ContactoEmergencia.objects.select_related("persona", "jugador"),
+        VinculoFamiliar.objects.select_related("persona", "jugador"),
         pk=pk,
     )
 
     if request.method == "GET":
-        serializer = ContactoEmergenciaSerializer(contact)
+        serializer = VinculoFamiliarSerializer(contact)
         return Response(serializer.data)
 
     if request.method in ["PUT", "PATCH"]:
-        serializer = ContactoEmergenciaSerializer(
+        serializer = VinculoFamiliarSerializer(
             contact,
             data=request.data,
             partial=request.method == "PATCH",
@@ -384,7 +384,7 @@ def contacto_emergencia_detail(request, pk):
 
         if serializer.is_valid():
             contact = serializer.save()
-            return Response(ContactoEmergenciaSerializer(contact).data)
+            return Response(VinculoFamiliarSerializer(contact).data)
 
         return Response(
             serializer.errors,
@@ -393,7 +393,7 @@ def contacto_emergencia_detail(request, pk):
 
     player = contact.jugador
     remaining_flags = list(
-        player.contactos_emergencia.exclude(pk=contact.pk).values_list("responsable_legal", flat=True)
+        player.vinculos_familiares.exclude(pk=contact.pk).values_list("responsable_legal", flat=True)
     )
     error = player_contacts_error(player.socio.persona.fecha_nacimiento, remaining_flags)
     if error:

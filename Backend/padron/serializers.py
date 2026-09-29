@@ -2,7 +2,7 @@ import re
 
 from rest_framework import serializers
 from django.db import transaction
-from .models import CargoDocente, DocenteCategoria, Persona, Socio, Categoria, Jugador, Docente, EstadoDeportivo, ContactoEmergencia, EstadoSocio, Genero, Localidad, Domicilio, EDAD_MAYORIA, age_from
+from .models import CargoDocente, DocenteCategoria, Persona, Socio, Categoria, Jugador, Docente, EstadoDeportivo, VinculoFamiliar, EstadoSocio, Genero, Localidad, Domicilio, EDAD_MAYORIA, age_from
 
 
 DNI_REGEX = re.compile(r"\d{7,8}")
@@ -337,26 +337,26 @@ class EstadoDeportivoSerializer(serializers.ModelSerializer):
         read_only_fields = ["estado_id"]
 
 
-class ContactoEmergenciaSerializer(serializers.ModelSerializer):
-    contacto_emergencia_id = serializers.IntegerField(required=False)
+class VinculoFamiliarSerializer(serializers.ModelSerializer):
+    vinculo_familiar_id = serializers.IntegerField(required=False)
     persona = PersonaContactoSerializer()
     jugador = serializers.PrimaryKeyRelatedField(queryset=Jugador.objects.all(), required=False)
 
     class Meta:
-        model = ContactoEmergencia
-        fields = ['contacto_emergencia_id', 'persona', 'jugador', 'responsable_legal', 'relacion']
+        model = VinculoFamiliar
+        fields = ['vinculo_familiar_id', 'persona', 'jugador', 'responsable_legal', 'relacion']
 
     def validate(self, attrs):
         if 'persona' in attrs and not attrs['persona'].get('telefono'):
-            raise serializers.ValidationError({'persona': {'telefono': 'El teléfono es obligatorio para los contactos de emergencia.'}})
+            raise serializers.ValidationError({'persona': {'telefono': 'El teléfono es obligatorio para los vinculos familiares.'}})
 
         # Editado por separado (no dentro del jugador): no puede dejar a un menor sin responsable legal
         if self.parent is None and self.instance is not None and "responsable_legal" in attrs:
             player = self.instance.jugador
-            flags = list(player.contactos_emergencia.exclude(pk=self.instance.pk).values_list("responsable_legal", flat=True))
+            flags = list(player.vinculos_familiares.exclude(pk=self.instance.pk).values_list("responsable_legal", flat=True))
             error = player_contacts_error(player.socio.persona.fecha_nacimiento, flags + [attrs["responsable_legal"]])
             if error:
-                raise serializers.ValidationError({"responsable_legal": [error]})
+                raise serializers.ValidationError({"responsable legal": [error]})
         return attrs
 
     @transaction.atomic
@@ -366,13 +366,13 @@ class ContactoEmergenciaSerializer(serializers.ModelSerializer):
         if not person_data.get("email"):
             person_data["email"] = None
         person, _ = Persona.objects.update_or_create(dni=dni, defaults=person_data)
-        validated_data.pop("contacto_emergencia_id", None)
-        return ContactoEmergencia.objects.create(persona=person, **validated_data)
+        validated_data.pop("vinculo_familiar_id", None)
+        return VinculoFamiliar.objects.create(persona=person, **validated_data)
 
     @transaction.atomic
     def update(self, instance, validated_data):
         person_data = validated_data.pop("persona", None)
-        validated_data.pop("contacto_emergencia_id", None)
+        validated_data.pop("vinculo_familiar_id", None)
         if person_data:
             dni = person_data.get("dni")
             if not person_data.get("email"):
@@ -391,11 +391,11 @@ class JugadorSerializer(serializers.ModelSerializer):
     obra_social = serializers.CharField(max_length=50)
     tallaIndumentaria = serializers.CharField(max_length=50)
     estado = serializers.PrimaryKeyRelatedField(queryset=EstadoDeportivo.objects.all(), required=False)
-    contactos_emergencia = ContactoEmergenciaSerializer(many=True, required=False)
+    vinculos_familiares = VinculoFamiliarSerializer(many=True, required=False)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['contactos_emergencia'].child.fields['jugador'].read_only = True
+        self.fields['vinculos_familiares'].child.fields['jugador'].read_only = True
 
     class Meta:
         model = Jugador
@@ -408,7 +408,7 @@ class JugadorSerializer(serializers.ModelSerializer):
             "obra_social",
             "tallaIndumentaria",
             "estado",
-            "contactos_emergencia",
+            "vinculos_familiares",
         ]
 
     def _birth_date(self, attrs):
@@ -435,28 +435,28 @@ class JugadorSerializer(serializers.ModelSerializer):
 
         self._validate_categories_and_contacts(attrs, is_creation)
 
-        for contact in attrs.get('contactos_emergencia', []):
+        for contact in attrs.get('vinculos_familiares', []):
             person_data = contact.get('persona', {})
             phone = person_data.get('telefono')
             if not phone:
-                raise serializers.ValidationError({'contactos_emergencia': 'El teléfono es obligatorio para los contactos de emergencia.'})
+                raise serializers.ValidationError({'vinculos_familiares': 'El teléfono es obligatorio para los vinculos familiares.'})
 
             dni = person_data.get('dni')
             if not dni:
                 continue
 
-            contact_id = contact.get('contacto_emergencia_id')
+            contact_id = contact.get('vinculo_familiar_id')
 
             if not contact_id and self.instance:
-                if self.instance.contactos_emergencia.filter(persona__dni=dni).exists():
-                    raise serializers.ValidationError({'contactos_emergencia': 'Esta persona ya es contacto de emergencia de este jugador.'})
+                if self.instance.vinculos_familiares.filter(persona__dni=dni).exists():
+                    raise serializers.ValidationError({'Vinculos familiares': 'Esta persona ya esta asociada a este jugador.'})
 
             people = Persona.objects.filter(dni=dni)
             if contact_id:
                 try:
-                    people = people.exclude(pk=ContactoEmergencia.objects.get(pk=contact_id).persona_id)
-                except ContactoEmergencia.DoesNotExist:
-                    raise serializers.ValidationError({'contactos_emergencia': 'El contacto indicado no pertenece al jugador.'})
+                    people = people.exclude(pk=VinculoFamiliar.objects.get(pk=contact_id).persona_id)
+                except VinculoFamiliar.DoesNotExist:
+                    raise serializers.ValidationError({'vinculos familiares': 'El contacto indicado no pertenece al jugador.'})
         return attrs
 
     def _validate_categories_and_contacts(self, attrs, is_creation):
@@ -478,16 +478,16 @@ class JugadorSerializer(serializers.ModelSerializer):
         if secondary is not None and secondary == category:
             errors["categoria_secundaria"] = ["La categoría secundaria debe ser distinta de la principal."]
 
-        if "contactos_emergencia" in attrs:
-            flags = [contact.get("responsable_legal", False) for contact in attrs["contactos_emergencia"]]
+        if "vinculos_familiares" in attrs:
+            flags = [contact.get("responsable_legal", False) for contact in attrs["vinculos_familiares"]]
         elif self.instance is not None:
-            flags = list(self.instance.contactos_emergencia.values_list("responsable_legal", flat=True))
+            flags = list(self.instance.vinculos_familiares.values_list("responsable_legal", flat=True))
         else:
             flags = []
-        if is_creation or "contactos_emergencia" in attrs or birth_date_changed:
+        if is_creation or "vinculos_familiares" in attrs or birth_date_changed:
             contacts_error = player_contacts_error(birth_date, flags)
             if contacts_error:
-                errors["contactos_emergencia"] = [contacts_error]
+                errors["vinculos_familiares"] = [contacts_error]
 
         if errors:
             raise serializers.ValidationError(errors)
@@ -503,12 +503,12 @@ class JugadorSerializer(serializers.ModelSerializer):
         # El alta siempre queda en estado deportivo Activo (default del modelo)
         validated_data.pop("estado", None)
 
-        contacts_data = validated_data.pop("contactos_emergencia", [])
+        contacts_data = validated_data.pop("vinculos_familiares", [])
         player = Jugador.objects.create(**validated_data)
         player.activate_member_if_inactive()
         for contact_data in contacts_data:
             contact_data["jugador"] = player
-            ContactoEmergenciaSerializer().create(contact_data)
+            VinculoFamiliarSerializer().create(contact_data)
         return player
 
     @transaction.atomic
@@ -522,23 +522,23 @@ class JugadorSerializer(serializers.ModelSerializer):
                 member = member_serializer.create(new_member_data)
             validated_data["socio"] = member
 
-        contacts_data = validated_data.pop("contactos_emergencia", None)
+        contacts_data = validated_data.pop("vinculos_familiares", None)
         player = super().update(instance, validated_data)
         if "estado" in validated_data:
             player.activate_member_if_inactive()
         if contacts_data is not None:
             contact_ids = set()
             for contact_data in contacts_data:
-                contact_id = contact_data.get("contacto_emergencia_id")
+                contact_id = contact_data.get("vinculo_familiar_id")
                 contact_data["jugador"] = player
                 if contact_id:
-                    contact = instance.contactos_emergencia.get(pk=contact_id)
-                    ContactoEmergenciaSerializer().update(contact, contact_data)
+                    contact = instance.vinculos_familiares.get(pk=contact_id)
+                    VinculoFamiliarSerializer().update(contact, contact_data)
                     contact_ids.add(contact_id)
                 else:
-                    new_contact = ContactoEmergenciaSerializer().create(contact_data)
+                    new_contact = VinculoFamiliarSerializer().create(contact_data)
                     contact_ids.add(new_contact.pk)
-            instance.contactos_emergencia.exclude(pk__in=contact_ids).delete()
+            instance.vinculos_familiares.exclude(pk__in=contact_ids).delete()
         return player
 
 
@@ -547,15 +547,15 @@ class JugadorListSerializer(serializers.ModelSerializer):
     categoria = CategoriaSerializer(read_only=True)
     categoria_secundaria = CategoriaSerializer(read_only=True)
     estado = EstadoDeportivoSerializer(read_only=True)
-    contactos_emergencia = ContactoEmergenciaSerializer(many=True, read_only=True)
+    vinculos_familiares = VinculoFamiliarSerializer(many=True, read_only=True)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['contactos_emergencia'].child.fields['jugador'].read_only = True
+        self.fields['vinculos_familiares'].child.fields['jugador'].read_only = True
 
     class Meta:
         model = Jugador
-        fields = ["jugador_id", "socio", "categoria", "categoria_secundaria", "obra_social", "tallaIndumentaria", "estado", "contactos_emergencia"]
+        fields = ["jugador_id", "socio", "categoria", "categoria_secundaria", "obra_social", "tallaIndumentaria", "estado", "vinculos_familiares"]
 
 
 class JugadorSerializerDetail(serializers.ModelSerializer):
@@ -563,14 +563,14 @@ class JugadorSerializerDetail(serializers.ModelSerializer):
     categoria = CategoriaSerializer(read_only=True)
     categoria_secundaria = CategoriaSerializer(read_only=True)
     estado = EstadoDeportivoSerializer(read_only=True)
-    contactos_emergencia = serializers.SerializerMethodField()
+    vinculos_familiares = serializers.SerializerMethodField()
 
-    def get_contactos_emergencia(self, player):
-        return ContactoEmergenciaSerializer(player.contactos_emergencia.select_related("persona"), many=True).data
+    def get_vinculos_familiares(self, player):
+        return VinculoFamiliarSerializer(player.vinculos_familiares.select_related("persona"), many=True).data
 
     class Meta:
         model = Jugador
-        fields = ["jugador_id", "socio", "categoria", "categoria_secundaria", "obra_social", "tallaIndumentaria", "contactos_emergencia", "estado"]
+        fields = ["jugador_id", "socio", "categoria", "categoria_secundaria", "obra_social", "tallaIndumentaria", "vinculos_familiares", "estado"]
         read_only_fields = ["jugador_id"]
 
 
@@ -631,7 +631,7 @@ class DocenteSerializer(serializers.ModelSerializer):
             if existing is not None:
                 raise serializers.ValidationError({
                     "persona": ["Esta persona ya está registrada como docente."],
-                    "persona_existente": {"docente_id": existing.pk},
+                    "persona existente": {"docente_id": existing.pk},
                 })
 
         assignments = attrs.get("asignaciones")
