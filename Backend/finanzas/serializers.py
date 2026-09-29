@@ -9,16 +9,42 @@ from .models import (
     ItemCuota,
     MovimientoCuenta,
     Pago,
+    EstadoCuotaChoices,
 )
+
+
+def monto_total_cuota(cuota):
+    return sum(
+        (-item.monto if item.es_descuento else item.monto)
+        for item in cuota.items.all()
+    )
 
 
 
 
 class CuotaSerializer(serializers.ModelSerializer):
+    items = serializers.SerializerMethodField()
+    monto_total = serializers.SerializerMethodField()
+
     class Meta:
         model = Cuota
-        fields = "__all__"
+        fields = [
+            "cuota_id",
+            "cuenta_corriente",
+            "estado_cuota",
+            "fecha_venc1",
+            "fecha_venc2",
+            "periodo",
+            "items",
+            "monto_total",
+        ]
         read_only_fields = ["cuota_id"]
+
+    def get_items(self, obj):
+        return ItemCuotaSerializer(obj.items.all(), many=True).data
+
+    def get_monto_total(self, obj):
+        return monto_total_cuota(obj)
 
 
 class ItemCuotaSerializer(serializers.ModelSerializer):
@@ -56,6 +82,54 @@ class CuentaCorrienteSerializer(serializers.ModelSerializer):
         model = CuentaCorriente
         fields = "__all__"
         read_only_fields = ["cuenta_corriente_id"]
+
+
+class CuentaCorrienteEstadoSerializer(serializers.ModelSerializer):
+    cuotas = CuotaSerializer(many=True, read_only=True)
+    cuotas_generadas = serializers.SerializerMethodField()
+    cuotas_pagas = serializers.SerializerMethodField()
+    cuotas_impagas = serializers.SerializerMethodField()
+    total_adeudado = serializers.SerializerMethodField()
+    total_mora = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CuentaCorriente
+        fields = [
+            "cuenta_corriente_id",
+            "socio",
+            "saldo",
+            "estado_cuenta_corriente",
+            "cuotas",
+            "cuotas_generadas",
+            "cuotas_pagas",
+            "cuotas_impagas",
+            "total_adeudado",
+            "total_mora",
+        ]
+
+    def get_cuotas_generadas(self, obj):
+        return obj.cuotas.count()
+
+    def get_cuotas_pagas(self, obj):
+        return obj.cuotas.filter(estado_cuota=EstadoCuotaChoices.PAGA).count()
+
+    def get_cuotas_impagas(self, obj):
+        return obj.cuotas.exclude(estado_cuota=EstadoCuotaChoices.PAGA).count()
+
+    def get_total_adeudado(self, obj):
+        return sum(
+            monto_total_cuota(cuota)
+            for cuota in obj.cuotas.all()
+            if cuota.estado_cuota != EstadoCuotaChoices.PAGA
+        )
+
+    def get_total_mora(self, obj):
+        return sum(
+            item.monto
+            for cuota in obj.cuotas.all()
+            for item in cuota.items.all()
+            if "mora" in item.concepto.lower()
+        )
 
 
 class MovimientoCuentaSerializer(serializers.ModelSerializer):

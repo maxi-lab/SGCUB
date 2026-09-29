@@ -1,4 +1,5 @@
 from django.shortcuts import get_object_or_404
+from django.db.models import Prefetch
 from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
@@ -24,6 +25,7 @@ from .serializers import (
 	ItemCuotaSerializer,
 	MovimientoCuentaSerializer,
 	PagoSerializer,
+	CuentaCorrienteEstadoSerializer,
 )
 
 
@@ -166,6 +168,18 @@ def cuenta_corriente_detail(request, pk):
 		pk,
 		CuentaCorriente.objects.select_related("socio"),
 	)
+
+
+@extend_schema(tags=["Finanzas/EstadoCuenta"], responses=CuentaCorrienteEstadoSerializer)
+@api_view(["GET"])
+def estado_cuenta_socio(request, socio_id):
+	cuenta = get_object_or_404(
+		CuentaCorriente.objects.prefetch_related(
+			Prefetch("cuotas", queryset=Cuota.objects.prefetch_related("items"))
+		),
+		socio_id=socio_id,
+	)
+	return Response(CuentaCorrienteEstadoSerializer(cuenta).data)
 
 
 @extend_schema(tags=["Finanzas/MovimientoCuenta"], request=MovimientoCuentaSerializer, responses=MovimientoCuentaSerializer)

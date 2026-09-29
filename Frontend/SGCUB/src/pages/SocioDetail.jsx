@@ -5,7 +5,7 @@ import DeleteSocioModal from '../components/socios/DeleteSocioModal'
 import PersonHeader, { EditButton, DeleteButton } from '../components/personas/HeaderPersona'
 import PersonTabs from '../components/personas/TabsNavPersonas'
 import PersonalDataTab from '../components/personas/tabs/PersonalDataTab'
-import FinancialTab from '../components/personas/tabs/FinancialTab'
+import EstadoCuentaPanel from '../components/finanzas/EstadoCuentaPanel'
 import { LoadingFile, ErrorFile } from '../components/personas/FileStatus'
 import { yearsSince, isActiveStatus, formatDni, formatDate, formatNumber, yearsText } from '../components/personas/format'
 import useLocalidades from '../hooks/useLocalidades'
@@ -14,7 +14,6 @@ function SocioDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { localidades } = useLocalidades()
-  const financiero = useFinancialStatus(id)
 
   // Guarda el id cargado para derivar "cargando" sin setState síncrono en el effect.
   const [carga, setCarga] = useState({ id: null, datos: null, error: null })
@@ -66,8 +65,7 @@ function SocioDetail() {
       id: 'financiero',
       label: 'Financiero',
       icon: 'account_balance_wallet',
-      badge: financiero.isLoading || financiero.error ? undefined : financiero.situacion,
-      content: <FinancialTab {...financiero} />,
+      content: <EstadoCuentaPanel socio={socio} />,
     },
   ]
 

@@ -15,6 +15,7 @@ import Categorias from './pages/Categorias'
 import Docentes from './pages/Docentes'
 import CategoriaDetalle from './pages/CategoriaDetalle'
 import Cuotas from './pages/Cuotas'
+import EstadoCuenta from './pages/EstadoCuenta'
 import EnDesarrollo from './pages/EnDesarrollo'
 
 export const router = createBrowserRouter([
@@ -101,6 +102,10 @@ export const router = createBrowserRouter([
           {
             path: 'cuotas',
             element: <Cuotas />,
+          },
+          {
+            path: 'estado-cuenta',
+            element: <EstadoCuenta />,
           },
         ],
       },
