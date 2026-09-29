@@ -4,7 +4,7 @@ import DeleteSocioModal from '../components/socios/DeleteSocioModal'
 import SociosTable from '../components/socios/SociosTable'
 import PageHeader from '../components/shared/PageHeader'
 import StatCard from '../components/shared/StatCard'
-import useSocio from '../hooks/useSocio'
+import useSocio from './useSocio'
 
 function Padron() {
   const {

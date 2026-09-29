@@ -14,6 +14,7 @@ import SocioForm from './pages/SocioForm'
 import Categorias from './pages/Categorias'
 import Docentes from './pages/Docentes'
 import CategoriaDetalle from './pages/CategoriaDetalle'
+import Cuotas from './pages/Cuotas'
 import EnDesarrollo from './pages/EnDesarrollo'
 
 export const router = createBrowserRouter([
@@ -87,6 +88,19 @@ export const router = createBrowserRouter([
           {
             path: 'categorias/:id',
             element: <CategoriaDetalle />,
+          },
+        ],
+      },
+      {
+        path: 'finanzas',
+        children: [
+          {
+            index: true,
+            element: <Navigate to="cuotas" replace />,
+          },
+          {
+            path: 'cuotas',
+            element: <Cuotas />,
           },
         ],
       },

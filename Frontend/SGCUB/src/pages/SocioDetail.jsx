@@ -8,7 +8,6 @@ import PersonalDataTab from '../components/personas/tabs/PersonalDataTab'
 import FinancialTab from '../components/personas/tabs/FinancialTab'
 import { LoadingFile, ErrorFile } from '../components/personas/FileStatus'
 import { yearsSince, isActiveStatus, formatDni, formatDate, formatNumber, yearsText } from '../components/personas/format'
-import useFinancialStatus from '../hooks/useEstadoFinanciero'
 import useLocalidades from '../hooks/useLocalidades'
 
 function SocioDetail() {

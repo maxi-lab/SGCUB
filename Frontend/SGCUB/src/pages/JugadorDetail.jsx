@@ -10,7 +10,6 @@ import FinancialTab from '../components/personas/tabs/FinancialTab'
 import DocumentationTab from '../components/personas/tabs/DocumentationTab'
 import { LoadingFile, ErrorFile } from '../components/personas/FileStatus'
 import { isActiveStatus, formatDni, formatDate, formatNumber, getErrorMessage } from '../components/personas/format'
-import useFinancialStatus from '../hooks/useEstadoFinanciero'
 import useLocalidades from '../hooks/useLocalidades'
 
 const getContacts = (player) => (player.contactos_emergencia ?? []).map((c) => ({

@@ -14,7 +14,7 @@ import useEstados from '../hooks/useEstados'
 import useGeneros from '../hooks/useGeneros'
 import useJugadores from '../hooks/useJugadores'
 import useLocalidades from '../hooks/useLocalidades'
-import useSocio from '../hooks/useSocio'
+import useSocio from './useSocio'
 
 const CAMPOS_CONTACTO = ['dni', 'nombre', 'apellido', 'telefono', 'relacion']
 
