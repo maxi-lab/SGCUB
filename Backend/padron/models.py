@@ -349,26 +349,26 @@ class Docente(SequentialNumberMixin, models.Model):
     def __str__(self):
         return f"Docente {self.legajo}"
 
-class ContactoEmergencia(models.Model):
-    contacto_emergencia_id = models.AutoField(primary_key=True)
+class VinculoFamiliar(models.Model):
+    vinculo_familiar_id = models.AutoField(primary_key=True)
 
     persona = models.ForeignKey(
         Persona,
         on_delete=models.PROTECT,
-        related_name="contactos_emergencia",
+        related_name="vinculos_familiares",
     )
 
     jugador = models.ForeignKey(
         Jugador,
         on_delete=models.CASCADE,
-        related_name="contactos_emergencia",
+        related_name="vinculos_familiares",
     )
 
     responsable_legal = models.BooleanField(default=False)
     relacion = models.CharField(max_length=50)
 
     class Meta:
-        db_table = "contacto_emergencia"
+        db_table = "vinculo_familiar"
         constraints = [
             models.UniqueConstraint(
                 fields=["persona", "jugador"],
@@ -391,12 +391,11 @@ class DocenteCategoria(models.Model):
         related_name="docentes_categoria",
     )
 
-    # Un docente puede tener varios cargos, cada uno en sus categorías (DT en 1era y 3era, ayudante en 8va)
     cargo = models.ForeignKey(
         CargoDocente,
         on_delete=models.PROTECT,
         related_name="asignaciones",
-        null=True,  # asignaciones cargadas antes de que existiera el cargo
+        null=True, 
     )
 
     class Meta:
