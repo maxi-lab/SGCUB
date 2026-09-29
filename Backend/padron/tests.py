@@ -6,7 +6,7 @@ from padron.serializers import SocioSerializer
 from datetime import date
 from unittest.mock import patch
 
-from .models import CargoDocente, Categoria, VinculoFamiliar, Docente, DocenteCategoria, EstadoDeportivo, EstadoSocio, Genero, Jugador, Localidad, Persona, Socio
+from .models import CargoDocente, Categoria, VinculoFamiliar, Docente, DocenteCategoria, EstadoDeportivo, EstadoAdministrativo, Genero, Jugador, Localidad, Persona, Socio
 
 
 class PadronViewTests(APITestCase):
@@ -373,9 +373,9 @@ class PadronViewTests(APITestCase):
         socio = self.crear_socio_orm()
         response = self.client.delete(f"/api/padron/socio/{socio.socio_id}/", format="json")
         self.assertEqual(status.HTTP_200_OK, response.status_code)
-        self.assertEqual("Inactivo", response.data["estado_socio_nombre"])
+        self.assertEqual("Inactivo", response.data["estado_administrativo_nombre"])
         socio.refresh_from_db()
-        self.assertEqual("Inactivo", socio.estado_socio.nombre)
+        self.assertEqual("Inactivo", socio.estado_administrativo.nombre)
         self.assertEqual(
             status.HTTP_200_OK,
             self.client.get(f"/api/padron/socio/{socio.socio_id}/", format="json").status_code,
@@ -390,9 +390,9 @@ class PadronViewTests(APITestCase):
 
     def test_socio_patch_inactivo_da_de_baja_su_jugador(self):
         jugador = self.crear_jugador_orm()
-        inactivo, _ = EstadoSocio.objects.get_or_create(nombre="Inactivo")
+        inactivo, _ = EstadoAdministrativo.objects.get_or_create(nombre="Inactivo")
         response = self.client.patch(
-            f"/api/padron/socio/{jugador.socio.socio_id}/", {"estado_socio": inactivo.pk}, format="json"
+            f"/api/padron/socio/{jugador.socio.socio_id}/", {"estado_administrativo": inactivo.pk}, format="json"
         )
         self.assertEqual(status.HTTP_200_OK, response.status_code)
         jugador.refresh_from_db()
@@ -407,7 +407,7 @@ class PadronViewTests(APITestCase):
         )
         self.assertEqual(status.HTTP_200_OK, response.status_code, response.data)
         jugador.socio.refresh_from_db()
-        self.assertEqual("Activo", jugador.socio.estado_socio.nombre)
+        self.assertEqual("Activo", jugador.socio.estado_administrativo.nombre)
 
     def test_jugador_post_con_socio_inactivo_lo_reactiva(self):
         socio = self.crear_socio_menor_orm()
@@ -417,19 +417,19 @@ class PadronViewTests(APITestCase):
         }, format="json")
         self.assertEqual(status.HTTP_201_CREATED, response.status_code, response.data)
         socio.refresh_from_db()
-        self.assertEqual("Activo", socio.estado_socio.nombre)
+        self.assertEqual("Activo", socio.estado_administrativo.nombre)
 
     def test_socio_post_asigna_activo_numero_y_fecha(self):
-        inactivo = EstadoSocio.objects.create(nombre="Inactivo")
+        inactivo = EstadoAdministrativo.objects.create(nombre="Inactivo")
         self.crear_socio_orm(numero_socio=41)
         response = self.create_socio({
             **self.datos_alta_persona(dni="32111222"),
-            "estado_socio": inactivo.pk,
+            "estado_administrativo": inactivo.pk,
             "numero_socio": 1,
             "fecha_alta": "2000-01-01",
         })
         self.assertEqual(status.HTTP_201_CREATED, response.status_code, response.data)
-        self.assertEqual("Activo", response.data["estado_socio_nombre"])
+        self.assertEqual("Activo", response.data["estado_administrativo_nombre"])
         self.assertEqual(42, response.data["numero_socio"])
         self.assertEqual(date.today().isoformat(), response.data["fecha_alta"])
 
@@ -469,12 +469,12 @@ class PadronViewTests(APITestCase):
     def test_socio_patch_reactiva(self):
         socio = self.crear_socio_orm()
         socio.deactivate()
-        activo = EstadoSocio.objects.get(nombre="Activo")
+        activo = EstadoAdministrativo.objects.get(nombre="Activo")
         response = self.client.patch(
-            f"/api/padron/socio/{socio.socio_id}/", {"estado_socio": activo.pk}, format="json"
+            f"/api/padron/socio/{socio.socio_id}/", {"estado_administrativo": activo.pk}, format="json"
         )
         self.assertEqual(status.HTTP_200_OK, response.status_code)
-        self.assertEqual("Activo", response.data["estado_socio_nombre"])
+        self.assertEqual("Activo", response.data["estado_administrativo_nombre"])
 
     def test_socio_con_domicilio_existente_no_duplica_domicilio(self):
         persona = self.crear_persona_orm(dni="33222111")
@@ -831,7 +831,7 @@ class PadronViewTests(APITestCase):
         self.assertEqual(date.today().isoformat(), response.data["fecha_ingreso"])
 
     def test_docente_post_ignora_estado_enviado(self):
-        inactivo = EstadoSocio.objects.get(nombre="Inactivo")
+        inactivo = EstadoAdministrativo.objects.get(nombre="Inactivo")
         response = self.create_docente(self.crear_persona_orm().pk, estado=inactivo.pk)
         self.assertEqual(status.HTTP_201_CREATED, response.status_code, response.data)
         self.assertEqual("Activo", response.data["estado_nombre"])
@@ -877,7 +877,7 @@ class PadronViewTests(APITestCase):
         self.assertEqual(status.HTTP_201_CREATED, response.status_code, response.data)
         self.assertEqual("Activo", response.data["estado_nombre"])
         socio.refresh_from_db()
-        self.assertEqual("Inactivo", socio.estado_socio.nombre)
+        self.assertEqual("Inactivo", socio.estado_administrativo.nombre)
 
     def test_cargo_docente_list(self):
         response = self.client.get("/api/padron/cargo-docente/")
@@ -934,7 +934,7 @@ class PadronViewTests(APITestCase):
     def test_docente_patch_reactiva(self):
         docente = self.crear_docente_orm()
         docente.deactivate()
-        activo = EstadoSocio.objects.get(nombre="Activo")
+        activo = EstadoAdministrativo.objects.get(nombre="Activo")
         response = self.client.patch(f"/api/padron/docente/{docente.pk}/", {"estado": activo.pk}, format="json")
         self.assertEqual(status.HTTP_200_OK, response.status_code)
         self.assertEqual("Activo", response.data["estado_nombre"])

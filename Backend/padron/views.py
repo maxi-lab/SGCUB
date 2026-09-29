@@ -7,7 +7,7 @@ from drf_spectacular.utils import extend_schema
 from .services import recategorizar_jugadores
 from .services import pasr_de_anio_vigente_a_categoria
 
-from .models import CargoDocente, Persona, Socio, Categoria, Jugador, Docente, EstadoDeportivo, VinculoFamiliar, EstadoSocio, Genero, Localidad, DocenteCategoria
+from .models import CargoDocente, Persona, Socio, Categoria, Jugador, Docente, EstadoDeportivo, VinculoFamiliar, EstadoAdministrativo, Genero, Localidad, DocenteCategoria
 from .serializers import (
     CargoDocenteSerializer,
     DocenteCategoriaSerializer,
@@ -20,7 +20,7 @@ from .serializers import (
     JugadorSerializerDetail,
     DocenteSerializer,
     VinculoFamiliarSerializer,
-    EstadoSocioSerializer,
+    EstadoAdministrativoSerializer,
     GeneroSerializer,
     LocalidadSerializer,
     player_contacts_error,
@@ -41,19 +41,19 @@ def localidad_list(request):
     return Response(LocalidadSerializer(localities, many=True).data)
 
 
-@extend_schema(tags=["Padron / EstadoSocio"], request=EstadoSocioSerializer, responses=EstadoSocioSerializer)
+@extend_schema(tags=["Padron / EstadoAdministrativo"], request=EstadoAdministrativoSerializer, responses=EstadoAdministrativoSerializer)
 @api_view(["GET"])
-def estado_socio_list_create(request):
-    member_statuses = EstadoSocio.objects.all()
-    serializer = EstadoSocioSerializer(member_statuses, many=True)
+def estado_administrativo_list_create(request):
+    member_statuses = EstadoAdministrativo.objects.all()
+    serializer = EstadoAdministrativoSerializer(member_statuses, many=True)
     return Response(serializer.data)
 
 
-@extend_schema(tags=["Padron / EstadoSocio"], request=EstadoSocioSerializer, responses=EstadoSocioSerializer)
+@extend_schema(tags=["Padron / EstadoAdministrativo"], request=EstadoAdministrativoSerializer, responses=EstadoAdministrativoSerializer)
 @api_view(["GET"])
-def estado_socio_detail(request, pk):
-    member_status = get_object_or_404(EstadoSocio, pk=pk)
-    serializer = EstadoSocioSerializer(member_status)
+def estado_administrativo_detail(request, pk):
+    member_status = get_object_or_404(EstadoAdministrativo, pk=pk)
+    serializer = EstadoAdministrativoSerializer(member_status)
     return Response(serializer.data)
 
 
@@ -108,7 +108,7 @@ def persona_detail(request, pk):
 def socio_list_create(request):
     if request.method == "GET":
         members = Socio.objects.select_related(
-            "persona__genero", "persona__domicilio__localidad", "estado_socio"
+            "persona__genero", "persona__domicilio__localidad", "estado_administrativo"
         )
         serializer = SocioSerializer(members, many=True)
         return Response(serializer.data)
@@ -249,7 +249,7 @@ def estado_detail(request, pk):
 def jugador_list_create(request):
     if request.method == "GET":
         players = Jugador.objects.select_related(
-            "socio__persona__genero", "socio__persona__domicilio__localidad", "socio__estado_socio",
+            "socio__persona__genero", "socio__persona__domicilio__localidad", "socio__estado_administrativo",
             "categoria", "categoria_secundaria", "estado",
         ).prefetch_related("vinculos_familiares__persona")
         serializer = JugadorListSerializer(players, many=True)

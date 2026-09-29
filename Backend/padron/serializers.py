@@ -2,7 +2,7 @@ import re
 
 from rest_framework import serializers
 from django.db import transaction
-from .models import CargoDocente, DocenteCategoria, Persona, Socio, Categoria, Jugador, Docente, EstadoDeportivo, VinculoFamiliar, EstadoSocio, Genero, Localidad, Domicilio, EDAD_MAYORIA, age_from
+from .models import CargoDocente, DocenteCategoria, Persona, Socio, Categoria, Jugador, Docente, EstadoDeportivo, VinculoFamiliar, EstadoAdministrativo, Genero, Localidad, Domicilio, EDAD_MAYORIA, age_from
 
 
 DNI_REGEX = re.compile(r"\d{7,8}")
@@ -101,9 +101,9 @@ class DomicilioSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
-class EstadoSocioSerializer(serializers.ModelSerializer):
+class EstadoAdministrativoSerializer(serializers.ModelSerializer):
     class Meta:
-        model = EstadoSocio
+        model = EstadoAdministrativo
         fields = "__all__"
 
 
@@ -200,11 +200,11 @@ class SocioSerializer(serializers.ModelSerializer):
     domicilio_barrio = serializers.CharField(source="persona.domicilio.barrio", required=False, allow_null=True, allow_blank=True)
     domicilio_localidad = serializers.PrimaryKeyRelatedField(source="persona.domicilio.localidad", queryset=Localidad.objects.all(), required=False, allow_null=True)
 
-    estado_socio = serializers.PrimaryKeyRelatedField(
-        queryset=EstadoSocio.objects.all(),
+    estado_administrativo = serializers.PrimaryKeyRelatedField(
+        queryset=EstadoAdministrativo.objects.all(),
         required=False
     )
-    estado_socio_nombre = serializers.CharField(source="estado_socio.nombre", read_only=True)
+    estado_administrativo_nombre = serializers.CharField(source="estado_administrativo.nombre", read_only=True)
 
     class Meta:
         model = Socio
@@ -212,7 +212,7 @@ class SocioSerializer(serializers.ModelSerializer):
             "socio_id", "numero_socio", "nombre", "apellido", "dni", "telefono", "email",
             "fecha_nacimiento", "edad", "genero", "genero_nombre", "genero_otro",
             "domicilio_calle", "domicilio_numero", "domicilio_piso", "domicilio_departamento", "domicilio_entre_calle_1", "domicilio_entre_calle_2", "domicilio_barrio", "domicilio_localidad",
-            "estado_socio", "estado_socio_nombre", "fecha_alta"
+            "estado_administrativo", "estado_administrativo_nombre", "fecha_alta"
         ]
         read_only_fields = ["numero_socio", "fecha_alta"]
 
@@ -255,7 +255,7 @@ class SocioSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         person_data = validated_data.pop("persona")
         # El alta siempre queda en estado Activo (default del modelo)
-        validated_data.pop("estado_socio", None)
+        validated_data.pop("estado_administrativo", None)
         if not person_data.get("email"):
             person_data["email"] = None
 
@@ -274,7 +274,7 @@ class SocioSerializer(serializers.ModelSerializer):
         if person_data:
             self._save_person(instance.persona, person_data)
         member = super().update(instance, validated_data)
-        if "estado_socio" in validated_data and member.is_inactive:
+        if "estado_administrativo" in validated_data and member.is_inactive:
             member.deactivate()
         return member
 
@@ -605,7 +605,7 @@ def group_teacher_assignments(teacher):
 class DocenteSerializer(serializers.ModelSerializer):
     persona = serializers.PrimaryKeyRelatedField(queryset=Persona.objects.all())
     persona_detalle = PersonaSerializer(source="persona", read_only=True)
-    estado = serializers.PrimaryKeyRelatedField(queryset=EstadoSocio.objects.all(), required=False)
+    estado = serializers.PrimaryKeyRelatedField(queryset=EstadoAdministrativo.objects.all(), required=False)
     estado_nombre = serializers.CharField(source="estado.nombre", read_only=True)
     # Escritura: [{"cargo": id, "categorias": [ids]}]. Lectura: agrupado por cargo con el detalle de cada categoría.
     asignaciones = AsignacionDocenteSerializer(many=True, required=False, write_only=True)
