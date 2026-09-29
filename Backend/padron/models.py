@@ -328,6 +328,13 @@ class Docente(SequentialNumberMixin, models.Model):
     class Meta:
         db_table = "docente"
 
+    def has_assignments(self, exclude=None):
+        """Indica si tiene al menos un cargo con una categoría, sin contar las asignaciones que cumplan `exclude`."""
+        assignments = self.categorias_docente.filter(cargo__isnull=False)
+        if exclude:
+            assignments = assignments.exclude(**exclude)
+        return assignments.exists()
+
     def deactivate(self):
         """Baja lógica: el docente no se elimina, pasa a estado Inactivo."""
         self.estado, _ = EstadoSocio.objects.get_or_create(nombre=ESTADO_SOCIO_INACTIVO)

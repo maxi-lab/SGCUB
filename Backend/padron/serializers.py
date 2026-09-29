@@ -635,7 +635,9 @@ class DocenteSerializer(serializers.ModelSerializer):
                 })
 
         assignments = attrs.get("asignaciones")
-        if is_creation and not assignments:
+        # Tanto en el alta como en una modificación el docente debe quedar con al menos un cargo con categoría
+        keeps_current_assignments = assignments is None and not is_creation and self.instance.has_assignments()
+        if not assignments and not keeps_current_assignments:
             raise serializers.ValidationError({"asignaciones": ["Debe asignar al menos un cargo con sus categorías."]})
         if assignments is not None:
             self._validate_assignments(assignments)

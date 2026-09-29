@@ -131,9 +131,14 @@ class PadronViewTests(APITestCase):
         )
         return jugador
 
-    def crear_docente_orm(self, persona=None, legajo=None):
+    def crear_docente_orm(self, persona=None, legajo=None, con_asignacion=True):
         persona = persona or self.crear_persona_orm()
-        return Docente.objects.create(persona=persona, legajo=legajo)
+        docente = Docente.objects.create(persona=persona, legajo=legajo)
+        if con_asignacion:
+            # Categoría propia para no chocar con la de prueba (nombre/año/género son únicos)
+            categoria = self.crear_categoria_orm(nombre=f"Docente {docente.pk}")
+            DocenteCategoria.objects.create(docente=docente, categoria=categoria, cargo=self.cargo())
+        return docente
 
     # ==================================================================
     # PERSONA
@@ -956,6 +961,53 @@ class PadronViewTests(APITestCase):
         }, format="json")
         self.assertEqual(status.HTTP_400_BAD_REQUEST, response.status_code)
         self.assertIn("cargo_id", response.data)
+
+    def test_docente_patch_sin_asignaciones_conserva_las_existentes(self):
+        docente = self.crear_docente_orm()
+        response = self.client.patch(f"/api/padron/docente/{docente.pk}/", {"estado": docente.estado_id}, format="json")
+        self.assertEqual(status.HTTP_200_OK, response.status_code, response.data)
+        self.assertEqual(1, len(response.data["asignaciones"]))
+
+    def test_docente_patch_sin_cargos_exige_asignarlos(self):
+        docente = self.crear_docente_orm(con_asignacion=False)
+        response = self.client.patch(f"/api/padron/docente/{docente.pk}/", {"estado": docente.estado_id}, format="json")
+        self.assertEqual(status.HTTP_400_BAD_REQUEST, response.status_code)
+        self.assertIn("asignaciones", response.data)
+
+    def test_docente_con_asignacion_sin_cargo_no_cuenta(self):
+        docente = self.crear_docente_orm(con_asignacion=False)
+        DocenteCategoria.objects.create(docente=docente, categoria=self.crear_categoria_orm(), cargo=None)
+        response = self.client.patch(f"/api/padron/docente/{docente.pk}/", {"estado": docente.estado_id}, format="json")
+        self.assertEqual(status.HTTP_400_BAD_REQUEST, response.status_code)
+        self.assertIn("asignaciones", response.data)
+
+    def test_docente_categoria_no_se_puede_borrar_la_ultima(self):
+        docente = self.crear_docente_orm()
+        asignacion = docente.categorias_docente.get()
+        response = self.client.delete(f"/api/padron/docente-categoria/{asignacion.pk}/")
+        self.assertEqual(status.HTTP_400_BAD_REQUEST, response.status_code)
+        self.assertTrue(DocenteCategoria.objects.filter(pk=asignacion.pk).exists())
+
+    def test_docente_categoria_se_puede_borrar_si_quedan_otras(self):
+        docente = self.crear_docente_orm()
+        otra = DocenteCategoria.objects.create(docente=docente, categoria=self.crear_categoria_orm(), cargo=self.cargo())
+        response = self.client.delete(f"/api/padron/docente-categoria/{otra.pk}/")
+        self.assertEqual(status.HTTP_204_NO_CONTENT, response.status_code)
+
+    def test_categoria_no_se_puede_borrar_si_es_la_unica_de_un_docente(self):
+        docente = self.crear_docente_orm()
+        categoria = docente.categorias_docente.get().categoria
+        response = self.client.delete(f"/api/padron/categoria/{categoria.pk}/")
+        self.assertEqual(status.HTTP_400_BAD_REQUEST, response.status_code)
+        self.assertTrue(Categoria.objects.filter(pk=categoria.pk).exists())
+
+    def test_categoria_se_puede_borrar_si_el_docente_tiene_otras(self):
+        docente = self.crear_docente_orm()
+        categoria = self.crear_categoria_orm()
+        DocenteCategoria.objects.create(docente=docente, categoria=categoria, cargo=self.cargo("Ayudante técnico"))
+        response = self.client.delete(f"/api/padron/categoria/{categoria.pk}/")
+        self.assertEqual(status.HTTP_204_NO_CONTENT, response.status_code)
+        self.assertTrue(docente.has_assignments())
 
     def test_docente_delete_no_existe(self):
         response = self.client.delete("/api/padron/docente/9999/", format="json")
