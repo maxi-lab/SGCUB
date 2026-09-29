@@ -100,6 +100,10 @@ def get_default_estado_administrativo():
     return estado.pk
 
 
+# Alias requerido por migraciones históricas (0011, 0022) que referencian el nombre anterior.
+get_default_estado_socio = get_default_estado_administrativo
+
+
 class SequentialNumberMixin:
 
     sequential_field = None
