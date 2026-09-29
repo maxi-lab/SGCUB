@@ -31,6 +31,7 @@ from .serializers import (
 	MovimientoCuentaSerializer,
 	PagoSerializer,
 	CuentaCorrienteEstadoSerializer,
+	ComprobanteDetalleSerializer,
 )
 
 
@@ -234,6 +235,15 @@ def comprobante_list_create(request):
 @extend_schema(tags=["Finanzas/Comprobante"], request=ComprobanteSerializer, responses=ComprobanteSerializer)
 @api_view(["GET", "PUT", "PATCH", "DELETE"])
 def comprobante_detail(request, pk):
+	if request.method == "GET":
+		comprobante = get_object_or_404(
+			Comprobante.objects.select_related("pago").prefetch_related(
+				"pago__items_pago",
+				"pago__movimientos",
+			),
+			pk=pk,
+		)
+		return Response(ComprobanteDetalleSerializer(comprobante).data)
 	return _detail(request, Comprobante, ComprobanteSerializer, pk)
 
 

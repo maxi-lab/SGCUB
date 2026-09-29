@@ -75,6 +75,39 @@ class ComprobanteSerializer(serializers.ModelSerializer):
         read_only_fields = ["comprobante_id"]
 
 
+class ComprobanteDetalleSerializer(ComprobanteSerializer):
+    pago_detalle = serializers.SerializerMethodField()
+
+    class Meta(ComprobanteSerializer.Meta):
+        fields = [
+            "comprobante_id",
+            "pago",
+            "fecha_emision",
+            "numero",
+            "monto_total",
+            "pago_detalle",
+        ]
+        read_only_fields = ["comprobante_id"]
+
+    def get_pago_detalle(self, obj):
+        pago = obj.pago
+        detalle = PagoSerializer(pago).data
+        detalle["items_pago"] = ItemPagoSerializer(pago.items_pago.all(), many=True).data
+        movimiento = pago.movimientos.select_related("cuenta_corriente__socio__persona").first()
+        if movimiento:
+            socio = movimiento.cuenta_corriente.socio
+            detalle["socio"] = {
+                "socio_id": socio.socio_id,
+                "numero_socio": socio.numero_socio,
+                "nombre": socio.persona.nombre,
+                "apellido": socio.persona.apellido,
+                "dni": socio.persona.dni,
+            }
+        else:
+            detalle["socio"] = None
+        return detalle
+
+
 
 
 class CuentaCorrienteSerializer(serializers.ModelSerializer):
