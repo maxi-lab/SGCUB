@@ -20,7 +20,7 @@ function Padron() {
   const [errorEliminacion, setErrorEliminacion] = useState('')
   const totales = useMemo(() => {
     const sociosActivos = socios.filter((socio) => {
-      const estado = (socio.estado_socio_nombre ?? '').toLowerCase()
+      const estado = (socio.estado_administrativo_nombre ?? '').toLowerCase()
       return estado.includes('activo') && !estado.includes('inactivo')
     })
     const activos = sociosActivos.length

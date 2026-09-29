@@ -82,7 +82,7 @@ function SocioDetail() {
         ]}
         name={socio.nombre}
         surname={socio.apellido}
-        status={socio.estado_socio_nombre ? { label: socio.estado_socio_nombre, isActive: isActiveStatus(socio.estado_socio_nombre) } : null}
+        status={socio.estado_administrativo_nombre ? { label: socio.estado_administrativo_nombre, isActive: isActiveStatus(socio.estado_administrativo_nombre) } : null}
         metadata={[
           { label: 'DNI', value: formatDni(socio.dni) },
           { label: 'Socio N°', value: formatNumber(socio.numero_socio), highlighted: true },

@@ -26,7 +26,7 @@ const formatearLegajo = (legajo) => `#${String(legajo).padStart(4, '0')}`
 
 const personaAFormulario = (persona) => {
   const datos = socioAFormulario(persona)
-  delete datos.estado_socio
+  delete datos.estado_administrativo
   return datos
 }
 

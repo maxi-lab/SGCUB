@@ -356,7 +356,7 @@ function JugadorForm() {
     }
 
     const { categoria, categoria_secundaria, estado, obra_social, tallaIndumentaria, ...datosSocio } = formulario
-    if (!datosSocio.estado_socio) delete datosSocio.estado_socio
+    if (!datosSocio.estado_administrativo) delete datosSocio.estado_administrativo
     if (!esGeneroOtro) datosSocio.genero_otro = ''
 
     const datosJugador = {

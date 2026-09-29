@@ -14,8 +14,8 @@ const iniciales = (socio) =>
 
 const telefonoDe = (socio) => socio.telefono ?? socio.persona?.telefono ?? ''
 
-const esActivo = (socio) => (socio.estado_socio_nombre ?? '').toLowerCase().includes('activo')
-  && !(socio.estado_socio_nombre ?? '').toLowerCase().includes('inactivo')
+const esActivo = (socio) => (socio.estado_administrativo_nombre ?? '').toLowerCase().includes('activo')
+  && !(socio.estado_administrativo_nombre ?? '').toLowerCase().includes('inactivo')
 
 const paginasVisibles = (paginaActual, totalPaginas) => {
   if (totalPaginas <= 5) return Array.from({ length: totalPaginas }, (_, i) => i + 1)
@@ -38,7 +38,7 @@ const exportarCSV = (socios) => {
     socio.dni ?? '',
     telefonoDe(socio),
     formatearFecha(socio.fecha_alta),
-    socio.estado_socio_nombre ?? '',
+    socio.estado_administrativo_nombre ?? '',
   ])
   const csv = [encabezados, ...filas]
     .map((fila) => fila.map((celda) => `"${String(celda).replace(/"/g, '""')}"`).join(','))
@@ -64,7 +64,7 @@ function SociosTable({ data, isLoading, error }) {
   const socios = useMemo(() => data ?? [], [data])
 
   const tiposDisponibles = useMemo(
-    () => [...new Set(socios.map((socio) => socio.estado_socio_nombre).filter(Boolean))].sort(),
+    () => [...new Set(socios.map((socio) => socio.estado_administrativo_nombre).filter(Boolean))].sort(),
     [socios],
   )
 
@@ -73,7 +73,7 @@ function SociosTable({ data, isLoading, error }) {
     return socios.filter((socio) => {
       if (estado === 'activo' && !esActivo(socio)) return false
       if (estado === 'inactivo' && esActivo(socio)) return false
-      if (tipo !== 'todos' && socio.estado_socio_nombre !== tipo) return false
+      if (tipo !== 'todos' && socio.estado_administrativo_nombre !== tipo) return false
       if (!texto) return true
       return [socio.nombre, socio.apellido, socio.dni, socio.numero_socio]
         .some((campo) => String(campo ?? '').toLowerCase().includes(texto))
