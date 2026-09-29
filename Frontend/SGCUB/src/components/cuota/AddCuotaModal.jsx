@@ -1,5 +1,6 @@
 import { Alert, Button, Group, Modal, Select, Stack, TextInput } from '@mantine/core'
 import { IconAlertCircle } from '@tabler/icons-react'
+import ItemsCuotaFields from './ItemsCuotaFields'
 
 const ESTADO_OPTIONS = [
   { value: 'EnFecha', label: 'En fecha' },
@@ -53,6 +54,14 @@ function AddCuotaModal({ opened, onClose, onSubmit, formulario, onChange, loadin
             value={formulario.cuenta_corriente ?? ''}
             onChange={(event) => onChange('cuenta_corriente', event.currentTarget.value)}
             required
+          />
+
+          <ItemsCuotaFields
+            items={formulario.items || []}
+            onChange={(index, campo, valor) => onChange('items', formulario.items.map((item, itemIndex) => itemIndex === index ? { ...item, [campo]: valor } : item))}
+            onAdd={() => onChange('items', [...(formulario.items || []), { concepto: 'CuotaSocial', es_descuento: false, fecha_aplicacion: formulario.fecha_venc1 || '', monto: '', motivo: '' }])}
+            onRemove={(index) => onChange('items', formulario.items.filter((_, itemIndex) => itemIndex !== index))}
+            disabled={loading}
           />
 
           {error && (

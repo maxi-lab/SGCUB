@@ -48,6 +48,14 @@ const nombreSocio = (cuota) => {
   return nombre || socio.dni || 'Sin socio'
 }
 
+const montoCuota = (cuota) => {
+  if (cuota.monto_total !== undefined) return Number(cuota.monto_total)
+  return (cuota.items ?? []).reduce(
+    (total, item) => total + (item.es_descuento ? -Number(item.monto) : Number(item.monto)),
+    0,
+  )
+}
+
 function CuotaTable({ data = [], isLoading = false, error = null, onAdd, onEdit, onDelete }) {
   const [busqueda, setBusqueda] = useState('')
   const [estado, setEstado] = useState('todos')
@@ -137,6 +145,7 @@ function CuotaTable({ data = [], isLoading = false, error = null, onAdd, onEdit,
               <th className="py-3 px-4" scope="col">Socio</th>
               <th className="py-3 px-4" scope="col">Venc. 1</th>
               <th className="py-3 px-4" scope="col">Venc. 2</th>
+              <th className="py-3 px-4 text-right" scope="col">Monto</th>
               <th className="py-3 px-4" scope="col">Estado</th>
               <th className="py-3 px-4 text-right" scope="col">Acciones</th>
             </tr>
@@ -145,13 +154,13 @@ function CuotaTable({ data = [], isLoading = false, error = null, onAdd, onEdit,
           <tbody className="divide-y divide-outline-variant/20 font-body-sm text-lg text-on-surface">
             {isLoading && (
               <tr>
-                <td className="py-10 px-4 text-center text-on-surface-variant" colSpan={6}>Cargando cuotas...</td>
+                <td className="py-10 px-4 text-center text-on-surface-variant" colSpan={7}>Cargando cuotas...</td>
               </tr>
             )}
 
             {!isLoading && visibles.length === 0 && (
               <tr>
-                <td className="py-10 px-4 text-center text-on-surface-variant" colSpan={6}>
+                <td className="py-10 px-4 text-center text-on-surface-variant" colSpan={7}>
                   {error ? 'No se pudieron cargar las cuotas.' : 'No hay cuotas que coincidan con el filtro.'}
                 </td>
               </tr>
@@ -163,6 +172,7 @@ function CuotaTable({ data = [], isLoading = false, error = null, onAdd, onEdit,
                 <td className="py-3 px-4 text-on-surface-variant">{nombreSocio(cuota)}</td>
                 <td className="py-3 px-4 text-on-surface-variant">{formatDate(cuota.fecha_venc1)}</td>
                 <td className="py-3 px-4 text-on-surface-variant">{formatDate(cuota.fecha_venc2)}</td>
+                <td className="py-3 px-4 text-right font-semibold">{montoCuota(cuota).toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}</td>
                 <td className="py-3 px-4">
                   <span
                     className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-semibold border ${

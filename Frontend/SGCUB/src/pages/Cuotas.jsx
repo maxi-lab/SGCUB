@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
-import { deleteCuota, getCuotas, getCuentasCorrientes, patchCuota, postCuota } from '../api/cuotas'
+import { deleteCuota, deleteItemCuota, getCuotas, getCuentasCorrientes, patchCuota, patchItemCuota, postCuota, postItemCuota } from '../api/cuotas'
 import AddCuotaModal from '../components/cuota/AddCuotaModal'
 import CuotaTable from '../components/cuota/CuotaTable'
 import DeleteCuotaModal from '../components/cuota/DeleteCuotaModal'
 import EditCuotaModal from '../components/cuota/EditCuotaModal'
 import PageHeader from '../components/shared/PageHeader'
 import StatCard from '../components/shared/StatCard'
+import { itemCuotaInicial } from '../components/cuota/ItemsCuotaFields'
 
 const FORMULARIO_INICIAL = {
   cuenta_corriente: '',
@@ -13,6 +14,7 @@ const FORMULARIO_INICIAL = {
   fecha_venc1: '',
   fecha_venc2: '',
   periodo: '',
+  items: [itemCuotaInicial()],
 }
 
 function Cuotas() {
@@ -95,6 +97,14 @@ function Cuotas() {
       fecha_venc1: cuota.fecha_venc1 ?? '',
       fecha_venc2: cuota.fecha_venc2 ?? '',
       periodo: cuota.periodo ?? '',
+      items: (cuota.items ?? []).map((item) => ({
+        item_cuota_id: item.item_cuota_id,
+        concepto: item.concepto,
+        es_descuento: item.es_descuento,
+        fecha_aplicacion: item.fecha_aplicacion,
+        monto: Number(item.monto ?? 0),
+        motivo: item.motivo ?? '',
+      })),
     })
     setErrorFormulario('')
     setModalEditar(true)
@@ -115,19 +125,35 @@ function Cuotas() {
     setErrorFormulario('')
 
     try {
+      const { items, ...datosCuota } = formulario
       const payload = {
-        ...formulario,
+        ...datosCuota,
         cuenta_corriente: Number(formulario.cuenta_corriente),
       }
 
-      if (!payload.cuenta_corriente || !payload.periodo || !payload.fecha_venc1 || !payload.fecha_venc2) {
+      const itemsInvalidos = !items.length || items.some((item) => !item.concepto || !item.fecha_aplicacion || !item.monto || Number(item.monto) <= 0)
+      if (!payload.cuenta_corriente || !payload.periodo || !payload.fecha_venc1 || !payload.fecha_venc2 || itemsInvalidos) {
         throw new Error('Completá los campos obligatorios.')
       }
 
       if (modalEditar && cuotaSeleccionada) {
         await patchCuota(cuotaSeleccionada.cuota_id, payload)
+        const itemsOriginales = cuotaSeleccionada.items ?? []
+        const itemsActuales = items.filter((item) => item.item_cuota_id)
+        await Promise.all(items.map((item) => {
+          const itemPayload = { ...item, cuota: cuotaSeleccionada.cuota_id, monto: Number(item.monto) }
+          return item.item_cuota_id ? patchItemCuota(item.item_cuota_id, itemPayload) : postItemCuota(itemPayload)
+        }))
+        await Promise.all(itemsOriginales
+          .filter((item) => !itemsActuales.some((actual) => actual.item_cuota_id === item.item_cuota_id))
+          .map((item) => deleteItemCuota(item.item_cuota_id)))
       } else {
-        await postCuota(payload)
+        const cuotaCreada = await postCuota(payload)
+        await Promise.all(items.map((item) => postItemCuota({
+          ...item,
+          cuota: cuotaCreada.cuota_id,
+          monto: Number(item.monto),
+        })))
       }
 
       cerrarModal()
