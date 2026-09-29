@@ -4,19 +4,14 @@ from .models import (
     Comprobante,
     CuentaCorriente,
     Cuota,
-    CuotaXPago,
-    DetalleMedioPago,
-    EstadoCuota,
+    Imputacion,
+    ItemPago,
     ItemCuota,
+    MovimientoCuenta,
     Pago,
 )
 
 
-class EstadoCuotaSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = EstadoCuota
-        fields = "__all__"
-        read_only_fields = ["estado_cuota_id"]
 
 
 class CuotaSerializer(serializers.ModelSerializer):
@@ -40,11 +35,11 @@ class PagoSerializer(serializers.ModelSerializer):
         read_only_fields = ["pago_id"]
 
 
-class DetalleMedioPagoSerializer(serializers.ModelSerializer):
+class ItemPagoSerializer(serializers.ModelSerializer):
     class Meta:
-        model = DetalleMedioPago
+        model = ItemPago
         fields = "__all__"
-        read_only_fields = ["medio_pago_id"]
+        read_only_fields = ["id_item_pago"]
 
 
 class ComprobanteSerializer(serializers.ModelSerializer):
@@ -54,11 +49,6 @@ class ComprobanteSerializer(serializers.ModelSerializer):
         read_only_fields = ["comprobante_id"]
 
 
-class CuotaXPagoSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = CuotaXPago
-        fields = "__all__"
-        read_only_fields = ["cuota_pago_id"]
 
 
 class CuentaCorrienteSerializer(serializers.ModelSerializer):
@@ -66,3 +56,17 @@ class CuentaCorrienteSerializer(serializers.ModelSerializer):
         model = CuentaCorriente
         fields = "__all__"
         read_only_fields = ["cuenta_corriente_id"]
+
+
+class MovimientoCuentaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MovimientoCuenta
+        fields = "__all__"
+        read_only_fields = ["movimiento_cuenta_id"]
+
+
+class ImputacionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Imputacion
+        fields = "__all__"
+        read_only_fields = ["imputacion_id"]

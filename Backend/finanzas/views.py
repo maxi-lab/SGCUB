@@ -8,20 +8,21 @@ from .models import (
 	Comprobante,
 	CuentaCorriente,
 	Cuota,
-	CuotaXPago,
-	DetalleMedioPago,
-	EstadoCuota,
+	EstadoCuotaChoices,
+	Imputacion,
+	ItemPago,
 	ItemCuota,
+	MovimientoCuenta,
 	Pago,
 )
 from .serializers import (
 	ComprobanteSerializer,
 	CuentaCorrienteSerializer,
 	CuotaSerializer,
-	CuotaXPagoSerializer,
-	DetalleMedioPagoSerializer,
-	EstadoCuotaSerializer,
+	ImputacionSerializer,
+	ItemPagoSerializer,
 	ItemCuotaSerializer,
+	MovimientoCuentaSerializer,
 	PagoSerializer,
 )
 
@@ -61,16 +62,13 @@ def _detail(request, model, serializer_class, pk, queryset=None):
 	return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-@extend_schema(tags=["Finanzas/EstadoCuota"], request=EstadoCuotaSerializer, responses=EstadoCuotaSerializer)
+@extend_schema(tags=["Finanzas/EstadoCuota"])
 @api_view(["GET", "POST"])
 def estado_cuota_list_create(request):
-	return _list_create(request, EstadoCuota, EstadoCuotaSerializer)
-
-
-@extend_schema(tags=["Finanzas/EstadoCuota"], request=EstadoCuotaSerializer, responses=EstadoCuotaSerializer)
-@api_view(["GET", "PUT", "PATCH", "DELETE"])
-def estado_cuota_detail(request, pk):
-	return _detail(request, EstadoCuota, EstadoCuotaSerializer, pk)
+	return Response([
+		{"estado_cuota_id": value, "nombre": label}
+		for value, label in EstadoCuotaChoices.choices
+	])
 
 
 @extend_schema(tags=["Finanzas/Cuota"], request=CuotaSerializer, responses=CuotaSerializer)
@@ -120,16 +118,16 @@ def pago_detail(request, pk):
 	return _detail(request, Pago, PagoSerializer, pk)
 
 
-@extend_schema(tags=["Finanzas/DetalleMedioPago"], request=DetalleMedioPagoSerializer, responses=DetalleMedioPagoSerializer)
+@extend_schema(tags=["Finanzas/ItemPago"], request=ItemPagoSerializer, responses=ItemPagoSerializer)
 @api_view(["GET", "POST"])
-def detalle_medio_pago_list_create(request):
-	return _list_create(request, DetalleMedioPago, DetalleMedioPagoSerializer)
+def item_pago_list_create(request):
+	return _list_create(request, ItemPago, ItemPagoSerializer)
 
 
-@extend_schema(tags=["Finanzas/DetalleMedioPago"], request=DetalleMedioPagoSerializer, responses=DetalleMedioPagoSerializer)
+@extend_schema(tags=["Finanzas/ItemPago"], request=ItemPagoSerializer, responses=ItemPagoSerializer)
 @api_view(["GET", "PUT", "PATCH", "DELETE"])
-def detalle_medio_pago_detail(request, pk):
-	return _detail(request, DetalleMedioPago, DetalleMedioPagoSerializer, pk)
+def item_pago_detail(request, pk):
+	return _detail(request, ItemPago, ItemPagoSerializer, pk)
 
 
 @extend_schema(tags=["Finanzas/Comprobante"], request=ComprobanteSerializer, responses=ComprobanteSerializer)
@@ -144,16 +142,7 @@ def comprobante_detail(request, pk):
 	return _detail(request, Comprobante, ComprobanteSerializer, pk)
 
 
-@extend_schema(tags=["Finanzas/CuotaXPago"], request=CuotaXPagoSerializer, responses=CuotaXPagoSerializer)
-@api_view(["GET", "POST"])
-def cuota_x_pago_list_create(request):
-	return _list_create(request, CuotaXPago, CuotaXPagoSerializer)
 
-
-@extend_schema(tags=["Finanzas/CuotaXPago"], request=CuotaXPagoSerializer, responses=CuotaXPagoSerializer)
-@api_view(["GET", "PUT", "PATCH", "DELETE"])
-def cuota_x_pago_detail(request, pk):
-	return _detail(request, CuotaXPago, CuotaXPagoSerializer, pk)
 
 
 @extend_schema(tags=["Finanzas/CuentaCorriente"], request=CuentaCorrienteSerializer, responses=CuentaCorrienteSerializer)
@@ -177,3 +166,27 @@ def cuenta_corriente_detail(request, pk):
 		pk,
 		CuentaCorriente.objects.select_related("socio"),
 	)
+
+
+@extend_schema(tags=["Finanzas/MovimientoCuenta"], request=MovimientoCuentaSerializer, responses=MovimientoCuentaSerializer)
+@api_view(["GET", "POST"])
+def movimiento_cuenta_list_create(request):
+	return _list_create(request, MovimientoCuenta, MovimientoCuentaSerializer)
+
+
+@extend_schema(tags=["Finanzas/MovimientoCuenta"], request=MovimientoCuentaSerializer, responses=MovimientoCuentaSerializer)
+@api_view(["GET", "PUT", "PATCH", "DELETE"])
+def movimiento_cuenta_detail(request, pk):
+	return _detail(request, MovimientoCuenta, MovimientoCuentaSerializer, pk)
+
+
+@extend_schema(tags=["Finanzas/Imputacion"], request=ImputacionSerializer, responses=ImputacionSerializer)
+@api_view(["GET", "POST"])
+def imputacion_list_create(request):
+	return _list_create(request, Imputacion, ImputacionSerializer)
+
+
+@extend_schema(tags=["Finanzas/Imputacion"], request=ImputacionSerializer, responses=ImputacionSerializer)
+@api_view(["GET", "PUT", "PATCH", "DELETE"])
+def imputacion_detail(request, pk):
+	return _detail(request, Imputacion, ImputacionSerializer, pk)

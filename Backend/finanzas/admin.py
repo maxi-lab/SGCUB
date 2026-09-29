@@ -4,18 +4,18 @@ from .models import (
 	Comprobante,
 	CuentaCorriente,
 	Cuota,
-	CuotaXPago,
-	DetalleMedioPago,
-	EstadoCuota,
+	Imputacion,
+	ItemPago,
 	ItemCuota,
+	MovimientoCuenta,
 	Pago,
 )
 
-admin.site.register(EstadoCuota)
 admin.site.register(Cuota)
 admin.site.register(ItemCuota)
 admin.site.register(Pago)
-admin.site.register(DetalleMedioPago)
 admin.site.register(Comprobante)
-admin.site.register(CuotaXPago)
 admin.site.register(CuentaCorriente)
+admin.site.register(MovimientoCuenta)
+admin.site.register(Imputacion)
+admin.site.register(ItemPago)
