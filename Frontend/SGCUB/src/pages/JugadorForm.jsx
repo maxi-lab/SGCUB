@@ -295,6 +295,11 @@ function JugadorForm() {
     return socios.find((s) => String(s.dni) === dniIngresado) ?? null
   }, [socios, dniIngresado])
 
+  const proximoNumeroSocio = useMemo(() => {
+    const numeros = socios.map((s) => parseInt(s.numero_socio, 10)).filter((n) => !Number.isNaN(n))
+    return numeros.length ? Math.max(...numeros) + 1 : null
+  }, [socios])
+
   const socioDuplicado = editando && socioDelDni && String(socioDelDni.socio_id) !== String(socioActualId) ? socioDelDni : null
   const socioVinculado = editando ? null : socioDelDni
   const jugadorDelSocio = socioVinculado
@@ -496,24 +501,20 @@ function JugadorForm() {
         actions={(
           <>
             <div className="px-3 py-1.5 bg-surface-container-lowest border border-outline-variant/30 rounded flex items-center gap-2">
-              <span className="text-base font-semibold text-outline uppercase tracking-wider">N° de socio:</span>
+              <span className="text-base font-semibold text-outline uppercase tracking-wider">
+                {editando || (socioVinculado && !jugadorDelSocio) ? 'N° de socio:' : 'Próximo N°:'}
+              </span>
               <span className="font-mono text-base font-bold text-primary">
                 {editando
                   ? formatNumber(jugador.socio?.numero_socio)
-                  : socioVinculado && !jugadorDelSocio ? formatNumber(socioVinculado.numero_socio) : 'Nuevo'}
+                  : formatNumber(socioVinculado && !jugadorDelSocio ? socioVinculado.numero_socio : proximoNumeroSocio)}
               </span>
             </div>
-            {editando ? (
-              <div className="px-3 py-1.5 bg-surface-container-lowest border border-outline-variant/30 rounded flex items-center gap-2">
-                <span className="text-base font-semibold text-outline uppercase tracking-wider">Jugador:</span>
-                <span className="font-mono text-base font-bold text-on-surface">{formatNumber(jugador.jugador_id)}</span>
-              </div>
-            ) : (
+            
               <div className="px-3 py-1.5 bg-surface-container-lowest border border-outline-variant/30 rounded flex items-center gap-2">
                 <span className="text-base font-semibold text-outline uppercase tracking-wider">Fecha de alta:</span>
                 <span className="text-base font-semibold text-on-surface">{`Hoy (${new Date().toLocaleDateString('es-AR')})`}</span>
               </div>
-            )}
             <Link
               to={rutaVolver}
               className="inline-flex items-center gap-1.5 text-base font-medium text-on-surface-variant hover:text-primary px-3 py-1.5 rounded transition-colors bg-surface-container-lowest border border-outline-variant/30"
