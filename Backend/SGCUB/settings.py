@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     'finanzas',
     'django_q',
     'drf_spectacular',
+    'usuarios',
 ]
 Q_CLUSTER = {
     'name': 'django_q_cluster',
