@@ -12,7 +12,7 @@ export const CAMPOS_OBLIGATORIOS = [
   'domicilio_calle', 'domicilio_numero', 'domicilio_localidad',
 ]
 
-const INPUT_BASE = 'w-full h-11 px-3.5 bg-surface-container-low/60 rounded text-on-surface placeholder:text-outline text-base focus:outline-none focus:bg-surface-container-lowest transition-colors'
+const INPUT_BASE = 'w-full h-11 px-3.5 bg-surface-container-low/60 rounded text-on-surface placeholder:text-outline text-base focus:outline-none focus:bg-surface-container-lowest transition-colors disabled:opacity-60 disabled:cursor-not-allowed'
 const INPUT_OK = 'border border-outline-variant/50 focus:border-primary'
 const INPUT_ERROR = 'border-2 border-error focus:border-error'
 
