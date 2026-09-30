@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { activateDocente, deactivateDocente, getDocente } from '../api/docentes'
-import { docenteCategoriaByDocente } from '../api/docenteCategoria'
+import { activateDocente, deactivateDocente, getCargosDocente, getDocente, patchDocente } from '../api/docentes'
 import ActivateDocenteModal from '../components/docentes/ActivateDocenteModal'
 import DeactivateDocenteModal from '../components/docentes/DeactivateDocenteModal'
 import PersonHeader, { EditButton, DeactivateButton, ActivateButton } from '../components/personas/HeaderPersona'
@@ -10,16 +9,19 @@ import PersonalDataTab from '../components/personas/tabs/PersonalDataTab'
 import CategoriesTab from '../components/personas/tabs/CategoriesTab'
 import { LoadingFile, ErrorFile } from '../components/personas/FileStatus'
 import { yearsSince, formatDni, formatDate, yearsText, isActiveStatus, getErrorMessage } from '../components/personas/format'
+import useCategorias from '../hooks/useCategorias'
 import useLocalidades from '../hooks/useLocalidades'
 
 function DocenteDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { localidades } = useLocalidades()
+  const { categorias } = useCategorias()
+  const [cargos, setCargos] = useState([])
 
-  const [carga, setCarga] = useState({ id: null, docente: null, categorias: [], error: null })
+  const [carga, setCarga] = useState({ id: null, docente: null, error: null })
   const loading = carga.id !== id
-  const { docente, categorias, error } = carga
+  const { docente, error } = carga
 
   const [modalBajaAbierto, setModalBajaAbierto] = useState(false)
   const [dandoDeBaja, setDandoDeBaja] = useState(false)
@@ -28,25 +30,32 @@ function DocenteDetail() {
   const [dandoDeAlta, setDandoDeAlta] = useState(false)
   const [errorAlta, setErrorAlta] = useState('')
 
-  const cargarDetalle = useCallback(async () => {
-    const [datosDocente, asignaciones] = await Promise.all([
-      getDocente(id),
-      docenteCategoriaByDocente(id).catch(() => []),
-    ])
-    return { datosDocente, asignaciones }
+  useEffect(() => {
+    let activo = true
+    getDocente(id)
+      .then((datosDocente) => activo && setCarga({ id, docente: datosDocente, error: null }))
+      .catch((requestError) => {
+        if (activo) setCarga({ id, docente: null, error: requestError.response?.data?.detail || 'No se pudo cargar la información del docente.' })
+      })
+    return () => { activo = false }
   }, [id])
 
   useEffect(() => {
     let activo = true
-    cargarDetalle()
-      .then(({ datosDocente, asignaciones }) => {
-        if (activo) setCarga({ id, docente: datosDocente, categorias: asignaciones, error: null })
-      })
-      .catch((requestError) => {
-        if (activo) setCarga({ id, docente: null, categorias: [], error: requestError.response?.data?.detail || 'No se pudo cargar la información del docente.' })
-      })
+    getCargosDocente()
+      .then((datos) => activo && setCargos(datos))
+      .catch((requestError) => console.error('Error al cargar cargos:', requestError))
     return () => { activo = false }
-  }, [cargarDetalle, id])
+  }, [])
+
+  const guardarAsignaciones = async (asignaciones) => {
+    try {
+      const actualizado = await patchDocente(docente.docente_id, { asignaciones })
+      setCarga((actual) => ({ ...actual, docente: actualizado }))
+    } catch (requestError) {
+      throw new Error(getErrorMessage(requestError, 'No se pudieron guardar los cargos del docente.'), { cause: requestError })
+    }
+  }
 
   const confirmarBaja = async () => {
     setDandoDeBaja(true)
@@ -102,7 +111,15 @@ function DocenteDetail() {
       id: 'categorias',
       label: 'Categorías',
       icon: 'groups',
-      content: <CategoriesTab assignments={categorias} />,
+      content: (
+        <CategoriesTab
+          asignaciones={docente.asignaciones ?? []}
+          cargos={cargos}
+          categorias={categorias}
+          editable={activo}
+          onSave={guardarAsignaciones}
+        />
+      ),
     },
   ]
 
