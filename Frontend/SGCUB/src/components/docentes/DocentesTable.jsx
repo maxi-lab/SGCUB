@@ -56,11 +56,10 @@ function DocentesTable({ data, categorias = [], categoriasPorDocente = {}, isLoa
   const visibles = filtrados.slice(desde, desde + filasPorPagina)
 
   return (
-    <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-lg shadow-sm">
-      {/* Barra de filtros */}
-      <div className="p-4 border-b border-outline-variant/20 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
-        <div className="flex flex-1 flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
-          <div className="relative flex-1 max-w-md">
+    <div className="min-w-0 bg-surface-container-lowest border border-outline-variant/30 rounded-lg shadow-sm">
+      <div className="p-4 border-b border-outline-variant/20 flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-3">
+        <div className="flex flex-1 min-w-0 flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-2.5">
+          <div className="relative w-full sm:w-auto sm:flex-1 sm:min-w-[16rem] sm:max-w-md">
             <span className="material-symbols-outlined absolute left-4 top-1.5 text-outline text-sm" aria-hidden="true">
               search
             </span>
@@ -77,7 +76,7 @@ function DocentesTable({ data, categorias = [], categoriasPorDocente = {}, isLoa
             />
           </div>
           <select
-            className="h-10 px-3 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-sm font-medium focus:outline-none focus:border-primary cursor-pointer"
+            className="w-full sm:w-auto min-w-0 max-w-full h-10 px-3 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-sm font-medium focus:outline-none focus:border-primary cursor-pointer"
             value={cargo}
             onChange={(event) => {
               setCargo(event.target.value)
@@ -89,7 +88,7 @@ function DocentesTable({ data, categorias = [], categoriasPorDocente = {}, isLoa
             {cargosDisponibles.map((item) => <option key={item} value={item}>{item}</option>)}
           </select>
           <select
-            className="h-10 px-3 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-sm font-medium focus:outline-none focus:border-primary cursor-pointer"
+            className="w-full sm:w-auto min-w-0 max-w-full h-10 px-3 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-sm font-medium focus:outline-none focus:border-primary cursor-pointer"
             value={categoria}
             onChange={(event) => {
               setCategoria(event.target.value)
@@ -101,7 +100,7 @@ function DocentesTable({ data, categorias = [], categoriasPorDocente = {}, isLoa
             {categorias.map((item) => <option key={item.categoria_id} value={item.categoria_id}>{item.nombre}</option>)}
           </select>
           <select
-            className="h-10 px-3 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-sm font-medium focus:outline-none focus:border-primary cursor-pointer"
+            className="w-full sm:w-auto min-w-0 max-w-full h-10 px-3 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-sm font-medium focus:outline-none focus:border-primary cursor-pointer"
             value={estado}
             onChange={(event) => {
               setEstado(event.target.value)
@@ -114,17 +113,12 @@ function DocentesTable({ data, categorias = [], categoriasPorDocente = {}, isLoa
             <option value="baja">De baja / Inactivo</option>
           </select>
         </div>
-        <div className="flex items-center justify-between sm:justify-end gap-3 pt-2 lg:pt-0">
-          <span className="text-base text-on-surface-variant whitespace-nowrap">
-            {filtrados.length === 0
-              ? 'Sin resultados'
-              : `Mostrando ${desde + 1}-${desde + visibles.length} de ${filtrados.length.toLocaleString('es-AR')} docentes`}
-          </span>
+        <div className="flex items-center justify-end xl:shrink-0">
           <button
             type="button"
             onClick={() => exportarNominaCSV(filtrados, categoriasPorDocente)}
             disabled={filtrados.length === 0}
-            className="inline-flex items-center gap-1.5 h-10 px-3 bg-surface-container-low hover:bg-surface-container-high border border-outline-variant/40 text-on-surface rounded text-lg font-medium transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+            className="inline-flex items-center justify-center gap-1.5 h-10 px-3 w-full sm:w-auto shrink-0 bg-surface-container-low hover:bg-surface-container-high border border-outline-variant/40 text-on-surface rounded text-lg font-medium transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <span className="material-symbols-outlined text-[16px]" aria-hidden="true">file_download</span>
             <span>Exportar nómina</span>

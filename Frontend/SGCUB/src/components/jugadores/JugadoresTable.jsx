@@ -73,26 +73,25 @@ function JugadoresTable({ data, categorias = [], isLoading, error, onEdit }) {
   const visibles = filtrados.slice(desde, desde + filasPorPagina)
 
   return (
-    <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-lg shadow-sm">
-      <div className="p-4 border-b border-outline-variant/20 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
-        <div className="flex flex-1 flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
-          <div className="relative flex-1 max-w-md">
+    <div className="min-w-0 bg-surface-container-lowest border border-outline-variant/30 rounded-lg shadow-sm">
+      <div className="p-4 border-b border-outline-variant/20 flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-3">
+        <div className="flex flex-1 min-w-0 flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-2.5">
+          <div className="relative w-full sm:w-auto sm:flex-1 sm:min-w-[16rem] sm:max-w-md">
             <span className="material-symbols-outlined absolute left-4 top-1.5 text-outline text-sm" aria-hidden="true">search</span>
             <input className="w-full h-10 pl-11 pr-4 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface placeholder:text-outline font-body-sm text-sm focus:outline-none focus:border-primary focus:bg-surface-container-lowest transition-colors" placeholder="Filtrar por DNI, Nombre o Apellido..." type="text" value={busqueda} onChange={(event) => { setBusqueda(event.target.value); setPagina(1) }} aria-label="Filtrar jugadores" />
           </div>
-          <select className="h-10 px-3 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-sm font-medium focus:outline-none focus:border-primary cursor-pointer" value={categoria} onChange={(event) => { setCategoria(event.target.value); setPagina(1) }} aria-label="Filtrar por categoría">
+          <select className="w-full sm:w-auto min-w-0 max-w-full h-10 px-3 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-sm font-medium focus:outline-none focus:border-primary cursor-pointer" value={categoria} onChange={(event) => { setCategoria(event.target.value); setPagina(1) }} aria-label="Filtrar por categoría">
             <option value="todas">Categoría: Todas</option>
             {categorias.map((item) => <option key={item.categoria_id} value={item.categoria_id}>{item.nombre}</option>)}
           </select>
-          <select className="h-10 px-3 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-sm font-medium focus:outline-none focus:border-primary cursor-pointer" value={estado} onChange={(event) => { setEstado(event.target.value); setPagina(1) }} aria-label="Filtrar por estado">
+          <select className="w-full sm:w-auto min-w-0 max-w-full h-10 px-3 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-sm font-medium focus:outline-none focus:border-primary cursor-pointer" value={estado} onChange={(event) => { setEstado(event.target.value); setPagina(1) }} aria-label="Filtrar por estado">
             <option value="todos">Estado: Todos</option>
             <option value="activo">Activo</option>
             <option value="baja">De baja / Inactivo</option>
           </select>
         </div>
-        <div className="flex items-center justify-between sm:justify-end gap-3 pt-2 lg:pt-0">
-          <span className="text-base text-on-surface-variant whitespace-nowrap">{filtrados.length === 0 ? 'Sin resultados' : `Mostrando ${desde + 1}-${desde + visibles.length} de ${filtrados.length.toLocaleString('es-AR')} jugadores`}</span>
-          <button type="button" onClick={() => exportarCSV(filtrados)} disabled={filtrados.length === 0} className="inline-flex items-center gap-1.5 h-10 px-3 bg-surface-container-low hover:bg-surface-container-high border border-outline-variant/40 text-on-surface rounded text-lg font-medium transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"><span className="material-symbols-outlined text-[16px]" aria-hidden="true">file_download</span><span>Exportar jugadores</span></button>
+        <div className="flex items-center justify-end xl:shrink-0">
+          <button type="button" onClick={() => exportarCSV(filtrados)} disabled={filtrados.length === 0} className="inline-flex items-center justify-center gap-1.5 h-10 px-3 w-full sm:w-auto shrink-0 bg-surface-container-low hover:bg-surface-container-high border border-outline-variant/40 text-on-surface rounded text-lg font-medium transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"><span className="material-symbols-outlined text-[16px]" aria-hidden="true">file_download</span><span>Exportar jugadores</span></button>
         </div>
       </div>
       <div className="overflow-x-auto">
