@@ -2,7 +2,7 @@ import re
 
 from rest_framework import serializers
 from django.db import transaction
-from .models import CargoDocente, DocenteCategoria, Persona, Socio, Categoria, Jugador, Docente, EstadoDeportivo, VinculoFamiliar, EstadoAdministrativo, Genero, Localidad, Domicilio, EDAD_MAYORIA, age_from
+from .models import CargoDocente, DocenteCategoria, Persona, Socio, Categoria, Jugador, Docente, EstadoDeportivo, VinculoFamiliar, EstadoAdministrativo, Genero, Localidad, Domicilio, EDAD_MAYORIA, SIZES_CHOICES, age_from
 
 
 DNI_REGEX = re.compile(r"\d{7,8}")
@@ -389,7 +389,7 @@ class JugadorSerializer(serializers.ModelSerializer):
     categoria = serializers.PrimaryKeyRelatedField(queryset=Categoria.objects.all())
     categoria_secundaria = serializers.PrimaryKeyRelatedField(queryset=Categoria.objects.all(), allow_null=True, required=False)
     obra_social = serializers.CharField(max_length=50)
-    tallaIndumentaria = serializers.CharField(max_length=50)
+    tallaIndumentaria = serializers.ChoiceField(choices=SIZES_CHOICES)
     estado = serializers.PrimaryKeyRelatedField(queryset=EstadoDeportivo.objects.all(), required=False)
     vinculos_familiares = VinculoFamiliarSerializer(many=True, required=False)
 

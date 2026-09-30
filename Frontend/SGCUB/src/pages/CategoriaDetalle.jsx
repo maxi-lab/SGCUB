@@ -388,13 +388,13 @@ function CategoriaDetalle() {
                 </Text>
               </Group>
               <Badge color="gray" variant="light">
-                {jugador.contactos_emergencia?.length || 0} registrados
+                {jugador.vinculos_familiares?.length || 0} registrados
               </Badge>
             </Group>
             <Divider mb="md" />
 
-            {!jugador.contactos_emergencia ||
-            jugador.contactos_emergencia.length === 0 ? (
+            {!jugador.vinculos_familiares ||
+            jugador.vinculos_familiares.length === 0 ? (
               <Text color="dimmed" size="sm" align="center" py="md">
                 No hay contactos de emergencia registrados para este jugador.
               </Text>
@@ -404,9 +404,9 @@ function CategoriaDetalle() {
                 breakpoints={[{ maxWidth: 'sm', cols: 1 }]}
                 spacing="md"
               >
-                {jugador.contactos_emergencia.map((contacto, idx) => (
+                {jugador.vinculos_familiares.map((contacto, idx) => (
                   <Paper
-                    key={contacto.contacto_emergencia_id ?? idx}
+                    key={contacto.vinculo_familiar_id ?? idx}
                     p="md"
                     radius="md"
                     withBorder

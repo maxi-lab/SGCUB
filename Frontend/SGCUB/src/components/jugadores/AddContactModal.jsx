@@ -44,7 +44,6 @@ export default function AddContactModal({ onClose, onSubmit }) {
     return () => window.removeEventListener('keydown', cerrarConEscape)
   }, [onClose, saving])
 
-  // Busca coincidencias por prefijo de DNI mientras el usuario escribe.
   useEffect(() => {
     const dni = form.dni.trim()
     const busquedaId = ++ultimaBusqueda.current
@@ -151,7 +150,7 @@ export default function AddContactModal({ onClose, onSubmit }) {
                   autoComplete="off"
                   placeholder="Ingresá el DNI para buscar"
                   value={form.dni}
-                  onChange={change('dni')}
+                  onChange={(event) => setForm((actual) => ({ ...actual, dni: event.target.value.replace(/\D/g, '').slice(0, 8) }))}
                   required
                   disabled={datosBloqueados}
                   autoFocus
