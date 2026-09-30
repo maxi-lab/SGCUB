@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api/conf'
 import { getJugador, patchJugador, postJugador } from '../api/jugadores'
@@ -12,13 +12,49 @@ import { Campo, InputConIcono, SeccionDatosPersonales, SeccionDomicilio, Seccion
 import useCategorias from '../hooks/useCategorias'
 import useEstados from '../hooks/useEstados'
 import useGeneros from '../hooks/useGeneros'
-import useJugadores from '../hooks/useJugadores'
 import useLocalidades from '../hooks/useLocalidades'
 import useSocio from './useSocio'
 
 const CAMPOS_CONTACTO = ['dni', 'nombre', 'apellido', 'telefono', 'relacion']
 
-const DEPORTIVO_INICIAL = { categoria: '', categoria_secundaria: '', estado: '', obra_social: '', tallaIndumentaria: '' }
+const MIN_DIGITOS_BUSQUEDA = 5
+const DEMORA_BUSQUEDA_MS = 300
+
+const CAMPOS_EDITABLES_SOCIO = ['telefono', 'email']
+
+const DEPORTIVO_INICIAL = { categoria: '', categoria_secundaria: '', estado: '', obra_social: '', obra_social_otra: '', tallaIndumentaria: '' }
+
+const OBRA_SOCIAL_OTRA = 'Otra'
+const OBRAS_SOCIALES = [
+  'Sin obra social',
+  'IOMA',
+  'PAMI',
+  'OSDE',
+  'Swiss Medical',
+  'Galeno',
+  'Medifé',
+  'Sancor Salud',
+  'Omint',
+  'OSECAC',
+  'OSPE',
+  'OSPRERA',
+  'Unión Personal',
+]
+
+const obraSocialAFormulario = (valor) => {
+  if (!valor) return { obra_social: '', obra_social_otra: '' }
+  if (OBRAS_SOCIALES.includes(valor)) return { obra_social: valor, obra_social_otra: '' }
+  return { obra_social: OBRA_SOCIAL_OTRA, obra_social_otra: valor }
+}
+
+const TALLES = [
+  { valor: 'XS', nombre: 'Extra chica' },
+  { valor: 'S', nombre: 'Chica' },
+  { valor: 'M', nombre: 'Mediana' },
+  { valor: 'L', nombre: 'Grande' },
+  { valor: 'XL', nombre: 'Extra grande' },
+  { valor: 'XXL', nombre: 'Doble extra grande' },
+]
 
 let ultimaClave = 0
 const nuevaClave = () => `contacto-${++ultimaClave}`
@@ -28,13 +64,13 @@ const jugadorAFormulario = (jugador) => ({
   categoria: String(jugador.categoria?.categoria_id ?? ''),
   categoria_secundaria: String(jugador.categoria_secundaria?.categoria_id ?? ''),
   estado: String(jugador.estado?.estado_id ?? ''),
-  obra_social: jugador.obra_social ?? '',
+  ...obraSocialAFormulario(jugador.obra_social),
   tallaIndumentaria: jugador.tallaIndumentaria ?? '',
 })
 
 const contactoAFila = (contacto) => ({
   clave: nuevaClave(),
-  contacto_emergencia_id: contacto.contacto_emergencia_id,
+  vinculo_familiar_id: contacto.vinculo_familiar_id,
   dni: String(contacto.persona?.dni ?? ''),
   nombre: contacto.persona?.nombre ?? '',
   apellido: contacto.persona?.apellido ?? '',
@@ -45,7 +81,7 @@ const contactoAFila = (contacto) => ({
 })
 
 const filaAContacto = (fila) => ({
-  ...(fila.contacto_emergencia_id ? { contacto_emergencia_id: fila.contacto_emergencia_id } : {}),
+  ...(fila.vinculo_familiar_id ? { vinculo_familiar_id: fila.vinculo_familiar_id } : {}),
   persona: {
     dni: fila.dni.trim(),
     nombre: fila.nombre.trim(),
@@ -74,6 +110,11 @@ function validarDeportivo(formulario, editando) {
   const errores = {}
   if (!formulario.categoria) errores.categoria = 'Seleccione una categoría.'
   if (editando && !formulario.estado) errores.estado = 'Seleccione un estado deportivo.'
+  if (!formulario.obra_social) errores.obra_social = 'Seleccione una obra social.'
+  else if (formulario.obra_social === OBRA_SOCIAL_OTRA && !formulario.obra_social_otra.trim()) {
+    errores.obra_social_otra = 'Ingrese el nombre de la obra social.'
+  }
+  if (!formulario.tallaIndumentaria) errores.tallaIndumentaria = 'Seleccione un talle.'
   return errores
 }
 
@@ -94,7 +135,39 @@ function validarContactos(contactos) {
   return errores
 }
 
-function FilaContacto({ fila, indice, errores, mostrarSinGuardar, onChange, onRemove }) {
+const EDAD_MAYORIA = 18
+
+function edadActual(fechaNacimiento) {
+  if (!fechaNacimiento) return null
+  const [anio, mes, dia] = fechaNacimiento.split('-').map(Number)
+  const hoy = new Date()
+  const cumplioAnios = hoy.getMonth() + 1 > mes || (hoy.getMonth() + 1 === mes && hoy.getDate() >= dia)
+  return hoy.getFullYear() - anio - (cumplioAnios ? 0 : 1)
+}
+
+function errorVinculos(contactos, fechaNacimiento) {
+  if (contactos.length === 0) return 'Debe registrar al menos un vínculo familiar.'
+  const edad = edadActual(fechaNacimiento)
+  if (edad !== null && edad < EDAD_MAYORIA && !contactos.some((fila) => fila.responsable_legal)) {
+    return 'El jugador es menor de edad: al menos un vínculo familiar debe ser responsable legal.'
+  }
+  return null
+}
+
+function BotonCambiarPersona({ onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded text-sm font-semibold text-primary hover:bg-primary/10 transition-colors cursor-pointer shrink-0"
+    >
+      <span className="material-symbols-outlined text-base">swap_horiz</span>
+      Cambiar
+    </button>
+  )
+}
+
+function FilaContacto({ fila, indice, errores, mostrarSinGuardar, resaltarResponsable, onChange, onRemove }) {
   const bind = (campo) => ({
     id: idCampoContacto(fila, campo),
     value: fila[campo],
@@ -110,7 +183,7 @@ function FilaContacto({ fila, indice, errores, mostrarSinGuardar, onChange, onRe
           <span className="text-base font-semibold text-on-surface">
             {`${fila.nombre} ${fila.apellido}`.trim() || 'Nuevo contacto'}
           </span>
-          {mostrarSinGuardar && !fila.contacto_emergencia_id && (
+          {mostrarSinGuardar && !fila.vinculo_familiar_id && (
             <span className="px-2 py-0.5 rounded-md bg-primary/10 text-primary text-sm font-medium">Sin guardar</span>
           )}
         </div>
@@ -158,7 +231,7 @@ function FilaContacto({ fila, indice, errores, mostrarSinGuardar, onChange, onRe
         </Campo>
       </div>
 
-      <label className="flex items-center gap-2 cursor-pointer select-none w-fit">
+      <label className={`flex items-center gap-2 cursor-pointer select-none w-fit ${resaltarResponsable ? 'px-2 py-1 -mx-2 rounded border-2 border-error bg-error-container/30' : ''}`}>
         <input
           type="checkbox"
           className="w-4 h-4 accent-primary cursor-pointer"
@@ -177,7 +250,6 @@ function JugadorForm() {
   const navigate = useNavigate()
 
   const { socios } = useSocio()
-  const { jugadores } = useJugadores()
   const { categorias } = useCategorias()
   const { estados } = useEstados()
   const { generos } = useGeneros()
@@ -193,6 +265,12 @@ function JugadorForm() {
   const [agregandoContacto, setAgregandoContacto] = useState(false)
   const [personaEncontrada, setPersonaEncontrada] = useState(null)
   const [buscandoPersona, setBuscandoPersona] = useState(false)
+  const [coincidencias, setCoincidencias] = useState([])
+  const [sugerenciasAbiertas, setSugerenciasAbiertas] = useState(false)
+  const temporizadorBusqueda = useRef(null)
+  const ultimaBusqueda = useRef(0)
+
+  useEffect(() => () => clearTimeout(temporizadorBusqueda.current), [])
 
   useEffect(() => {
     if (!editando) return undefined
@@ -202,7 +280,7 @@ function JugadorForm() {
         if (!activo) return
         setJugador(datos)
         setFormulario(jugadorAFormulario(datos))
-        setContactos((datos.contactos_emergencia ?? []).map(contactoAFila))
+        setContactos((datos.vinculos_familiares ?? []).map(contactoAFila))
       })
       .catch((requestError) => {
         if (activo) setErrorCarga(requestError.response?.data?.detail || 'No se pudo cargar el jugador.')
@@ -239,10 +317,28 @@ function JugadorForm() {
     return socios.find((s) => String(s.dni) === dniIngresado) ?? null
   }, [socios, dniIngresado])
 
+  const proximoNumeroSocio = useMemo(() => {
+    const numeros = socios.map((s) => parseInt(s.numero_socio, 10)).filter((n) => !Number.isNaN(n))
+    return numeros.length ? Math.max(...numeros) + 1 : null
+  }, [socios])
+
   const socioDuplicado = editando && socioDelDni && String(socioDelDni.socio_id) !== String(socioActualId) ? socioDelDni : null
-  const socioVinculado = editando ? null : socioDelDni
-  const jugadorDelSocio = socioVinculado
-    ? jugadores.find((j) => String(j.socio?.socio_id) === String(socioVinculado.socio_id)) ?? null
+  const perfilesSeleccionados = editando ? null : personaEncontrada?.perfiles
+  const socioVinculado = perfilesSeleccionados?.socio_id
+    ? socios.find((s) => String(s.socio_id) === String(perfilesSeleccionados.socio_id)) ?? { ...personaEncontrada, socio_id: perfilesSeleccionados.socio_id }
+    : null
+  const jugadorDelSocio = perfilesSeleccionados?.jugador_id ? { jugador_id: perfilesSeleccionados.jugador_id } : null
+  const datosSocioVinculado = useMemo(
+    () => (perfilesSeleccionados?.socio_id ? socioAFormulario(personaEncontrada) : null),
+    [perfilesSeleccionados, personaEncontrada],
+  )
+  // Un dato obligatorio que el socio no tiene cargado se deja completar.
+  const campoBloqueado = (campo) => Boolean(datosSocioVinculado)
+    && campo in datosSocioVinculado
+    && !CAMPOS_EDITABLES_SOCIO.includes(campo)
+    && String(datosSocioVinculado[campo]).trim() !== ''
+  const dniSinSeleccionar = !editando && !personaEncontrada
+    ? coincidencias.find((persona) => String(persona.dni) === dniIngresado) ?? null
     : null
 
   const categoriasDisponibles = useMemo(() => {
@@ -271,7 +367,41 @@ function JugadorForm() {
   const actualizarCampo = (campo, valor) => {
     setFormulario((actual) => ({ ...actual, [campo]: valor }))
     limpiarError(campo)
-    if (campo === 'dni') setPersonaEncontrada(null)
+  }
+
+  const buscarCoincidencias = (dni) => {
+    clearTimeout(temporizadorBusqueda.current)
+    const busquedaId = ++ultimaBusqueda.current
+    if (editando || dni.length < MIN_DIGITOS_BUSQUEDA) {
+      setCoincidencias([])
+      setBuscandoPersona(false)
+      return
+    }
+    setBuscandoPersona(true)
+    temporizadorBusqueda.current = setTimeout(async () => {
+      try {
+        const response = await api.get(`padron/persona/?dni_prefix=${encodeURIComponent(dni)}`)
+        if (busquedaId === ultimaBusqueda.current) setCoincidencias(response.data ?? [])
+      } catch (requestError) {
+        console.error('Error al buscar persona:', requestError)
+        if (busquedaId === ultimaBusqueda.current) setCoincidencias([])
+      } finally {
+        if (busquedaId === ultimaBusqueda.current) setBuscandoPersona(false)
+      }
+    }, DEMORA_BUSQUEDA_MS)
+  }
+
+  const cambiarDni = (event) => {
+    const dni = event.target.value.replace(/\D/g, '').slice(0, 8)
+    if (personaEncontrada) {
+      setPersonaEncontrada(null)
+      setFormulario((actual) => ({ ...actual, ...FORM_INICIAL, dni }))
+    } else {
+      actualizarCampo('dni', dni)
+    }
+    limpiarError('dni')
+    setSugerenciasAbiertas(true)
+    buscarCoincidencias(dni)
   }
 
   const bindInput = (campo) => ({
@@ -279,6 +409,7 @@ function JugadorForm() {
     name: campo,
     value: formulario[campo],
     onChange: (event) => actualizarCampo(campo, event.target.value),
+    disabled: campoBloqueado(campo),
   })
 
   const limpiarErroresSocio = () => setErrores((actuales) => ({
@@ -286,40 +417,32 @@ function JugadorForm() {
     ...Object.fromEntries(CAMPOS_OBLIGATORIOS.filter((campo) => campo !== 'dni').map((campo) => [campo, undefined])),
   }))
 
-  const buscarPersonaPorDni = async () => {
-    if (editando || !/^\d{7,8}$/.test(dniIngresado)) return
-    if (socioVinculado) {
-      if (!jugadorDelSocio) {
-        setFormulario((actual) => ({ ...actual, ...socioAFormulario(socioVinculado) }))
-        limpiarErroresSocio()
-      }
-      return
-    }
-    setBuscandoPersona(true)
-    try {
-      const response = await api.get(`padron/persona/?dni=${dniIngresado}`)
-      const persona = response.data?.[0]
-      if (persona) {
-        setFormulario((actual) => ({
-          ...actual,
-          nombre: persona.nombre || actual.nombre,
-          apellido: persona.apellido || actual.apellido,
-          telefono: persona.telefono || actual.telefono,
-          email: persona.email || actual.email,
-        }))
-        limpiarErroresSocio()
-        setPersonaEncontrada(persona)
-      }
-    } catch (requestError) {
-      console.error('Error al buscar persona:', requestError)
-    } finally {
-      setBuscandoPersona(false)
-    }
+  const quitarSeleccion = () => {
+    setPersonaEncontrada(null)
+    setCoincidencias([])
+    setFormulario((actual) => ({ ...actual, ...FORM_INICIAL }))
+    limpiarErroresSocio()
+    limpiarError('dni')
+    // El DNI sigue deshabilitado hasta el próximo render.
+    setTimeout(() => enfocarCampo('dni'))
+  }
+
+  const seleccionarPersona = (persona) => {
+    const socio = socios.find((s) => String(s.socio_id) === String(persona.perfiles?.socio_id))
+    setPersonaEncontrada(persona)
+    setSugerenciasAbiertas(false)
+    setFormulario((actual) => ({
+      ...actual,
+      ...socioAFormulario({ ...persona, estado_administrativo: socio?.estado_administrativo }),
+    }))
+    limpiarErroresSocio()
+    limpiarError('dni')
   }
 
   const actualizarContacto = (clave, campo, valor) => {
     setContactos((actuales) => actuales.map((fila) => (fila.clave === clave ? { ...fila, [campo]: valor } : fila)))
     limpiarError(`${clave}-${campo}`)
+    if (campo === 'responsable_legal') limpiarError('vinculos_familiares')
   }
 
   const quitarContacto = (clave) => setContactos((actuales) => actuales.filter((fila) => fila.clave !== clave))
@@ -330,6 +453,7 @@ function JugadorForm() {
       throw new Error('Esta persona ya figura entre los contactos del jugador.')
     }
     setContactos((actuales) => [...actuales, contactoAFila(contacto)])
+    limpiarError('vinculos_familiares')
   }
 
   const guardar = async (event) => {
@@ -343,11 +467,15 @@ function JugadorForm() {
     }
     if (socioDuplicado) nuevosErrores.dni = 'Ya existe otro socio registrado con este DNI.'
     if (jugadorDelSocio) nuevosErrores.dni = 'Este socio ya está registrado como jugador.'
+    if (dniSinSeleccionar) nuevosErrores.dni = 'Este DNI ya está registrado: seleccioná la persona en la lista de sugerencias.'
+    const errorContactos = errorVinculos(contactos, formulario.fecha_nacimiento)
+    if (errorContactos) nuevosErrores.vinculos_familiares = errorContactos
     setErrores(nuevosErrores)
 
     const ordenCampos = [
-      ...CAMPOS_OBLIGATORIOS, 'genero_otro', 'categoria', 'estado',
+      ...CAMPOS_OBLIGATORIOS, 'genero_otro', 'categoria', 'estado', 'obra_social', 'obra_social_otra', 'tallaIndumentaria',
       ...contactos.flatMap((fila) => [...CAMPOS_CONTACTO, 'email'].map((campo) => idCampoContacto(fila, campo))),
+      'vinculos_familiares',
     ]
     const primerError = ordenCampos.find((campo) => nuevosErrores[campo])
     if (primerError) {
@@ -355,17 +483,17 @@ function JugadorForm() {
       return
     }
 
-    const { categoria, categoria_secundaria, estado, obra_social, tallaIndumentaria, ...datosSocio } = formulario
-    if (!datosSocio.estado_socio) delete datosSocio.estado_socio
+    const { categoria, categoria_secundaria, estado, obra_social, obra_social_otra, tallaIndumentaria, ...datosSocio } = formulario
+    if (!datosSocio.estado_administrativo) delete datosSocio.estado_administrativo
     if (!esGeneroOtro) datosSocio.genero_otro = ''
 
     const datosJugador = {
       categoria,
       categoria_secundaria: categoria_secundaria || null,
       ...(editando ? { estado } : {}),
-      obra_social,
+      obra_social: obra_social === OBRA_SOCIAL_OTRA ? obra_social_otra.trim() : obra_social,
       tallaIndumentaria,
-      contactos_emergencia: contactos.map(filaAContacto),
+      vinculos_familiares: contactos.map(filaAContacto),
     }
 
     setGuardando(true)
@@ -419,6 +547,7 @@ function JugadorForm() {
   const nombreJugador = editando ? `${jugador.socio?.nombre ?? ''} ${jugador.socio?.apellido ?? ''}`.trim() : ''
   const dniConError = Boolean(errores.dni) || Boolean(socioDuplicado) || Boolean(jugadorDelSocio)
   const dniReconocido = Boolean(personaEncontrada) || Boolean(socioVinculado)
+  const mostrarSugerencias = !editando && !personaEncontrada && sugerenciasAbiertas && coincidencias.length > 0
   const iconoDni = buscandoPersona ? 'progress_activity' : dniConError ? 'warning' : dniReconocido ? 'check_circle' : 'fingerprint'
   const colorIconoDni = dniConError ? 'text-error' : dniReconocido ? 'text-[#00875a]' : 'text-outline'
 
@@ -435,24 +564,20 @@ function JugadorForm() {
         actions={(
           <>
             <div className="px-3 py-1.5 bg-surface-container-lowest border border-outline-variant/30 rounded flex items-center gap-2">
-              <span className="text-base font-semibold text-outline uppercase tracking-wider">N° de socio:</span>
+              <span className="text-base font-semibold text-outline uppercase tracking-wider">
+                {editando || (socioVinculado && !jugadorDelSocio) ? 'N° de socio:' : 'Próximo N°:'}
+              </span>
               <span className="font-mono text-base font-bold text-primary">
                 {editando
                   ? formatNumber(jugador.socio?.numero_socio)
-                  : socioVinculado && !jugadorDelSocio ? formatNumber(socioVinculado.numero_socio) : 'Nuevo'}
+                  : formatNumber(socioVinculado && !jugadorDelSocio ? socioVinculado.numero_socio : proximoNumeroSocio)}
               </span>
             </div>
-            {editando ? (
-              <div className="px-3 py-1.5 bg-surface-container-lowest border border-outline-variant/30 rounded flex items-center gap-2">
-                <span className="text-base font-semibold text-outline uppercase tracking-wider">Jugador:</span>
-                <span className="font-mono text-base font-bold text-on-surface">{formatNumber(jugador.jugador_id)}</span>
-              </div>
-            ) : (
+            
               <div className="px-3 py-1.5 bg-surface-container-lowest border border-outline-variant/30 rounded flex items-center gap-2">
                 <span className="text-base font-semibold text-outline uppercase tracking-wider">Fecha de alta:</span>
                 <span className="text-base font-semibold text-on-surface">{`Hoy (${new Date().toLocaleDateString('es-AR')})`}</span>
               </div>
-            )}
             <Link
               to={rutaVolver}
               className="inline-flex items-center gap-1.5 text-base font-medium text-on-surface-variant hover:text-primary px-3 py-1.5 rounded transition-colors bg-surface-container-lowest border border-outline-variant/30"
@@ -502,17 +627,57 @@ function JugadorForm() {
                   <div className="relative">
                     <input
                       {...bindInput('dni')}
-                      onChange={(event) => actualizarCampo('dni', event.target.value.replace(/\D/g, '').slice(0, 8))}
-                      onBlur={buscarPersonaPorDni}
+                      onChange={cambiarDni}
+                      onFocus={() => setSugerenciasAbiertas(true)}
+                      onBlur={() => setSugerenciasAbiertas(false)}
                       type="text"
                       inputMode="numeric"
+                      autoComplete="off"
                       placeholder="Ej: 38492104"
+                      role="combobox"
+                      aria-expanded={mostrarSugerencias}
+                      aria-controls="sugerencias-dni"
                       aria-invalid={dniConError || undefined}
                       className={claseInput(dniConError, 'pr-10 font-mono font-medium')}
                     />
                     <span className={`material-symbols-outlined absolute right-3 top-3 text-base pointer-events-none ${colorIconoDni} ${buscandoPersona ? 'animate-spin' : ''}`}>
                       {iconoDni}
                     </span>
+
+                    {mostrarSugerencias && (
+                      <ul
+                        id="sugerencias-dni"
+                        role="listbox"
+                        className="absolute z-20 left-0 right-0 top-full mt-1 flex flex-col rounded-lg border border-outline-variant/40 bg-surface-container-lowest shadow-lg divide-y divide-outline-variant/30 overflow-hidden"
+                      >
+                        {coincidencias.map((persona) => (
+                          <li key={persona.dni} role="option" aria-selected={false}>
+                            <button
+                              type="button"
+                              // Evita que el blur del input cierre la lista antes del click.
+                              onMouseDown={(event) => event.preventDefault()}
+                              onClick={() => seleccionarPersona(persona)}
+                              className="w-full flex items-center justify-between gap-3 px-3 py-2 text-left hover:bg-surface-container-low transition-colors cursor-pointer"
+                            >
+                              <span className="flex flex-col">
+                                <span className="text-base text-on-surface font-medium">
+                                  {`${persona.nombre ?? ''} ${persona.apellido ?? ''}`.trim() || 'Sin nombre'}
+                                </span>
+                                <span className="text-sm text-on-surface-variant font-mono">DNI {formatDni(persona.dni)}</span>
+                              </span>
+                              <span className="flex items-center gap-2 shrink-0">
+                                {persona.perfiles?.jugador_id ? (
+                                  <span className="px-2 py-0.5 rounded-md bg-error/10 text-error text-sm font-medium">Ya es jugador</span>
+                                ) : persona.perfiles?.socio_id ? (
+                                  <span className="px-2 py-0.5 rounded-md bg-primary/10 text-primary text-sm font-medium">Socio</span>
+                                ) : null}
+                                <span className="material-symbols-outlined text-[20px] text-on-surface-variant">arrow_forward</span>
+                              </span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </div>
                   {socioDuplicado && !errores.dni && (
                     <p className="text-sm text-error font-medium">
@@ -533,23 +698,30 @@ function JugadorForm() {
                           {' '}(DNI {formatDni(socioVinculado.dni)}) ya está registrado como jugador.
                         </p>
                       </div>
-                      <Link
-                        to={`/padron/jugadores/${jugadorDelSocio.jugador_id}`}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-on-error-container hover:opacity-90 rounded text-base font-semibold shrink-0 transition-opacity"
-                      >
-                        <span>Ver ficha existente</span>
-                        <span className="material-symbols-outlined text-sm">arrow_forward</span>
-                      </Link>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <BotonCambiarPersona onClick={quitarSeleccion} />
+                        <Link
+                          to={`/padron/jugadores/${jugadorDelSocio.jugador_id}`}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-on-error-container hover:opacity-90 rounded text-base font-semibold shrink-0 transition-opacity"
+                        >
+                          <span>Ver ficha existente</span>
+                          <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                        </Link>
+                      </div>
                     </div>
                   )}
 
                   {socioVinculado && !jugadorDelSocio && (
-                    <div className="bg-surface-container-low text-on-surface p-3 rounded-lg border border-outline-variant/40 flex items-center gap-2.5 mt-1">
-                      <span className="material-symbols-outlined text-base text-[#00875a]">how_to_reg</span>
-                      <p className="text-base">
-                        <strong>{`${socioVinculado.nombre ?? ''} ${socioVinculado.apellido ?? ''}`.trim()}</strong>
-                        {' '}ya es socio (N° {formatNumber(socioVinculado.numero_socio)}). El jugador se vinculará a ese socio y se actualizarán sus datos.
-                      </p>
+                    <div className="bg-surface-container-low text-on-surface p-3 rounded-lg border border-outline-variant/40 flex items-center justify-between gap-2.5 mt-1">
+                      <div className="flex items-center gap-2.5">
+                        <span className="material-symbols-outlined text-base text-[#00875a]">how_to_reg</span>
+                        <p className="text-base">
+                          <strong>{`${socioVinculado.nombre ?? ''} ${socioVinculado.apellido ?? ''}`.trim()}</strong>
+                          {' '}ya es socio (N° {formatNumber(socioVinculado.numero_socio)}). El jugador se vinculará a ese socio:
+                          {' '}solo se pueden modificar el teléfono y el correo electrónico.
+                        </p>
+                      </div>
+                      <BotonCambiarPersona onClick={quitarSeleccion} />
                     </div>
                   )}
 
@@ -558,7 +730,7 @@ function JugadorForm() {
                       <span className="material-symbols-outlined text-base text-[#00875a]">how_to_reg</span>
                       <p className="text-base">
                         <strong>{`${personaEncontrada.nombre ?? ''} ${personaEncontrada.apellido ?? ''}`.trim()}</strong>
-                        {' '}ya está registrada en el padrón. Se completaron sus datos de contacto.
+                        {' '}ya está registrada en el padrón. Se completaron sus datos personales.
                       </p>
                     </div>
                   )}
@@ -611,22 +783,45 @@ function JugadorForm() {
                   : null}
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
-                <Campo id="obra_social" label="Obra social" opcional>
-                  <InputConIcono {...bindInput('obra_social')} type="text" placeholder="Ej: IOMA" icono="medical_services" conError={false} />
+                <Campo id="obra_social" label="Obra social" requerido error={errores.obra_social}>
+                  <SelectConFlecha {...bindInput('obra_social')} conError={Boolean(errores.obra_social)}>
+                    <option value="" disabled>Seleccione obra social...</option>
+                    {OBRAS_SOCIALES.map((nombre) => (
+                      <option key={nombre} value={nombre}>{nombre}</option>
+                    ))}
+                    <option value={OBRA_SOCIAL_OTRA}>Otra...</option>
+                  </SelectConFlecha>
                 </Campo>
-                <Campo id="tallaIndumentaria" label="Talla de indumentaria" opcional>
-                  <InputConIcono {...bindInput('tallaIndumentaria')} type="text" placeholder="Ej: M" icono="apparel" conError={false} />
+                <Campo id="tallaIndumentaria" label="Talle de indumentaria" requerido error={errores.tallaIndumentaria}>
+                  <SelectConFlecha {...bindInput('tallaIndumentaria')} conError={Boolean(errores.tallaIndumentaria)}>
+                    <option value="" disabled>Seleccione talle...</option>
+                    {TALLES.map((talle) => (
+                      <option key={talle.valor} value={talle.valor}>{`${talle.valor} (${talle.nombre})`}</option>
+                    ))}
+                  </SelectConFlecha>
                 </Campo>
+                {formulario.obra_social === OBRA_SOCIAL_OTRA && (
+                  <Campo id="obra_social_otra" label="Especifique la obra social" requerido error={errores.obra_social_otra}>
+                    <InputConIcono
+                      {...bindInput('obra_social_otra')}
+                      type="text"
+                      maxLength={50}
+                      placeholder="Ej: OSPECON"
+                      icono="medical_services"
+                      conError={Boolean(errores.obra_social_otra)}
+                    />
+                  </Campo>
+                )}
               </div>
             </div>
 
-            {/* Contactos de emergencia */}
             <div className="flex flex-col gap-4 pt-4 border-t border-outline-variant/20">
               <SeccionTitulo
                 icono="family_restroom"
-                titulo="Contactos de Emergencia"
+                titulo="Vinculos familiares y contactos de emergencia"
                 extra={(
                   <button
+                    id="vinculos_familiares"
                     type="button"
                     onClick={() => setAgregandoContacto(true)}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-semibold text-primary border border-primary/40 hover:bg-primary/10 transition-colors cursor-pointer"
@@ -637,10 +832,22 @@ function JugadorForm() {
                 )}
               />
 
+              {errores.vinculos_familiares && (
+                <div className="bg-error-container text-on-error-container p-3 rounded-lg border border-error/30 flex items-start gap-2.5 shadow-sm" role="alert">
+                  <div className="p-1 bg-error/10 text-error rounded shrink-0">
+                    <span className="material-symbols-outlined text-base">error</span>
+                  </div>
+                  <div>
+                    <p className="text-base font-bold">Faltan vínculos familiares</p>
+                    <p className="text-base text-on-error-container/80 mt-0.5">{errores.vinculos_familiares}</p>
+                  </div>
+                </div>
+              )}
+
               {contactos.length === 0 ? (
-                <div className="flex flex-col items-center text-center gap-1 py-8 border border-dashed border-outline-variant/50 rounded-lg">
+                <div className={`flex flex-col items-center text-center gap-1 py-8 border-dashed rounded-lg ${errores.vinculos_familiares ? 'border-2 border-error bg-error-container/20' : 'border border-outline-variant/50'}`}>
                   <span className="material-symbols-outlined text-[32px] text-outline">contact_emergency</span>
-                  <p className="text-base font-semibold text-on-surface">Sin contactos de emergencia</p>
+                  <p className="text-base font-semibold text-on-surface">Sin vinculos familiares</p>
                   <p className="text-sm text-on-surface-variant">Agregá al menos un familiar o responsable para este jugador.</p>
                 </div>
               ) : (
@@ -651,6 +858,7 @@ function JugadorForm() {
                     indice={indice}
                     errores={errores}
                     mostrarSinGuardar={editando}
+                    resaltarResponsable={Boolean(errores.vinculos_familiares)}
                     onChange={(campo, valor) => actualizarContacto(fila.clave, campo, valor)}
                     onRemove={() => quitarContacto(fila.clave)}
                   />

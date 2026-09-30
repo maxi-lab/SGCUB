@@ -1,6 +1,6 @@
 
 export const FORM_INICIAL = {
-  nombre: '', apellido: '', dni: '', telefono: '', email: '', estado_socio: '',
+  nombre: '', apellido: '', dni: '', telefono: '', email: '', estado_administrativo: '',
   fecha_nacimiento: '', genero: '', genero_otro: '',
   domicilio_calle: '', domicilio_numero: '', domicilio_piso: '', domicilio_departamento: '',
   domicilio_entre_calle_1: '', domicilio_entre_calle_2: '', domicilio_barrio: '', domicilio_localidad: '',
@@ -12,7 +12,7 @@ export const CAMPOS_OBLIGATORIOS = [
   'domicilio_calle', 'domicilio_numero', 'domicilio_localidad',
 ]
 
-const INPUT_BASE = 'w-full h-11 px-3.5 bg-surface-container-low/60 rounded text-on-surface placeholder:text-outline text-base focus:outline-none focus:bg-surface-container-lowest transition-colors'
+const INPUT_BASE = 'w-full h-11 px-3.5 bg-surface-container-low/60 rounded text-on-surface placeholder:text-outline text-base focus:outline-none focus:bg-surface-container-lowest transition-colors disabled:opacity-60 disabled:cursor-not-allowed'
 const INPUT_OK = 'border border-outline-variant/50 focus:border-primary'
 const INPUT_ERROR = 'border-2 border-error focus:border-error'
 
@@ -24,7 +24,7 @@ export const socioAFormulario = (socio) => ({
   dni: socio.dni ? String(socio.dni) : '',
   telefono: socio.telefono || '',
   email: socio.email || '',
-  estado_socio: socio.estado_socio ? String(socio.estado_socio) : '',
+  estado_administrativo: socio.estado_administrativo ? String(socio.estado_administrativo) : '',
   fecha_nacimiento: socio.fecha_nacimiento || '',
   genero: socio.genero ? String(socio.genero) : '',
   genero_otro: socio.genero_otro || '',

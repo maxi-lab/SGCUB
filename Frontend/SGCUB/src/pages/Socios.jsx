@@ -1,26 +1,17 @@
-import { useState, useMemo } from 'react'
+import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import DeleteSocioModal from '../components/socios/DeleteSocioModal'
 import SociosTable from '../components/socios/SociosTable'
 import PageHeader from '../components/shared/PageHeader'
 import StatCard from '../components/shared/StatCard'
 import useSocio from './useSocio'
 
 function Padron() {
-  const {
-    socios,
-    isLoading,
-    error,
-    eliminarSocio,
-  } = useSocio()
+  const { socios, isLoading, error } = useSocio()
   const navigate = useNavigate()
 
-  const [socioAEliminar, setSocioAEliminar] = useState(null)
-  const [eliminando, setEliminando] = useState(false)
-  const [errorEliminacion, setErrorEliminacion] = useState('')
   const totales = useMemo(() => {
     const sociosActivos = socios.filter((socio) => {
-      const estado = (socio.estado_socio_nombre ?? '').toLowerCase()
+      const estado = (socio.estado_administrativo_nombre ?? '').toLowerCase()
       return estado.includes('activo') && !estado.includes('inactivo')
     })
     const activos = sociosActivos.length
@@ -33,27 +24,6 @@ function Padron() {
       inactivos: formato(socios.length - activos),
     }
   }, [socios])
-
-  const borrarSocio = async (socio) => {
-    setErrorEliminacion('')
-    setSocioAEliminar(socio)
-  }
-
-  const confirmarEliminacion = async () => {
-    setEliminando(true)
-    setErrorEliminacion('')
-
-    try {
-      await eliminarSocio(socioAEliminar.socio_id)
-      setSocioAEliminar(null)
-    } catch (requestError) {
-      setErrorEliminacion(
-        requestError.response?.data?.detail || 'No se pudo eliminar el socio.',
-      )
-    } finally {
-      setEliminando(false)
-    }
-  }
 
   return (
     <>
@@ -73,7 +43,7 @@ function Padron() {
           )}
         />
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-10">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 xl:gap-10">
           <StatCard label="Total Padrón" value={totales.total} icon="group" tone="neutral" />
           <StatCard label="Activos Plenos" value={totales.activos} icon="how_to_reg" tone="positive" />
           <StatCard label="Inactivos / En Pausa" value={totales.inactivos} icon="person_off" tone="muted" />
@@ -85,23 +55,9 @@ function Padron() {
             isLoading={isLoading}
             error={error}
             onEdit={(socio) => navigate(`/padron/socios/${socio.socio_id}/editar`)}
-            onDelete={borrarSocio}
           />
         </section>
       </div>
-
-      <DeleteSocioModal
-        opened={Boolean(socioAEliminar)}
-        onClose={() => {
-          if (!eliminando) {
-            setSocioAEliminar(null)
-          }
-        }}
-        onConfirm={confirmarEliminacion}
-        socio={socioAEliminar}
-        loading={eliminando}
-        error={errorEliminacion}
-      />
     </>
   )
 }

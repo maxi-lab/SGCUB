@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { cargosDe, esActivo } from './docentesUtils'
+import { cargosDe, esActivo, exportarNominaCSV } from './docentesUtils'
 
 const nombreCompleto = (docente) =>
   [docente.persona_detalle?.nombre, docente.persona_detalle?.apellido].filter(Boolean).join(' ')
@@ -61,11 +61,11 @@ function DocentesTable({ data, categorias = [], categoriasPorDocente = {}, isLoa
       <div className="p-4 border-b border-outline-variant/20 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
         <div className="flex flex-1 flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
           <div className="relative flex-1 max-w-md">
-            <span className="material-symbols-outlined absolute left-4 top-1.5 text-outline text-[18px]" aria-hidden="true">
+            <span className="material-symbols-outlined absolute left-4 top-1.5 text-outline text-sm" aria-hidden="true">
               search
             </span>
             <input
-              className="w-full h-10 pl-11 pr-4 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface placeholder:text-outline font-body-sm text-lg focus:outline-none focus:border-primary focus:bg-surface-container-lowest transition-colors"
+              className="w-full h-10 pl-11 pr-4 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface placeholder:text-outline font-body-sm text-sm focus:outline-none focus:border-primary focus:bg-surface-container-lowest transition-colors"
               placeholder="Filtrar por DNI, Nombre, Apellido o Legajo..."
               type="text"
               value={busqueda}
@@ -77,7 +77,7 @@ function DocentesTable({ data, categorias = [], categoriasPorDocente = {}, isLoa
             />
           </div>
           <select
-            className="h-10 px-3 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-lg font-medium focus:outline-none focus:border-primary cursor-pointer"
+            className="h-10 px-3 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-sm font-medium focus:outline-none focus:border-primary cursor-pointer"
             value={cargo}
             onChange={(event) => {
               setCargo(event.target.value)
@@ -89,7 +89,7 @@ function DocentesTable({ data, categorias = [], categoriasPorDocente = {}, isLoa
             {cargosDisponibles.map((item) => <option key={item} value={item}>{item}</option>)}
           </select>
           <select
-            className="h-10 px-3 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-lg font-medium focus:outline-none focus:border-primary cursor-pointer"
+            className="h-10 px-3 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-sm font-medium focus:outline-none focus:border-primary cursor-pointer"
             value={categoria}
             onChange={(event) => {
               setCategoria(event.target.value)
@@ -101,7 +101,7 @@ function DocentesTable({ data, categorias = [], categoriasPorDocente = {}, isLoa
             {categorias.map((item) => <option key={item.categoria_id} value={item.categoria_id}>{item.nombre}</option>)}
           </select>
           <select
-            className="h-10 px-3 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-lg font-medium focus:outline-none focus:border-primary cursor-pointer"
+            className="h-10 px-3 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-sm font-medium focus:outline-none focus:border-primary cursor-pointer"
             value={estado}
             onChange={(event) => {
               setEstado(event.target.value)
@@ -115,11 +115,20 @@ function DocentesTable({ data, categorias = [], categoriasPorDocente = {}, isLoa
           </select>
         </div>
         <div className="flex items-center justify-between sm:justify-end gap-3 pt-2 lg:pt-0">
-          <span className="text-lg text-on-surface-variant whitespace-nowrap">
+          <span className="text-base text-on-surface-variant whitespace-nowrap">
             {filtrados.length === 0
               ? 'Sin resultados'
               : `Mostrando ${desde + 1}-${desde + visibles.length} de ${filtrados.length.toLocaleString('es-AR')} docentes`}
           </span>
+          <button
+            type="button"
+            onClick={() => exportarNominaCSV(filtrados, categoriasPorDocente)}
+            disabled={filtrados.length === 0}
+            className="inline-flex items-center gap-1.5 h-10 px-3 bg-surface-container-low hover:bg-surface-container-high border border-outline-variant/40 text-on-surface rounded text-lg font-medium transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">file_download</span>
+            <span>Exportar nómina</span>
+          </button>
         </div>
       </div>
 
@@ -127,8 +136,8 @@ function DocentesTable({ data, categorias = [], categoriasPorDocente = {}, isLoa
       <div className="overflow-x-auto">
         <table className="w-full text-left text-base border-collapse">
           <thead>
-            <tr className="bg-surface-container-low/60 border-b border-outline-variant/30 text-base font-semibold text-on-surface-variant uppercase tracking-wider">
-              <th className="py-3 px-4" scope="col">Legajo</th>
+            <tr className="bg-surface-container-low/60 border-b border-outline-variant/30 text-sm font-semibold text-on-surface-variant uppercase tracking-wider">
+              <th className="py-3 px-4 w-28 whitespace-nowrap" scope="col">Legajo</th>
               <th className="py-3 px-4" scope="col">Nombre y Apellido</th>
               <th className="py-3 px-4" scope="col">DNI</th>
               <th className="py-3 px-4" scope="col">Cargo</th>
@@ -159,27 +168,31 @@ function DocentesTable({ data, categorias = [], categoriasPorDocente = {}, isLoa
                 onClick={() => navigate(`/padron/docentes/${docente.docente_id}`)}
                 className="hover:bg-surface-container-low/80 transition-colors cursor-pointer group"
               >
-                <td className="py-3 px-4 font-bold text-primary">
+                <td className="py-3 px-4 font-bold text-primary text-base pl-6">
                   {docente.legajo ? `#${docente.legajo}` : '—'}
                 </td>
                 <td className="py-3 px-4">
-                  <span className="font-medium text-on-surface block text-lg group-hover:text-primary transition-colors">
+                  <span className="font-medium text-on-surface block text-base group-hover: transition-colors">
                     {nombreCompleto(docente) || '—'}
                   </span>
                 </td>
-                <td className="py-3 px-4 text-on-surface-variant">{docente.persona_detalle?.dni ?? '—'}</td>
-                <td className="py-3 px-4 text-on-surface-variant">{cargosDe(categoriasPorDocente[docente.docente_id]).join(', ') || '—'}</td>
-                <td className="py-3 px-4 text-on-surface-variant">
+                <td className="py-3 px-4 text-on-surface-variant text-sm">
+                  {docente.persona_detalle?.dni ?? '—'}
+                </td>
+                <td className="py-3 px-4 text-on-surface-variant text-sm">
+                  {cargosDe(categoriasPorDocente[docente.docente_id]).join(', ') || '—'}
+                </td>
+                <td className="py-3 px-4 text-on-surface-variant text-sm">
                   {nombresCategorias(categoriasPorDocente[docente.docente_id] ?? [])}
                 </td>
                 <td className="py-3 px-4">
                   {esActivo(docente) ? (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-lg font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-sm font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
                       Activo
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-lg font-medium bg-surface-container-high text-on-surface-variant border border-outline-variant/30">
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-sm font-medium bg-surface-container-high text-on-surface-variant border border-outline-variant/30">
                       <span className="w-1.5 h-1.5 rounded-full bg-outline" />
                       De baja
                     </span>

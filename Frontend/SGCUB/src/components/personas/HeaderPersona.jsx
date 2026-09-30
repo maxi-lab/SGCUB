@@ -79,7 +79,7 @@ export function EditButton({ onClick, children = 'Editar legajo' }) {
   )
 }
 
-export function DeleteButton({ onClick, children = 'Eliminar' }) {
+export function DeactivateButton({ onClick, children = 'Dar de baja' }) {
   return (
     <button
       type="button"
@@ -88,6 +88,20 @@ export function DeleteButton({ onClick, children = 'Eliminar' }) {
     >
       <span className="material-symbols-outlined text-[20px]">person_off</span>
       <span>{children}</span>
+    </button>
+  )
+}
+
+export function ActivateButton({ onClick, loading = false, children = 'Dar de alta' }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={loading}
+      className="inline-flex items-center gap-1.5 h-10 px-4 bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-600 hover:text-white transition-all rounded-lg text-base font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+    >
+      <span className="material-symbols-outlined text-[20px]">how_to_reg</span>
+      <span>{loading ? 'Dando de alta...' : children}</span>
     </button>
   )
 }

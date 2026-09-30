@@ -1,17 +1,21 @@
 import { Button, Group, Modal, Text } from '@mantine/core'
 
-function DeleteJugadorModal({ opened, onClose, onConfirm, jugador, loading, error }) {
+function DeactivateJugadorModal({ opened, onClose, onConfirm, jugador, loading, error }) {
   const nombreCompleto = jugador?.socio
     ? `${jugador.socio.nombre} ${jugador.socio.apellido}`.trim()
     : 'este jugador'
 
   return (
-    <Modal opened={opened} onClose={onClose} title="Eliminar jugador" centered>
-      <Text>
-        ¿Seguro que querés eliminar al jugador <strong>{nombreCompleto}</strong>?
+    <Modal opened={opened} onClose={onClose} title={
+    <Text fw={700} size="xl" >
+      Confirmar baja de jugador
+    </Text>
+    } centered>
+      <Text size="md">
+        ¿Seguro que desea dar de baja al jugador <strong>{nombreCompleto}</strong>?
       </Text>
       {error && (
-        <Text color="red" size="sm" mt="md">
+        <Text color="red" size="base" mt="md">
           {error}
         </Text>
       )}
@@ -20,11 +24,11 @@ function DeleteJugadorModal({ opened, onClose, onConfirm, jugador, loading, erro
           Cancelar
         </Button>
         <Button color="red" onClick={onConfirm} loading={loading}>
-          Eliminar
+          Dar de baja
         </Button>
       </Group>
     </Modal>
   )
 }
 
-export default DeleteJugadorModal
+export default DeactivateJugadorModal

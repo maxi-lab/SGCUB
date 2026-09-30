@@ -1,4 +1,5 @@
 import { api } from './conf'
+import { getEstados } from './estados'
 
 const jugadoresEndpoint = 'padron/jugador/'
 
@@ -22,6 +23,12 @@ export const patchJugador = async (jugadorId, jugador) => {
   return response.data
 }
 
-export const deleteJugador = async (jugadorId) => {
+export const deactivateJugador = async (jugadorId) => {
   await api.delete(`${jugadoresEndpoint}${jugadorId}/`)
+}
+
+export const activateJugador = async (jugadorId) => {
+  const estados = await getEstados()
+  const activo = estados.find((estado) => estado.nombre === 'Activo')
+  return patchJugador(jugadorId, { estado: activo?.estado_id })
 }

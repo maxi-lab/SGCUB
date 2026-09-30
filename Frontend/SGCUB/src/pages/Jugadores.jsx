@@ -1,6 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import DeleteJugadorModal from '../components/jugadores/DeleteJugadorModal'
 import JugadoresTable from '../components/jugadores/JugadoresTable'
 import useCategorias from '../hooks/useCategorias'
 import useJugadores from '../hooks/useJugadores'
@@ -9,11 +8,8 @@ import StatCard from '../components/shared/StatCard'
 
 function Jugadores() {
   const navigate = useNavigate()
-  const { jugadores, isLoading, error, eliminarJugador } = useJugadores()
+  const { jugadores, isLoading, error } = useJugadores()
   const { categorias } = useCategorias()
-  const [jugadorAEliminar, setJugadorAEliminar] = useState(null)
-  const [eliminando, setEliminando] = useState(false)
-  const [errorEliminacion, setErrorEliminacion] = useState('')
   const totales = useMemo(() => {
     const activos = jugadores.filter((jugador) => {
       const estado = (jugador.estado?.nombre ?? '').toLowerCase()
@@ -25,19 +21,6 @@ function Jugadores() {
       bajas: (jugadores.length - activos).toLocaleString('es-AR'),
     }
   }, [jugadores])
-
-  const confirmarEliminacion = async () => {
-    setEliminando(true)
-    setErrorEliminacion('')
-    try {
-      await eliminarJugador(jugadorAEliminar.jugador_id)
-      setJugadorAEliminar(null)
-    } catch (requestError) {
-      setErrorEliminacion(requestError.response?.data?.detail || 'No se pudo eliminar el jugador.')
-    } finally {
-      setEliminando(false)
-    }
-  }
 
   return (
     <div className="w-full flex flex-col gap-5">
@@ -55,7 +38,7 @@ function Jugadores() {
           </button>
         )}
       />
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-10">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 xl:gap-10">
         <StatCard label="Total Jugadores" value={totales.total} icon="sports_soccer" tone="neutral" />
         <StatCard label="Jugadores Activos" value={totales.activos} icon="how_to_reg" tone="positive" />
         <StatCard label="Jugadores de Baja" value={totales.bajas} icon="person_off" tone="muted" />
@@ -67,18 +50,8 @@ function Jugadores() {
           isLoading={isLoading}
           error={error}
           onEdit={(jugador) => navigate(`/padron/jugadores/${jugador.jugador_id}/editar`)}
-          onDelete={setJugadorAEliminar}
         />
       </section>
-
-      <DeleteJugadorModal
-        opened={Boolean(jugadorAEliminar)}
-        onClose={() => !eliminando && setJugadorAEliminar(null)}
-        onConfirm={confirmarEliminacion}
-        jugador={jugadorAEliminar}
-        loading={eliminando}
-        error={errorEliminacion}
-      />
     </div>
   )
 }

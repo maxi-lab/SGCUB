@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { deleteJugador, getJugador, patchJugador } from '../api/jugadores'
-import DeleteJugadorModal from '../components/jugadores/DeleteJugadorModal'
-import PersonHeader, { EditButton, DeleteButton } from '../components/personas/HeaderPersona'
+import { activateJugador, deactivateJugador, getJugador, patchJugador } from '../api/jugadores'
+import ActivateJugadorModal from '../components/jugadores/ActivateJugadorModal'
+import DeactivateJugadorModal from '../components/jugadores/DeactivateJugadorModal'
+import PersonHeader, { EditButton, DeactivateButton, ActivateButton } from '../components/personas/HeaderPersona'
 import PersonTabs from '../components/personas/TabsNavPersonas'
 import PersonalDataTab from '../components/personas/tabs/PersonalDataTab'
 import FamilyTab from '../components/personas/tabs/FamilyTab'
@@ -12,8 +13,8 @@ import { LoadingFile, ErrorFile } from '../components/personas/FileStatus'
 import { isActiveStatus, formatDni, formatDate, formatNumber, getErrorMessage } from '../components/personas/format'
 import useLocalidades from '../hooks/useLocalidades'
 
-const getContacts = (player) => (player.contactos_emergencia ?? []).map((c) => ({
-  contacto_emergencia_id: c.contacto_emergencia_id,
+const getContacts = (player) => (player.vinculos_familiares ?? []).map((c) => ({
+  vinculo_familiar_id: c.vinculo_familiar_id,
   persona: {
     nombre: c.persona?.nombre ?? '',
     apellido: c.persona?.apellido ?? '',
@@ -38,9 +39,12 @@ function JugadorDetail() {
   const { localidades } = useLocalidades()
   const financiero = useFinancialStatus(jugador?.socio?.socio_id)
 
-  const [modalEliminarAbierto, setModalEliminarAbierto] = useState(false)
-  const [eliminando, setEliminando] = useState(false)
-  const [errorEliminacion, setErrorEliminacion] = useState('')
+  const [modalBajaAbierto, setModalBajaAbierto] = useState(false)
+  const [dandoDeBaja, setDandoDeBaja] = useState(false)
+  const [errorBaja, setErrorBaja] = useState('')
+  const [modalAltaAbierto, setModalAltaAbierto] = useState(false)
+  const [dandoDeAlta, setDandoDeAlta] = useState(false)
+  const [errorAlta, setErrorAlta] = useState('')
 
   useEffect(() => {
     let activo = true
@@ -56,7 +60,7 @@ function JugadorDetail() {
   const agregarContacto = async (contacto) => {
     try {
       const actualizado = await patchJugador(jugador.jugador_id, {
-        contactos_emergencia: [...getContacts(jugador), contacto],
+        vinculos_familiares: [...getContacts(jugador), contacto],
       })
       setJugador(actualizado)
     } catch (requestError) {
@@ -67,9 +71,9 @@ function JugadorDetail() {
   const eliminarContacto = async (contacto) => {
     try {
       const contactosRestantes = getContacts(jugador)
-        .filter((item) => item.contacto_emergencia_id !== contacto.contacto_emergencia_id)
+        .filter((item) => item.vinculo_familiar_id !== contacto.vinculo_familiar_id)
       const actualizado = await patchJugador(jugador.jugador_id, {
-        contactos_emergencia: contactosRestantes,
+        vinculos_familiares: contactosRestantes,
       })
       setJugador(actualizado)
     } catch (requestError) {
@@ -77,17 +81,30 @@ function JugadorDetail() {
     }
   }
 
-  const confirmarEliminacion = async () => {
-    setEliminando(true)
-    setErrorEliminacion('')
+  const confirmarBaja = async () => {
+    setDandoDeBaja(true)
+    setErrorBaja('')
     try {
-      await deleteJugador(jugador.jugador_id)
-      setModalEliminarAbierto(false)
+      await deactivateJugador(jugador.jugador_id)
+      setModalBajaAbierto(false)
       navigate('/padron/jugadores')
     } catch (requestError) {
-      setErrorEliminacion(requestError.response?.data?.detail || 'No se pudo eliminar el jugador.')
+      setErrorBaja(requestError.response?.data?.detail || 'No se pudo dar de baja el jugador.')
     } finally {
-      setEliminando(false)
+      setDandoDeBaja(false)
+    }
+  }
+
+  const confirmarAlta = async () => {
+    setDandoDeAlta(true)
+    setErrorAlta('')
+    try {
+      setJugador(await activateJugador(jugador.jugador_id))
+      setModalAltaAbierto(false)
+    } catch (requestError) {
+      setErrorAlta(getErrorMessage(requestError, 'No se pudo dar de alta el jugador.'))
+    } finally {
+      setDandoDeAlta(false)
     }
   }
 
@@ -103,7 +120,8 @@ function JugadorDetail() {
   }
 
   const socio = jugador.socio ?? {}
-  const contactos = jugador.contactos_emergencia ?? []
+  const contactos = jugador.vinculos_familiares ?? []
+  const activo = isActiveStatus(jugador.estado?.nombre)
 
   const tabs = [
     {
@@ -163,28 +181,44 @@ function JugadorDetail() {
           { label: 'Categoría', value: jugador.categoria?.nombre || '—' },
           { label: 'Fecha de alta', value: formatDate(socio.fecha_alta) },
         ]}
-        actions={(
+        actions={activo ? (
           <>
             <EditButton onClick={() => navigate(`/padron/jugadores/${jugador.jugador_id}/editar`)} />
-            <DeleteButton
+            <DeactivateButton
               onClick={() => {
-                setErrorEliminacion('')
-                setModalEliminarAbierto(true)
+                setErrorBaja('')
+                setModalBajaAbierto(true)
               }}
             />
           </>
+        ) : (
+          <ActivateButton
+            onClick={() => {
+              setErrorAlta('')
+              setModalAltaAbierto(true)
+            }}
+          />
         )}
       />
 
       <PersonTabs tabs={tabs} />
 
-      <DeleteJugadorModal
-        opened={modalEliminarAbierto}
-        onClose={() => !eliminando && setModalEliminarAbierto(false)}
-        onConfirm={confirmarEliminacion}
+      <ActivateJugadorModal
+        opened={modalAltaAbierto}
+        onClose={() => !dandoDeAlta && setModalAltaAbierto(false)}
+        onConfirm={confirmarAlta}
         jugador={jugador}
-        loading={eliminando}
-        error={errorEliminacion}
+        loading={dandoDeAlta}
+        error={errorAlta}
+      />
+
+      <DeactivateJugadorModal
+        opened={modalBajaAbierto}
+        onClose={() => !dandoDeBaja && setModalBajaAbierto(false)}
+        onConfirm={confirmarBaja}
+        jugador={jugador}
+        loading={dandoDeBaja}
+        error={errorBaja}
       />
     </div>
   )

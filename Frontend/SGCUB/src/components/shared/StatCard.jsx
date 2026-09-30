@@ -6,10 +6,10 @@ const TONOS = {
 
 export default function StatCard({ label, value, icon, tone = 'neutral' }) {
   return (
-    <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-lg p-4 flex items-center justify-between shadow-xs">
-      <div className="flex flex-col">
-        <span className="text-xl font-medium text-on-surface-variant uppercase tracking-wider">{label}</span>
-        <span className="text-2xl font-bold text-on-surface mt-0.5">{value}</span>
+    <div className="min-w-0 bg-surface-container-lowest border border-outline-variant/30 rounded-lg p-4 flex items-center justify-between gap-3 shadow-xs">
+      <div className="flex flex-col min-w-0">
+        <span className="text-base xl:text-xl leading-tight font-medium text-on-surface-variant uppercase tracking-wider break-words">{label}</span>
+        <span className="text-xl sm:text-2xl font-bold text-on-surface mt-0.5 truncate">{value}</span>
       </div>
       <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${TONOS[tone] ?? TONOS.neutral}`}>
         <span className="material-symbols-outlined text-[22px]" aria-hidden="true">{icon}</span>

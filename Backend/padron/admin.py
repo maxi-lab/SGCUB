@@ -1,12 +1,21 @@
 from django.contrib import admin
 
 # Register your models here.
-from .models import EstadoDeportivo, Persona, Socio, Categoria, Jugador, Docente, ContactoEmergencia, DocenteCategoria
+from .models import (
+    Genero, Localidad, Domicilio, Persona, EstadoAdministrativo, Socio,
+    Categoria, EstadoDeportivo, Jugador, CargoDocente, Docente,
+    VinculoFamiliar, DocenteCategoria,
+)
+admin.site.register(Genero)
+admin.site.register(Localidad)
+admin.site.register(Domicilio)
 admin.site.register(Persona)
+admin.site.register(EstadoAdministrativo)
 admin.site.register(Socio)
 admin.site.register(Categoria)
 admin.site.register(Jugador)
 admin.site.register(EstadoDeportivo)
+admin.site.register(CargoDocente)
 admin.site.register(Docente)
-admin.site.register(ContactoEmergencia)
+admin.site.register(VinculoFamiliar)
 admin.site.register(DocenteCategoria)
