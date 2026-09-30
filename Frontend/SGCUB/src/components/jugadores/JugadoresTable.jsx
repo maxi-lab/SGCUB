@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import SortableHeader from '../shared/SortableHeader'
+import useOrdenTabla from '../../hooks/useOrdenTabla'
 
 const estadoActivo = (jugador) => {
   const estado = (jugador.estado?.nombre ?? '').toLowerCase()
@@ -48,6 +50,15 @@ const exportarCSV = (jugadores) => {
   URL.revokeObjectURL(enlace.href)
 }
 
+// Valor por el que se ordena cada columna. Estado: activos primero en orden ascendente.
+const VALORES_ORDEN = {
+  numero: (jugador) => (jugador.socio?.numero_socio ? Number(jugador.socio.numero_socio) : null),
+  nombre: (jugador) => `${jugador.socio?.nombre ?? ''} ${jugador.socio?.apellido ?? ''}`.trim(),
+  estado: (jugador) => (estadoActivo(jugador) ? 0 : 1),
+}
+// Al cargar: los más recientes primero.
+const ORDEN_INICIAL = { columna: 'numero', direccion: 'desc' }
+
 function JugadoresTable({ data, categorias = [], isLoading, error, onEdit }) {
   const navigate = useNavigate()
   const [busqueda, setBusqueda] = useState('')
@@ -67,10 +78,16 @@ function JugadoresTable({ data, categorias = [], isLoading, error, onEdit }) {
         .some((campo) => String(campo ?? '').toLowerCase().includes(texto))
     })
   }, [jugadores, busqueda, categoria, estado])
-  const totalPaginas = Math.max(1, Math.ceil(filtrados.length / filasPorPagina))
+  const { ordenadas, orden, ordenarPor } = useOrdenTabla(filtrados, VALORES_ORDEN, ORDEN_INICIAL)
+  const ordenar = (columna) => {
+    ordenarPor(columna)
+    setPagina(1)
+  }
+
+  const totalPaginas = Math.max(1, Math.ceil(ordenadas.length / filasPorPagina))
   const paginaActual = Math.min(pagina, totalPaginas)
   const desde = (paginaActual - 1) * filasPorPagina
-  const visibles = filtrados.slice(desde, desde + filasPorPagina)
+  const visibles = ordenadas.slice(desde, desde + filasPorPagina)
 
   return (
     <div className="min-w-0 bg-surface-container-lowest border border-outline-variant/30 rounded-lg shadow-sm">
@@ -96,7 +113,7 @@ function JugadoresTable({ data, categorias = [], isLoading, error, onEdit }) {
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-left text-base border-collapse">
-          <thead><tr className="bg-surface-container-low/60 border-b border-outline-variant/30 text-sm font-semibold text-on-surface-variant uppercase tracking-wider"><th className="py-3 px-4 w-28 whitespace-nowrap" scope="col">N° Socio</th><th className="py-3 px-4" scope="col">Nombre y Apellido</th><th className="py-3 px-4" scope="col">DNI</th><th className="py-3 px-4" scope="col">Categoría principal</th><th className="py-3 px-4" scope="col">Categoría secundaria</th><th className="py-3 px-4" scope="col">Estado</th></tr></thead>
+          <thead><tr className="bg-surface-container-low/60 border-b border-outline-variant/30 text-sm font-semibold text-on-surface-variant uppercase tracking-wider"><SortableHeader className="py-3 px-4 w-28 whitespace-nowrap" etiqueta="N° Socio" columna="numero" orden={orden} onOrdenar={ordenar} /><SortableHeader className="py-3 px-4" etiqueta="Nombre y Apellido" columna="nombre" orden={orden} onOrdenar={ordenar} /><th className="py-3 px-4" scope="col">DNI</th><th className="py-3 px-4" scope="col">Categoría principal</th><th className="py-3 px-4" scope="col">Categoría secundaria</th><SortableHeader className="py-3 px-4" etiqueta="Estado" columna="estado" orden={orden} onOrdenar={ordenar} /></tr></thead>
           <tbody className="divide-y divide-outline-variant/20 font-body-sm text-sm text-on-surface">
             {isLoading && <tr><td className="py-10 px-4 text-center text-on-surface-variant" colSpan={6}>Cargando jugadores...</td></tr>}
             {!isLoading && visibles.length === 0 && <tr><td className="py-10 px-4 text-center text-on-surface-variant" colSpan={6}>{error ? 'No se pudieron cargar los jugadores.' : 'No hay jugadores que coincidan con el filtro.'}</td></tr>}

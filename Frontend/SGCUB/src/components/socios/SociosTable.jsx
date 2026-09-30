@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import SortableHeader from '../shared/SortableHeader'
+import useOrdenTabla from '../../hooks/useOrdenTabla'
 
 
 const formatearFecha = (fecha) => {
@@ -52,6 +54,16 @@ const exportarCSV = (socios) => {
   URL.revokeObjectURL(enlace.href)
 }
 
+// Valor por el que se ordena cada columna. Estado: activos primero en orden ascendente.
+const VALORES_ORDEN = {
+  numero: (socio) => (socio.numero_socio ? Number(socio.numero_socio) : null),
+  nombre: (socio) => `${socio.nombre ?? ''} ${socio.apellido ?? ''}`.trim(),
+  fechaAlta: (socio) => socio.fecha_alta,
+  estado: (socio) => (esActivo(socio) ? 0 : 1),
+}
+// Al cargar: los más recientes primero.
+const ORDEN_INICIAL = { columna: 'numero', direccion: 'desc' }
+
 function SociosTable({ data, isLoading, error }) {
   const navigate = useNavigate()
   const [busqueda, setBusqueda] = useState('')
@@ -79,10 +91,16 @@ function SociosTable({ data, isLoading, error }) {
     })
   }, [socios, busqueda, estado, tipo])
 
-  const totalPaginas = Math.max(1, Math.ceil(filtrados.length / filasPorPagina))
+  const { ordenadas, orden, ordenarPor } = useOrdenTabla(filtrados, VALORES_ORDEN, ORDEN_INICIAL)
+  const ordenar = (columna) => {
+    ordenarPor(columna)
+    setPagina(1)
+  }
+
+  const totalPaginas = Math.max(1, Math.ceil(ordenadas.length / filasPorPagina))
   const paginaActual = Math.min(pagina, totalPaginas)
   const desde = (paginaActual - 1) * filasPorPagina
-  const visibles = filtrados.slice(desde, desde + filasPorPagina)
+  const visibles = ordenadas.slice(desde, desde + filasPorPagina)
 
   return (
     <div className="min-w-0 bg-surface-container-lowest border border-outline-variant/30 rounded-lg shadow-sm">
@@ -139,12 +157,12 @@ function SociosTable({ data, isLoading, error }) {
         <table className="w-full text-left text-sm border-collapse">
           <thead>
             <tr className="bg-surface-container-low/60 border-b border-outline-variant/30 text-sm font-semibold text-on-surface-variant uppercase tracking-wider">
-              <th className="py-3 px-4 w-28 whitespace-nowrap" scope="col">N° Socio</th>
-              <th className="py-3 px-4" scope="col">Nombre y Apellido</th>
+              <SortableHeader className="py-3 px-4 w-28 whitespace-nowrap" etiqueta="N° Socio" columna="numero" orden={orden} onOrdenar={ordenar} />
+              <SortableHeader className="py-3 px-4" etiqueta="Nombre y Apellido" columna="nombre" orden={orden} onOrdenar={ordenar} />
               <th className="py-3 px-4 pl-5" scope="col">DNI</th>
               <th className="py-3 px-4" scope="col">Teléfono</th>
-              <th className="py-3 px-4" scope="col">Fecha de Alta</th>
-              <th className="py-3 px-4" scope="col">Estado</th>
+              <SortableHeader className="py-3 px-4" etiqueta="Fecha de Alta" columna="fechaAlta" orden={orden} onOrdenar={ordenar} />
+              <SortableHeader className="py-3 px-4" etiqueta="Estado" columna="estado" orden={orden} onOrdenar={ordenar} />
             </tr>
           </thead>
           <tbody className="divide-y divide-outline-variant/20 font-body-sm text- text-on-surface">

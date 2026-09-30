@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import SortableHeader from '../shared/SortableHeader'
+import useOrdenTabla from '../../hooks/useOrdenTabla'
 import { cargosDe, esActivo, exportarNominaCSV } from './docentesUtils'
 
 const nombreCompleto = (docente) =>
@@ -19,6 +21,13 @@ const paginasVisibles = (paginaActual, totalPaginas) => {
   })
   return resultado
 }
+
+const VALORES_ORDEN = {
+  legajo: (docente) => (docente.legajo ? Number(docente.legajo) : null),
+  nombre: (docente) => nombreCompleto(docente),
+  estado: (docente) => (esActivo(docente) ? 0 : 1),
+}
+const ORDEN_INICIAL = { columna: 'legajo', direccion: 'desc' }
 
 function DocentesTable({ data, categorias = [], categoriasPorDocente = {}, isLoading, error }) {
   const navigate = useNavigate()
@@ -50,10 +59,16 @@ function DocentesTable({ data, categorias = [], categoriasPorDocente = {}, isLoa
     })
   }, [docentes, categoriasPorDocente, busqueda, cargo, categoria, estado])
 
-  const totalPaginas = Math.max(1, Math.ceil(filtrados.length / filasPorPagina))
+  const { ordenadas, orden, ordenarPor } = useOrdenTabla(filtrados, VALORES_ORDEN, ORDEN_INICIAL)
+  const ordenar = (columna) => {
+    ordenarPor(columna)
+    setPagina(1)
+  }
+
+  const totalPaginas = Math.max(1, Math.ceil(ordenadas.length / filasPorPagina))
   const paginaActual = Math.min(pagina, totalPaginas)
   const desde = (paginaActual - 1) * filasPorPagina
-  const visibles = filtrados.slice(desde, desde + filasPorPagina)
+  const visibles = ordenadas.slice(desde, desde + filasPorPagina)
 
   return (
     <div className="min-w-0 bg-surface-container-lowest border border-outline-variant/30 rounded-lg shadow-sm">
@@ -131,12 +146,12 @@ function DocentesTable({ data, categorias = [], categoriasPorDocente = {}, isLoa
         <table className="w-full text-left text-base border-collapse">
           <thead>
             <tr className="bg-surface-container-low/60 border-b border-outline-variant/30 text-sm font-semibold text-on-surface-variant uppercase tracking-wider">
-              <th className="py-3 px-4 w-28 whitespace-nowrap" scope="col">Legajo</th>
-              <th className="py-3 px-4" scope="col">Nombre y Apellido</th>
+              <SortableHeader className="py-3 px-4 w-28 whitespace-nowrap" etiqueta="N° Legajo" columna="legajo" orden={orden} onOrdenar={ordenar} />
+              <SortableHeader className="py-3 px-4" etiqueta="Nombre y Apellido" columna="nombre" orden={orden} onOrdenar={ordenar} />
               <th className="py-3 px-4" scope="col">DNI</th>
               <th className="py-3 px-4" scope="col">Cargo</th>
               <th className="py-3 px-4" scope="col">Categorías</th>
-              <th className="py-3 px-4" scope="col">Estado</th>
+              <SortableHeader className="py-3 px-4" etiqueta="Estado" columna="estado" orden={orden} onOrdenar={ordenar} />
             </tr>
           </thead>
           <tbody className="divide-y divide-outline-variant/20 font-body-sm text-lg text-on-surface">
