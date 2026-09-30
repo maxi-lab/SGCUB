@@ -17,7 +17,6 @@ function DocenteDetail() {
   const navigate = useNavigate()
   const { localidades } = useLocalidades()
 
-  // Guarda el id cargado para derivar "cargando" sin setState síncrono en el effect.
   const [carga, setCarga] = useState({ id: null, docente: null, categorias: [], error: null })
   const loading = carga.id !== id
   const { docente, categorias, error } = carga
@@ -89,7 +88,7 @@ function DocenteDetail() {
   }
 
   const persona = docente.persona_detalle ?? {}
-  const nombresCategorias = categorias.map((c) => c.categoria?.nombre).filter(Boolean).join(', ')
+  const nombresCargos = (docente.asignaciones ?? []).map((asignacion) => asignacion.cargo_nombre).filter(Boolean).join(', ')
   const activo = isActiveStatus(docente.estado_nombre)
 
   const tabs = [
@@ -123,7 +122,7 @@ function DocenteDetail() {
           { label: 'Legajo', value: `#${docente.legajo}`, highlighted: true },
           { label: 'Fecha de ingreso', value: formatDate(docente.fecha_ingreso) },
           { label: 'Antigüedad', value: yearsText(yearsSince(docente.fecha_ingreso)) },
-          ...(nombresCategorias ? [{ label: 'Categorías', value: nombresCategorias }] : []),
+          ...(nombresCargos ? [{ label: 'Cargos', value: nombresCargos }] : []),
         ]}
         actions={activo ? (
           <>
