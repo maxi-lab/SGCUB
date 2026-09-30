@@ -160,11 +160,13 @@ function Cuotas() {
           .map((item) => deleteItemCuota(item.item_cuota_id)))
       } else {
         const cuotaCreada = await postCuota(payload)
-        await Promise.all(items.map((item) => postItemCuota({
-          ...item,
-          cuota: cuotaCreada.cuota_id,
-          monto: Number(item.monto),
-        })))
+        for (const item of items) {
+          await postItemCuota({
+            ...item,
+            cuota: cuotaCreada.cuota_id,
+            monto: Number(item.monto),
+          })
+        }
       }
 
       cerrarModal()
