@@ -1,5 +1,14 @@
 from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+
+from .dni import normalize_dni
+
+
+class LoginSerializer(TokenObtainPairSerializer):
+    def validate(self, attrs):
+        attrs[self.username_field] = normalize_dni(attrs.get(self.username_field))
+        return super().validate(attrs)
 
 
 class UsuarioActualSerializer(serializers.Serializer):

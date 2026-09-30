@@ -5,11 +5,12 @@ from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework_simplejwt.views import TokenBlacklistView, TokenObtainPairView, TokenRefreshView
 
-from .serializers import CambioPasswordSerializer, UsuarioActualSerializer
+from .serializers import CambioPasswordSerializer, LoginSerializer, UsuarioActualSerializer
 
 
 @extend_schema(tags=["Auth"])
 class LoginView(TokenObtainPairView):
+    serializer_class = LoginSerializer
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = "login"
 

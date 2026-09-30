@@ -6,6 +6,7 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
+from .admin import UsuarioChangeForm, UsuarioCreationForm
 from .roles import ADMINISTRADOR, ROLE_PERMISSIONS
 
 User = get_user_model()
@@ -70,17 +71,17 @@ class AuthEndpointsTests(APITestCase):
         # El throttle guarda los intentos en la caché, que se comparte entre tests
         cache.clear()
         self.user = User.objects.create_user(
-            username="tesorero",
+            username="30123456",
             password=self.password,
             first_name="Juana",
             last_name="Pérez",
         )
         self.user.groups.add(Group.objects.get(name="Tesorero"))
 
-    def login(self, password=None):
+    def login(self, password=None, dni="30123456"):
         return self.client.post(
             reverse("auth-login"),
-            {"username": "tesorero", "password": password or self.password},
+            {"username": dni, "password": password or self.password},
             format="json",
         )
 
@@ -89,6 +90,10 @@ class AuthEndpointsTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn("access", response.data)
         self.assertIn("refresh", response.data)
+
+    def test_login_accepts_dni_with_dots(self):
+        response = self.login(dni="30.123.456")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     def test_login_with_wrong_password_returns_401(self):
         response = self.login(password="incorrecta")
@@ -111,7 +116,7 @@ class AuthEndpointsTests(APITestCase):
         response = self.client.get(reverse("auth-me"))
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["username"], "tesorero")
+        self.assertEqual(response.data["username"], "30123456")
         self.assertEqual(response.data["full_name"], "Juana Pérez")
         self.assertEqual(response.data["roles"], ["Tesorero"])
         self.assertEqual(response.data["permissions"], [])
@@ -181,3 +186,37 @@ class AuthEndpointsTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("new_password", response.data)
+
+
+class DniUsernameAdminFormTests(TestCase):
+    password = "Clave-segura-123"
+
+    def creation_form(self, dni):
+        return UsuarioCreationForm(data={"username": dni, "password1": self.password, "password2": self.password})
+
+    def test_creation_form_normalizes_dni(self):
+        form = self.creation_form("30.123.456")
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.save().username, "30123456")
+
+    def test_creation_form_rejects_invalid_dni(self):
+        for dni in ("jperez", "123456", "123456789"):
+            with self.subTest(dni=dni):
+                form = self.creation_form(dni)
+                self.assertFalse(form.is_valid())
+                self.assertIn("username", form.errors)
+
+    def test_creation_form_rejects_duplicated_dni(self):
+        User.objects.create_user(username="30123456", password=self.password)
+        form = self.creation_form("30.123.456")
+        self.assertFalse(form.is_valid())
+        self.assertIn("username", form.errors)
+
+    def test_change_form_validates_dni(self):
+        user = User.objects.create_user(username="30123456", password=self.password)
+        form = UsuarioChangeForm(
+            instance=user,
+            data={"username": "jperez", "date_joined": user.date_joined, "is_active": True},
+        )
+        self.assertFalse(form.is_valid())
+        self.assertIn("username", form.errors)
