@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'padron',
     'finanzas',
+    'documental',
     'django_q',
     'drf_spectacular',
 ]
