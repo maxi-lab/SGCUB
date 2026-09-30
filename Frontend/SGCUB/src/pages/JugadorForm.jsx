@@ -94,7 +94,27 @@ function validarContactos(contactos) {
   return errores
 }
 
-function FilaContacto({ fila, indice, errores, mostrarSinGuardar, onChange, onRemove }) {
+const EDAD_MAYORIA = 18
+
+function edadActual(fechaNacimiento) {
+  if (!fechaNacimiento) return null
+  const [anio, mes, dia] = fechaNacimiento.split('-').map(Number)
+  const hoy = new Date()
+  const cumplioAnios = hoy.getMonth() + 1 > mes || (hoy.getMonth() + 1 === mes && hoy.getDate() >= dia)
+  return hoy.getFullYear() - anio - (cumplioAnios ? 0 : 1)
+}
+
+// Misma regla que player_contacts_error en el backend.
+function errorVinculos(contactos, fechaNacimiento) {
+  if (contactos.length === 0) return 'Debe registrar al menos un vínculo familiar.'
+  const edad = edadActual(fechaNacimiento)
+  if (edad !== null && edad < EDAD_MAYORIA && !contactos.some((fila) => fila.responsable_legal)) {
+    return 'El jugador es menor de edad: al menos un vínculo familiar debe ser responsable legal.'
+  }
+  return null
+}
+
+function FilaContacto({ fila, indice, errores, mostrarSinGuardar, resaltarResponsable, onChange, onRemove }) {
   const bind = (campo) => ({
     id: idCampoContacto(fila, campo),
     value: fila[campo],
@@ -158,7 +178,7 @@ function FilaContacto({ fila, indice, errores, mostrarSinGuardar, onChange, onRe
         </Campo>
       </div>
 
-      <label className="flex items-center gap-2 cursor-pointer select-none w-fit">
+      <label className={`flex items-center gap-2 cursor-pointer select-none w-fit ${resaltarResponsable ? 'px-2 py-1 -mx-2 rounded border-2 border-error bg-error-container/30' : ''}`}>
         <input
           type="checkbox"
           className="w-4 h-4 accent-primary cursor-pointer"
@@ -320,6 +340,7 @@ function JugadorForm() {
   const actualizarContacto = (clave, campo, valor) => {
     setContactos((actuales) => actuales.map((fila) => (fila.clave === clave ? { ...fila, [campo]: valor } : fila)))
     limpiarError(`${clave}-${campo}`)
+    if (campo === 'responsable_legal') limpiarError('vinculos_familiares')
   }
 
   const quitarContacto = (clave) => setContactos((actuales) => actuales.filter((fila) => fila.clave !== clave))
@@ -330,6 +351,7 @@ function JugadorForm() {
       throw new Error('Esta persona ya figura entre los contactos del jugador.')
     }
     setContactos((actuales) => [...actuales, contactoAFila(contacto)])
+    limpiarError('vinculos_familiares')
   }
 
   const guardar = async (event) => {
@@ -343,11 +365,14 @@ function JugadorForm() {
     }
     if (socioDuplicado) nuevosErrores.dni = 'Ya existe otro socio registrado con este DNI.'
     if (jugadorDelSocio) nuevosErrores.dni = 'Este socio ya está registrado como jugador.'
+    const errorContactos = errorVinculos(contactos, formulario.fecha_nacimiento)
+    if (errorContactos) nuevosErrores.vinculos_familiares = errorContactos
     setErrores(nuevosErrores)
 
     const ordenCampos = [
       ...CAMPOS_OBLIGATORIOS, 'genero_otro', 'categoria', 'estado',
       ...contactos.flatMap((fila) => [...CAMPOS_CONTACTO, 'email'].map((campo) => idCampoContacto(fila, campo))),
+      'vinculos_familiares',
     ]
     const primerError = ordenCampos.find((campo) => nuevosErrores[campo])
     if (primerError) {
@@ -626,6 +651,7 @@ function JugadorForm() {
                 titulo="Vinculos familiares y contactos de emergencia"
                 extra={(
                   <button
+                    id="vinculos_familiares"
                     type="button"
                     onClick={() => setAgregandoContacto(true)}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-semibold text-primary border border-primary/40 hover:bg-primary/10 transition-colors cursor-pointer"
@@ -636,8 +662,20 @@ function JugadorForm() {
                 )}
               />
 
+              {errores.vinculos_familiares && (
+                <div className="bg-error-container text-on-error-container p-3 rounded-lg border border-error/30 flex items-start gap-2.5 shadow-sm" role="alert">
+                  <div className="p-1 bg-error/10 text-error rounded shrink-0">
+                    <span className="material-symbols-outlined text-base">error</span>
+                  </div>
+                  <div>
+                    <p className="text-base font-bold">Faltan vínculos familiares</p>
+                    <p className="text-base text-on-error-container/80 mt-0.5">{errores.vinculos_familiares}</p>
+                  </div>
+                </div>
+              )}
+
               {contactos.length === 0 ? (
-                <div className="flex flex-col items-center text-center gap-1 py-8 border border-dashed border-outline-variant/50 rounded-lg">
+                <div className={`flex flex-col items-center text-center gap-1 py-8 border-dashed rounded-lg ${errores.vinculos_familiares ? 'border-2 border-error bg-error-container/20' : 'border border-outline-variant/50'}`}>
                   <span className="material-symbols-outlined text-[32px] text-outline">contact_emergency</span>
                   <p className="text-base font-semibold text-on-surface">Sin vinculos familiares</p>
                   <p className="text-sm text-on-surface-variant">Agregá al menos un familiar o responsable para este jugador.</p>
@@ -650,6 +688,7 @@ function JugadorForm() {
                     indice={indice}
                     errores={errores}
                     mostrarSinGuardar={editando}
+                    resaltarResponsable={Boolean(errores.vinculos_familiares)}
                     onChange={(campo, valor) => actualizarContacto(fila.clave, campo, valor)}
                     onRemove={() => quitarContacto(fila.clave)}
                   />
