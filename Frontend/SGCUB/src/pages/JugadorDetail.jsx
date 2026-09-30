@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { deleteJugador, getJugador, patchJugador } from '../api/jugadores'
-import DeleteJugadorModal from '../components/jugadores/DeleteJugadorModal'
-import PersonHeader, { EditButton, DeleteButton } from '../components/personas/HeaderPersona'
+import { deactivateJugador, getJugador, patchJugador } from '../api/jugadores'
+import DeactivateJugadorModal from '../components/jugadores/DeactivateJugadorModal'
+import PersonHeader, { EditButton, DeactivateButton } from '../components/personas/HeaderPersona'
 import PersonTabs from '../components/personas/TabsNavPersonas'
 import PersonalDataTab from '../components/personas/tabs/PersonalDataTab'
 import FamilyTab from '../components/personas/tabs/FamilyTab'
@@ -39,9 +39,9 @@ function JugadorDetail() {
   const { localidades } = useLocalidades()
   const financiero = useFinancialStatus(jugador?.socio?.socio_id)
 
-  const [modalEliminarAbierto, setModalEliminarAbierto] = useState(false)
-  const [eliminando, setEliminando] = useState(false)
-  const [errorEliminacion, setErrorEliminacion] = useState('')
+  const [modalBajaAbierto, setModalBajaAbierto] = useState(false)
+  const [dandoDeBaja, setDandoDeBaja] = useState(false)
+  const [errorBaja, setErrorBaja] = useState('')
 
   useEffect(() => {
     let activo = true
@@ -78,17 +78,17 @@ function JugadorDetail() {
     }
   }
 
-  const confirmarEliminacion = async () => {
-    setEliminando(true)
-    setErrorEliminacion('')
+  const confirmarBaja = async () => {
+    setDandoDeBaja(true)
+    setErrorBaja('')
     try {
-      await deleteJugador(jugador.jugador_id)
-      setModalEliminarAbierto(false)
+      await deactivateJugador(jugador.jugador_id)
+      setModalBajaAbierto(false)
       navigate('/padron/jugadores')
     } catch (requestError) {
-      setErrorEliminacion(requestError.response?.data?.detail || 'No se pudo eliminar el jugador.')
+      setErrorBaja(requestError.response?.data?.detail || 'No se pudo dar de baja el jugador.')
     } finally {
-      setEliminando(false)
+      setDandoDeBaja(false)
     }
   }
 
@@ -167,10 +167,10 @@ function JugadorDetail() {
         actions={(
           <>
             <EditButton onClick={() => navigate(`/padron/jugadores/${jugador.jugador_id}/editar`)} />
-            <DeleteButton
+            <DeactivateButton
               onClick={() => {
-                setErrorEliminacion('')
-                setModalEliminarAbierto(true)
+                setErrorBaja('')
+                setModalBajaAbierto(true)
               }}
             />
           </>
@@ -179,13 +179,13 @@ function JugadorDetail() {
 
       <PersonTabs tabs={tabs} />
 
-      <DeleteJugadorModal
-        opened={modalEliminarAbierto}
-        onClose={() => !eliminando && setModalEliminarAbierto(false)}
-        onConfirm={confirmarEliminacion}
+      <DeactivateJugadorModal
+        opened={modalBajaAbierto}
+        onClose={() => !dandoDeBaja && setModalBajaAbierto(false)}
+        onConfirm={confirmarBaja}
         jugador={jugador}
-        loading={eliminando}
-        error={errorEliminacion}
+        loading={dandoDeBaja}
+        error={errorBaja}
       />
     </div>
   )

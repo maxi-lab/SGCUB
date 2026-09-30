@@ -22,7 +22,7 @@ export const patchDocente = async (docenteId, docente) => {
   return response.data
 }
 
-export const deleteDocente = async (docenteId) => {
+export const deactivateDocente = async (docenteId) => {
   await api.delete(`${docentesEndpoint}${docenteId}/`)
 }
 

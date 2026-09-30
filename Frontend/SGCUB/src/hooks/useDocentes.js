@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { deleteDocente, getDocentes, patchDocente, postDocente } from '../api/docentes'
+import { deactivateDocente, getDocentes, patchDocente, postDocente } from '../api/docentes'
 
 function useDocentes() {
   const [docentes, setDocentes] = useState([])
@@ -31,8 +31,8 @@ function useDocentes() {
     return docenteEditado
   }, [cargarDocentes])
 
-  const eliminarDocente = useCallback(async (docenteId) => {
-    await deleteDocente(docenteId)
+  const darDeBajaDocente = useCallback(async (docenteId) => {
+    await deactivateDocente(docenteId)
     await cargarDocentes()
   }, [cargarDocentes])
 
@@ -47,7 +47,7 @@ function useDocentes() {
     recargarDocentes: cargarDocentes,
     crearDocente,
     editarDocente,
-    eliminarDocente,
+    darDeBajaDocente,
   }
 }
 

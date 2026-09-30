@@ -47,7 +47,7 @@ export const deactivateSocio = async (socioId) => {
     const response = await api.delete(`${sociosEndpoint}${socioId}/`)
     return response.data
   } catch (error) {
-    console.error('Error al eliminar el socio:', error)
+    console.error('Error al dar de baja el socio:', error)
     throw error
   }
 }

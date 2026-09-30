@@ -1,23 +1,14 @@
-import { useState, useMemo } from 'react'
+import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import DeleteSocioModal from '../components/socios/DeactivateSocioModal'
 import SociosTable from '../components/socios/SociosTable'
 import PageHeader from '../components/shared/PageHeader'
 import StatCard from '../components/shared/StatCard'
 import useSocio from '../hooks/useSocio'
 
 function Padron() {
-  const {
-    socios,
-    isLoading,
-    error,
-    eliminarSocio,
-  } = useSocio()
+  const { socios, isLoading, error } = useSocio()
   const navigate = useNavigate()
 
-  const [socioAEliminar, setSocioAEliminar] = useState(null)
-  const [eliminando, setEliminando] = useState(false)
-  const [errorEliminacion, setErrorEliminacion] = useState('')
   const totales = useMemo(() => {
     const sociosActivos = socios.filter((socio) => {
       const estado = (socio.estado_administrativo_nombre ?? '').toLowerCase()
@@ -33,27 +24,6 @@ function Padron() {
       inactivos: formato(socios.length - activos),
     }
   }, [socios])
-
-  const borrarSocio = async (socio) => {
-    setErrorEliminacion('')
-    setSocioAEliminar(socio)
-  }
-
-  const confirmarEliminacion = async () => {
-    setEliminando(true)
-    setErrorEliminacion('')
-
-    try {
-      await eliminarSocio(socioAEliminar.socio_id)
-      setSocioAEliminar(null)
-    } catch (requestError) {
-      setErrorEliminacion(
-        requestError.response?.data?.detail || 'No se pudo eliminar el socio.',
-      )
-    } finally {
-      setEliminando(false)
-    }
-  }
 
   return (
     <>
@@ -85,23 +55,9 @@ function Padron() {
             isLoading={isLoading}
             error={error}
             onEdit={(socio) => navigate(`/padron/socios/${socio.socio_id}/editar`)}
-            onDelete={borrarSocio}
           />
         </section>
       </div>
-
-      <DeleteSocioModal
-        opened={Boolean(socioAEliminar)}
-        onClose={() => {
-          if (!eliminando) {
-            setSocioAEliminar(null)
-          }
-        }}
-        onConfirm={confirmarEliminacion}
-        socio={socioAEliminar}
-        loading={eliminando}
-        error={errorEliminacion}
-      />
     </>
   )
 }

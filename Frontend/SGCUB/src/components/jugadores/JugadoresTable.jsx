@@ -48,7 +48,7 @@ const exportarCSV = (jugadores) => {
   URL.revokeObjectURL(enlace.href)
 }
 
-function JugadoresTable({ data, categorias = [], isLoading, error, onEdit, onDelete }) {
+function JugadoresTable({ data, categorias = [], isLoading, error, onEdit }) {
   const navigate = useNavigate()
   const [busqueda, setBusqueda] = useState('')
   const [categoria, setCategoria] = useState('todas')

@@ -1,17 +1,21 @@
 import { Button, Group, Modal, Text } from '@mantine/core'
 
-function DeleteDocenteModal({ opened, onClose, onConfirm, docente, loading, error }) {
+function DeactivateDocenteModal({ opened, onClose, onConfirm, docente, loading, error }) {
   const nombreCompleto = [docente?.persona_detalle?.nombre, docente?.persona_detalle?.apellido]
     .filter(Boolean)
     .join(' ') || 'este docente'
 
   return (
-    <Modal opened={opened} onClose={onClose} title="Eliminar docente" centered>
-      <Text>
-        ¿Seguro que querés eliminar al docente <strong>{nombreCompleto}</strong>?
+    <Modal opened={opened} onClose={onClose} title={
+    <Text fw={700} size="xl" >
+      Confirmar baja de docente
+    </Text>
+    } centered>
+      <Text size="md">
+        ¿Seguro que desea dar de baja al docente <strong>{nombreCompleto}</strong>?
       </Text>
       {error && (
-        <Text color="red" size="sm" mt="md">
+        <Text color="red" size="base" mt="md">
           {error}
         </Text>
       )}
@@ -20,11 +24,11 @@ function DeleteDocenteModal({ opened, onClose, onConfirm, docente, loading, erro
           Cancelar
         </Button>
         <Button color="red" onClick={onConfirm} loading={loading}>
-          Eliminar
+          Dar de baja
         </Button>
       </Group>
     </Modal>
   )
 }
 
-export default DeleteDocenteModal
+export default DeactivateDocenteModal

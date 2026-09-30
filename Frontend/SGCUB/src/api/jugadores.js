@@ -22,6 +22,6 @@ export const patchJugador = async (jugadorId, jugador) => {
   return response.data
 }
 
-export const deleteJugador = async (jugadorId) => {
+export const deactivateJugador = async (jugadorId) => {
   await api.delete(`${jugadoresEndpoint}${jugadorId}/`)
 }
