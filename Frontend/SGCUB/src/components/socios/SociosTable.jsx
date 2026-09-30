@@ -260,7 +260,7 @@ function SociosTable({ data, isLoading, error }) {
                 onClick={() => setPagina(item)}
                 aria-current={item === paginaActual ? 'page' : undefined}
                 className={item === paginaActual
-                  ? 'w-8 h-8 flex items-center justify-center rounded bg-primary text-on-primary font-semibold font-label-md transition-colors'
+                  ? 'w-8 h-8 flex items-center justify-center rounded border border-outline-variant/30 text-on-surface-variant bg-surface-container-low transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer'
                   : 'w-8 h-8 flex items-center justify-center rounded border border-outline-variant/30 text-on-surface hover:bg-surface-container-low font-label-md transition-colors cursor-pointer'}
               >
                 {item}

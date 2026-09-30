@@ -194,15 +194,15 @@ function DocentesTable({ data, categorias = [], categoriasPorDocente = {}, isLoa
                 <td className="py-3 px-4 text-on-surface-variant text-sm">
                   {nombresCategorias(categoriasPorDocente[docente.docente_id] ?? [])}
                 </td>
-                <td className="py-3 px-4">
+                <td className="py-3 px-4 whitespace-nowrap">
                   {esActivo(docente) ? (
                     <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-sm font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 shrink-0" />
                       Activo
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-sm font-medium bg-surface-container-high text-on-surface-variant border border-outline-variant/30">
-                      <span className="w-1.5 h-1.5 rounded-full bg-outline" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-outline shrink-0" />
                       De baja
                     </span>
                   )}
@@ -213,12 +213,11 @@ function DocentesTable({ data, categorias = [], categoriasPorDocente = {}, isLoa
         </table>
       </div>
 
-      {/* Paginación */}
-      <div className="p-4 border-t border-outline-variant/20 flex flex-col sm:flex-row items-center justify-between gap-3 text-lg text-on-surface-variant">
+      <div className="p-4 border-t border-outline-variant/20 flex flex-col sm:flex-row items-center justify-between gap-3 text-base text-on-surface-variant">
         <div className="flex items-center gap-2">
           <label className="font-label-md" htmlFor="docentes-rows-per-page">Filas por página:</label>
           <select
-            className="h-8 px-2 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-lg focus:outline-none focus:border-primary cursor-pointer"
+            className="h-8 px-2 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-base focus:outline-none focus:border-primary cursor-pointer"
             id="docentes-rows-per-page"
             value={filasPorPagina}
             onChange={(event) => {
@@ -241,7 +240,7 @@ function DocentesTable({ data, categorias = [], categoriasPorDocente = {}, isLoa
             onClick={() => setPagina(Math.max(1, paginaActual - 1))}
             className="w-8 h-8 flex items-center justify-center rounded border border-outline-variant/30 text-on-surface-variant hover:bg-surface-container-low transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
           >
-            <span className="material-symbols-outlined text-[18px]" aria-hidden="true">chevron_left</span>
+            <span className="material-symbols-outlined text-base" aria-hidden="true">chevron_left</span>
           </button>
 
           {paginasVisibles(paginaActual, totalPaginas).map((item, indice) =>
@@ -254,7 +253,7 @@ function DocentesTable({ data, categorias = [], categoriasPorDocente = {}, isLoa
                 onClick={() => setPagina(item)}
                 aria-current={item === paginaActual ? 'page' : undefined}
                 className={item === paginaActual
-                  ? 'w-8 h-8 flex items-center justify-center rounded bg-primary text-on-primary font-semibold font-label-md transition-colors'
+                  ? 'w-8 h-8 flex items-center justify-center rounded border border-outline-variant/30 text-on-surface-variant bg-surface-container-low transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer'
                   : 'w-8 h-8 flex items-center justify-center rounded border border-outline-variant/30 text-on-surface hover:bg-surface-container-low font-label-md transition-colors cursor-pointer'}
               >
                 {item}
