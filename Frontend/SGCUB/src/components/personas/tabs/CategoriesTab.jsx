@@ -11,6 +11,42 @@ const aPayload = (asignaciones) => asignaciones.map((asignacion) => ({
 
 const idsCategorias = (asignacion) => asignacion.categorias.map((categoria) => String(categoria.categoria_id))
 
+const GENEROS_CATEGORIA = [
+  { genero: 'M', titulo: 'Masculino' },
+  { genero: 'F', titulo: 'Femenino' },
+]
+
+function GrupoCategorias({ titulo, categorias, seleccionadas, cargoDeCategoria, deshabilitado, onToggle }) {
+  return (
+    <div className="flex flex-col gap-1 min-w-0">
+      <p className="px-2 pb-1 text-sm font-semibold uppercase tracking-wider text-on-surface-variant border-b border-outline-variant/30">
+        {titulo}
+      </p>
+      {categorias.length === 0 && <p className="px-2 py-1.5 text-sm text-outline">Sin categorías.</p>}
+      {categorias.map((c) => {
+        const categoriaId = String(c.categoria_id)
+        const ocupadaPor = cargoDeCategoria[categoriaId]
+        return (
+          <label
+            key={categoriaId}
+            className={`flex items-center gap-2 px-2 py-1.5 rounded text-base ${ocupadaPor ? 'text-outline cursor-not-allowed' : 'text-on-surface hover:bg-surface-container-low cursor-pointer'}`}
+            title={ocupadaPor ? `Asignada como ${ocupadaPor}` : undefined}
+          >
+            <input
+              type="checkbox"
+              className="w-4 h-4 accent-primary cursor-pointer disabled:cursor-not-allowed shrink-0"
+              checked={seleccionadas.includes(categoriaId)}
+              disabled={Boolean(ocupadaPor) || deshabilitado}
+              onChange={() => onToggle(categoriaId)}
+            />
+            <span className="truncate">{c.nombre}</span>
+          </label>
+        )
+      })}
+    </div>
+  )
+}
+
 function CargoModal({ asignacion, asignaciones, cargos, categorias, onClose, onSave }) {
   const editando = Boolean(asignacion)
   const [cargo, setCargo] = useState(editando ? String(asignacion.cargo) : '')
@@ -28,6 +64,24 @@ function CargoModal({ asignacion, asignaciones, cargos, categorias, onClose, onS
   const alternar = (categoriaId) => setSeleccionadas((actuales) => (
     actuales.includes(categoriaId) ? actuales.filter((id) => id !== categoriaId) : [...actuales, categoriaId]
   ))
+
+  const asignables = categorias
+    .filter(esCategoriaAsignable)
+    // Más grandes primero; a igual edad máxima, en el orden en que fueron cargadas.
+    .sort((a, b) => (b.edad_maxima ?? 0) - (a.edad_maxima ?? 0) || a.categoria_id - b.categoria_id)
+  const gruposPorGenero = [
+    ...GENEROS_CATEGORIA.map(({ genero, titulo }) => ({
+      genero,
+      titulo,
+      categorias: asignables.filter((c) => c.genero === genero),
+    })),
+    {
+      genero: null,
+      titulo: 'Otras',
+      categorias: asignables.filter((c) => !GENEROS_CATEGORIA.some(({ genero }) => genero === c.genero)),
+    },
+  ]
+  const propsGrupo = { seleccionadas, cargoDeCategoria, deshabilitado: guardando, onToggle: alternar }
 
   const guardar = async () => {
     if (!cargo) return setError('Seleccione un cargo.')
@@ -77,27 +131,15 @@ function CargoModal({ asignacion, asignaciones, cargos, categorias, onClose, onS
             Categorías <span className="text-error">*</span>
             <span className="text-sm font-normal text-on-surface-variant ml-1">(una o varias)</span>
           </legend>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 max-h-72 overflow-y-auto border border-outline-variant/40 rounded-lg p-2">
-            {categorias.filter(esCategoriaAsignable).map((c) => {
-              const categoriaId = String(c.categoria_id)
-              const ocupadaPor = cargoDeCategoria[categoriaId]
-              return (
-                <label
-                  key={categoriaId}
-                  className={`flex items-center gap-2 px-2 py-1.5 rounded text-base ${ocupadaPor ? 'text-outline cursor-not-allowed' : 'text-on-surface hover:bg-surface-container-low cursor-pointer'}`}
-                  title={ocupadaPor ? `Asignada como ${ocupadaPor}` : undefined}
-                >
-                  <input
-                    type="checkbox"
-                    className="w-4 h-4 accent-primary cursor-pointer disabled:cursor-not-allowed shrink-0"
-                    checked={seleccionadas.includes(categoriaId)}
-                    disabled={Boolean(ocupadaPor) || guardando}
-                    onChange={() => alternar(categoriaId)}
-                  />
-                  <span className="truncate">{etiquetaCategoria(c)}</span>
-                </label>
-              )
-            })}
+          <div className="max-h-80 overflow-y-auto border border-outline-variant/40 rounded-lg p-2 flex flex-col gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
+              {gruposPorGenero.filter((grupo) => grupo.genero !== null).map((grupo) => (
+                <GrupoCategorias key={grupo.genero} titulo={grupo.titulo} categorias={grupo.categorias} {...propsGrupo} />
+              ))}
+            </div>
+            {gruposPorGenero.filter((grupo) => grupo.genero === null && grupo.categorias.length > 0).map((grupo) => (
+              <GrupoCategorias key="otras" titulo={grupo.titulo} categorias={grupo.categorias} {...propsGrupo} />
+            ))}
           </div>
         </fieldset>
 
@@ -112,92 +154,37 @@ function CargoModal({ asignacion, asignaciones, cargos, categorias, onClose, onS
   )
 }
 
-function EliminarModal({ fila, onClose, onConfirm }) {
-  const [eliminando, setEliminando] = useState(false)
-  const [error, setError] = useState('')
-
-  const confirmar = async () => {
-    setEliminando(true)
-    setError('')
-    try {
-      await onConfirm()
-      onClose()
-    } catch (deleteError) {
-      setError(deleteError.message)
-      setEliminando(false)
-    }
-  }
-
-  return (
-    <Modal
-      opened
-      onClose={() => !eliminando && onClose()}
-      centered
-      title={<Text fw={700} size="xl">Quitar categoría</Text>}
-    >
-      <Text size="md">
-        ¿Seguro que desea quitar la categoría <strong>{fila.categoria.nombre}</strong> del cargo <strong>{fila.cargoNombre}</strong>?
-      </Text>
-      {fila.ultimaDelCargo && (
-        <Text size="sm" c="dimmed" mt="xs">Es la última categoría de este cargo, por lo que también se quitará el cargo.</Text>
-      )}
-      {error && <Text color="red" size="base" mt="md">{error}</Text>}
-      <Group position="right" mt="xl">
-        <Button variant="default" onClick={onClose} disabled={eliminando}>Cancelar</Button>
-        <Button color="red" onClick={confirmar} loading={eliminando}>Quitar</Button>
-      </Group>
-    </Modal>
-  )
-}
-
-function BotonIcono({ icon, label, onClick, disabled, tone = 'default' }) {
-  const color = tone === 'danger' ? 'text-error hover:bg-error-container/40' : 'text-on-surface-variant hover:bg-surface-container-high hover:text-primary'
+function BotonEditar({ label, onClick }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      disabled={disabled}
       title={label}
       aria-label={label}
-      className={`p-1.5 rounded transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent ${color}`}
+      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded text-sm font-semibold text-on-surface-variant hover:bg-surface-container-high hover:text-primary transition-colors cursor-pointer"
     >
-      <span className="material-symbols-outlined text-[20px]">{icon}</span>
+      <span className="material-symbols-outlined text-[20px]">edit</span>
+      Editar
     </button>
   )
 }
 
 export default function CategoriesTab({ asignaciones = [], cargos = [], categorias = [], editable = false, onSave }) {
   const [modalCargo, setModalCargo] = useState(null)
-  const [filaAEliminar, setFilaAEliminar] = useState(null)
-
-  const filas = asignaciones.flatMap((asignacion) => asignacion.categorias.map((categoria) => ({
-    clave: `${asignacion.cargo}-${categoria.categoria_id}`,
-    asignacion,
-    categoria,
-    cargoNombre: asignacion.cargo_nombre ?? '—',
-    ultimaDelCargo: asignacion.categorias.length === 1,
-  })))
-  const unicaFila = filas.length === 1
 
   const guardar = (nuevas) => onSave(aPayload(nuevas))
-
-  const eliminar = (fila) => guardar(asignaciones
-    .map((a) => (a === fila.asignacion
-      ? { ...a, categorias: a.categorias.filter((c) => c.categoria_id !== fila.categoria.categoria_id) }
-      : a))
-    .filter((a) => a.categorias.length > 0))
 
   return (
     <div className="flex flex-col gap-6">
       <TabHeader
         title="Categorías asignadas"
-        description="Categorías en las que participa el docente y el cargo que ocupa en cada una"
+        description="Cargos que ocupa el docente y las categorías en las que participa con cada uno"
         actions={editable && (
           <PrimaryButton icon="add" onClick={() => setModalCargo({ asignacion: null })}>Agregar cargo</PrimaryButton>
         )}
       />
 
-      {filas.length === 0 ? (
+      {asignaciones.length === 0 ? (
         <EmptyState
           icon="groups"
           title="Sin categorías asignadas"
@@ -209,31 +196,32 @@ export default function CategoriesTab({ asignaciones = [], cargos = [], categori
             <thead>
               <tr className="bg-surface-container-low/70 border-b border-outline-variant/30 text-on-surface-variant text-base uppercase tracking-wider">
                 <th className="py-3 px-4 font-semibold">Cargo</th>
-                <th className="py-3 px-4 font-semibold">Categoría</th>
+                <th className="py-3 px-4 font-semibold">Categorías</th>
                 {editable && <th className="py-3 px-4 font-semibold text-right">Acciones</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-outline-variant/20 text-base">
-              {filas.map((fila) => (
-                <tr key={fila.clave} className="hover:bg-surface-container-low transition-colors">
-                  <td className="py-3.5 px-4 text-on-surface-variant">{fila.cargoNombre}</td>
-                  <td className="py-3.5 px-4">
-                    <span className="font-semibold text-on-surface">{fila.categoria.nombre ?? '—'}</span>
+              {asignaciones.map((asignacion) => (
+                <tr key={asignacion.cargo} className="align-top hover:bg-surface-container-low transition-colors">
+                  <td className="py-3.5 px-4 font-semibold text-on-surface whitespace-nowrap">{asignacion.cargo_nombre ?? '—'}</td>
+                  <td className="py-3 px-4">
+                    <ul className="flex flex-wrap gap-1.5">
+                      {asignacion.categorias.map((categoria) => (
+                        <li
+                          key={categoria.categoria_id}
+                          className="px-2.5 py-0.5 rounded-md bg-surface-container-high text-on-surface text-base font-medium"
+                        >
+                          {etiquetaCategoria(categoria)}
+                        </li>
+                      ))}
+                    </ul>
                   </td>
                   {editable && (
                     <td className="py-2 px-4">
-                      <div className="flex items-center justify-end gap-1">
-                        <BotonIcono
-                          icon="edit"
-                          label={`Editar cargo ${fila.cargoNombre}`}
-                          onClick={() => setModalCargo({ asignacion: fila.asignacion })}
-                        />
-                        <BotonIcono
-                          icon="delete"
-                          tone="danger"
-                          label={unicaFila ? 'El docente debe tener al menos una categoría' : `Quitar ${fila.categoria.nombre}`}
-                          disabled={unicaFila}
-                          onClick={() => setFilaAEliminar(fila)}
+                      <div className="flex items-center justify-end">
+                        <BotonEditar
+                          label={`Editar cargo ${asignacion.cargo_nombre ?? ''}`.trim()}
+                          onClick={() => setModalCargo({ asignacion })}
                         />
                       </div>
                     </td>
@@ -253,14 +241,6 @@ export default function CategoriesTab({ asignaciones = [], cargos = [], categori
           categorias={categorias}
           onClose={() => setModalCargo(null)}
           onSave={guardar}
-        />
-      )}
-
-      {filaAEliminar && (
-        <EliminarModal
-          fila={filaAEliminar}
-          onClose={() => setFilaAEliminar(null)}
-          onConfirm={() => eliminar(filaAEliminar)}
         />
       )}
     </div>
