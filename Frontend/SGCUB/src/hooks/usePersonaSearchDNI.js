@@ -11,7 +11,7 @@ export const campoBloqueadoPorSocio = (datosSocio, campo) => Boolean(datosSocio)
   && !CAMPOS_EDITABLES_SOCIO.includes(campo)
   && String(datosSocio[campo] ?? '').trim() !== ''
 
-function usePersonaSearchDni({ habilitada }) {
+function usePersonaSearchDNI({ habilitada }) {
   const [coincidencias, setCoincidencias] = useState([])
   const [buscando, setBuscando] = useState(false)
   const [abiertas, setAbiertas] = useState(false)
@@ -53,4 +53,4 @@ function usePersonaSearchDni({ habilitada }) {
   return { coincidencias, buscando, abiertas, setAbiertas, buscar, limpiar }
 }
 
-export default usePersonaSearchDni
+export default usePersonaSearchDNI

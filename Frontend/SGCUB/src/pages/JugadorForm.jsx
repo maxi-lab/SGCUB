@@ -9,13 +9,12 @@ import { formatDni, formatNumber, getErrorMessage } from '../components/personas
 import PageHeader from '../components/shared/PageHeader'
 import { CAMPOS_OBLIGATORIOS, FORM_INICIAL, claseInput, enfocarCampo, socioAFormulario, validar } from '../components/socios/socioForm'
 import { Campo, InputConIcono, SeccionDatosPersonales, SeccionDomicilio, SeccionTitulo, SelectConFlecha } from '../components/socios/SocioFormFields'
-import usePersonaSearchDni, { campoBloqueadoPorSocio } from '../hooks/usePersonaSearchDNI'
+import usePersonaSearchDNI, { campoBloqueadoPorSocio } from '../hooks/usePersonaSearchDNI'
 import useCategorias from '../hooks/useCategorias'
 import useEstados from '../hooks/useEstados'
 import useGeneros from '../hooks/useGeneros'
 import useLocalidades from '../hooks/useLocalidades'
 import useSocio from '../hooks/useSocio'
-import usePersonaSearchDni from '../hooks/usePersonaSearchDNI'
 
 const CAMPOS_CONTACTO = ['dni', 'nombre', 'apellido', 'telefono', 'relacion']
 
@@ -248,7 +247,7 @@ function JugadorForm() {
   const [errorGuardado, setErrorGuardado] = useState('')
   const [agregandoContacto, setAgregandoContacto] = useState(false)
   const [personaEncontrada, setPersonaEncontrada] = useState(null)
-  const busqueda = usePersonaSearchDni({ habilitada: !editando })
+  const busqueda = usePersonaSearchDNI({ habilitada: !editando })
 
   useEffect(() => {
     if (!editando) return undefined
