@@ -13,8 +13,8 @@ import { isActiveStatus, formatDni, formatDate, formatNumber, getErrorMessage } 
 import useFinancialStatus from '../hooks/useEstadoFinanciero'
 import useLocalidades from '../hooks/useLocalidades'
 
-const getContacts = (player) => (player.contactos_emergencia ?? []).map((c) => ({
-  contacto_emergencia_id: c.contacto_emergencia_id,
+const getContacts = (player) => (player.vinculos_familiares ?? []).map((c) => ({
+  vinculo_familiar_id: c.vinculo_familiar_id,
   persona: {
     nombre: c.persona?.nombre ?? '',
     apellido: c.persona?.apellido ?? '',
@@ -57,7 +57,7 @@ function JugadorDetail() {
   const agregarContacto = async (contacto) => {
     try {
       const actualizado = await patchJugador(jugador.jugador_id, {
-        contactos_emergencia: [...getContacts(jugador), contacto],
+        vinculos_familiares: [...getContacts(jugador), contacto],
       })
       setJugador(actualizado)
     } catch (requestError) {
@@ -68,9 +68,9 @@ function JugadorDetail() {
   const eliminarContacto = async (contacto) => {
     try {
       const contactosRestantes = getContacts(jugador)
-        .filter((item) => item.contacto_emergencia_id !== contacto.contacto_emergencia_id)
+        .filter((item) => item.vinculo_familiar_id !== contacto.vinculo_familiar_id)
       const actualizado = await patchJugador(jugador.jugador_id, {
-        contactos_emergencia: contactosRestantes,
+        vinculos_familiares: contactosRestantes,
       })
       setJugador(actualizado)
     } catch (requestError) {
@@ -104,7 +104,7 @@ function JugadorDetail() {
   }
 
   const socio = jugador.socio ?? {}
-  const contactos = jugador.contactos_emergencia ?? []
+  const contactos = jugador.vinculos_familiares ?? []
 
   const tabs = [
     {

@@ -34,7 +34,7 @@ const jugadorAFormulario = (jugador) => ({
 
 const contactoAFila = (contacto) => ({
   clave: nuevaClave(),
-  contacto_emergencia_id: contacto.contacto_emergencia_id,
+  vinculo_familiar_id: contacto.vinculo_familiar_id,
   dni: String(contacto.persona?.dni ?? ''),
   nombre: contacto.persona?.nombre ?? '',
   apellido: contacto.persona?.apellido ?? '',
@@ -45,7 +45,7 @@ const contactoAFila = (contacto) => ({
 })
 
 const filaAContacto = (fila) => ({
-  ...(fila.contacto_emergencia_id ? { contacto_emergencia_id: fila.contacto_emergencia_id } : {}),
+  ...(fila.vinculo_familiar_id ? { vinculo_familiar_id: fila.vinculo_familiar_id } : {}),
   persona: {
     dni: fila.dni.trim(),
     nombre: fila.nombre.trim(),
@@ -110,7 +110,7 @@ function FilaContacto({ fila, indice, errores, mostrarSinGuardar, onChange, onRe
           <span className="text-base font-semibold text-on-surface">
             {`${fila.nombre} ${fila.apellido}`.trim() || 'Nuevo contacto'}
           </span>
-          {mostrarSinGuardar && !fila.contacto_emergencia_id && (
+          {mostrarSinGuardar && !fila.vinculo_familiar_id && (
             <span className="px-2 py-0.5 rounded-md bg-primary/10 text-primary text-sm font-medium">Sin guardar</span>
           )}
         </div>
@@ -202,7 +202,7 @@ function JugadorForm() {
         if (!activo) return
         setJugador(datos)
         setFormulario(jugadorAFormulario(datos))
-        setContactos((datos.contactos_emergencia ?? []).map(contactoAFila))
+        setContactos((datos.vinculos_familiares ?? []).map(contactoAFila))
       })
       .catch((requestError) => {
         if (activo) setErrorCarga(requestError.response?.data?.detail || 'No se pudo cargar el jugador.')
@@ -365,7 +365,7 @@ function JugadorForm() {
       ...(editando ? { estado } : {}),
       obra_social,
       tallaIndumentaria,
-      contactos_emergencia: contactos.map(filaAContacto),
+      vinculos_familiares: contactos.map(filaAContacto),
     }
 
     setGuardando(true)
@@ -620,11 +620,10 @@ function JugadorForm() {
               </div>
             </div>
 
-            {/* Contactos de emergencia */}
             <div className="flex flex-col gap-4 pt-4 border-t border-outline-variant/20">
               <SeccionTitulo
                 icono="family_restroom"
-                titulo="Contactos de Emergencia"
+                titulo="Vinculos familiares y contactos de emergencia"
                 extra={(
                   <button
                     type="button"
@@ -640,7 +639,7 @@ function JugadorForm() {
               {contactos.length === 0 ? (
                 <div className="flex flex-col items-center text-center gap-1 py-8 border border-dashed border-outline-variant/50 rounded-lg">
                   <span className="material-symbols-outlined text-[32px] text-outline">contact_emergency</span>
-                  <p className="text-base font-semibold text-on-surface">Sin contactos de emergencia</p>
+                  <p className="text-base font-semibold text-on-surface">Sin vinculos familiares</p>
                   <p className="text-sm text-on-surface-variant">Agregá al menos un familiar o responsable para este jugador.</p>
                 </div>
               ) : (

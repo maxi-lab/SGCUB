@@ -174,7 +174,7 @@ export default function FamilyTab({ contacts = [], onAdd, onDelete }) {
             <tbody className="divide-y divide-outline-variant/20 text-base">
               {contacts.map((contact, index) => (
                 <tr
-                  key={contact.contacto_emergencia_id ?? index}
+                  key={contact.vinculo_familiar_id ?? index}
                   className="hover:bg-surface-container-low transition-colors cursor-pointer group"
                   onClick={() => setSelectedContact(contact)}
                 >
