@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import FilterSelect from '../shared/FilterSelect'
 import SortableHeader from '../shared/SortableHeader'
 import useOrdenTabla from '../../hooks/useOrdenTabla'
 
@@ -97,15 +98,15 @@ function JugadoresTable({ data, categorias = [], isLoading, error, onEdit }) {
             <span className="material-symbols-outlined absolute left-4 top-1.5 text-outline text-sm" aria-hidden="true">search</span>
             <input className="w-full h-10 pl-11 pr-4 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface placeholder:text-outline font-body-sm text-sm focus:outline-none focus:border-primary focus:bg-surface-container-lowest transition-colors" placeholder="Filtrar por DNI, Nombre o Apellido..." type="text" value={busqueda} onChange={(event) => { setBusqueda(event.target.value); setPagina(1) }} aria-label="Filtrar jugadores" />
           </div>
-          <select className="w-full sm:w-auto min-w-0 max-w-full h-10 px-3 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-sm font-medium focus:outline-none focus:border-primary cursor-pointer" value={categoria} onChange={(event) => { setCategoria(event.target.value); setPagina(1) }} aria-label="Filtrar por categoría">
+          <FilterSelect className="bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-sm font-medium focus:outline-none focus:border-primary cursor-pointer" value={categoria} onChange={(event) => { setCategoria(event.target.value); setPagina(1) }} aria-label="Filtrar por categoría">
             <option value="todas">Categoría: Todas</option>
             {categorias.map((item) => <option key={item.categoria_id} value={item.categoria_id}>{item.nombre}</option>)}
-          </select>
-          <select className="w-full sm:w-auto min-w-0 max-w-full h-10 px-3 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-sm font-medium focus:outline-none focus:border-primary cursor-pointer" value={estado} onChange={(event) => { setEstado(event.target.value); setPagina(1) }} aria-label="Filtrar por estado">
+          </FilterSelect>
+          <FilterSelect className="bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-sm font-medium focus:outline-none focus:border-primary cursor-pointer" value={estado} onChange={(event) => { setEstado(event.target.value); setPagina(1) }} aria-label="Filtrar por estado">
             <option value="todos">Estado: Todos</option>
             <option value="activo">Activo</option>
             <option value="baja">De baja / Inactivo</option>
-          </select>
+          </FilterSelect>
         </div>
         <div className="flex items-center justify-end xl:shrink-0">
           <button type="button" onClick={() => exportarCSV(filtrados)} disabled={filtrados.length === 0} className="inline-flex items-center justify-center gap-1.5 h-10 px-3 w-full sm:w-auto shrink-0 bg-surface-container-low hover:bg-surface-container-high border border-outline-variant/40 text-on-surface rounded text-lg font-medium transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"><span className="material-symbols-outlined text-[16px]" aria-hidden="true">file_download</span><span>Exportar jugadores</span></button>

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import FilterSelect from '../shared/FilterSelect'
 import SortableHeader from '../shared/SortableHeader'
 import useOrdenTabla from '../../hooks/useOrdenTabla'
 
@@ -123,8 +124,8 @@ function SociosTable({ data, isLoading, error }) {
             />
           </div>
           <div className="flex items-center gap-2 w-full sm:w-auto min-w-0">
-            <select
-              className="w-full sm:w-auto min-w-0 max-w-full h-10 px-3 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-sm focus:outline-none focus:border-primary cursor-pointer"
+            <FilterSelect
+              className="bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-sm focus:outline-none focus:border-primary cursor-pointer"
               value={estado}
               onChange={(event) => {
                 setEstado(event.target.value)
@@ -135,7 +136,7 @@ function SociosTable({ data, isLoading, error }) {
               <option value="todos">Estado: Todos</option>
               <option value="activo">Activo</option>
               <option value="inactivo">Inactivo / De baja</option>
-            </select>
+            </FilterSelect>
             
           </div>
         </div>

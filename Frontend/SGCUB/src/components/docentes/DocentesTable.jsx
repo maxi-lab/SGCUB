@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import FilterSelect from '../shared/FilterSelect'
 import SortableHeader from '../shared/SortableHeader'
 import useOrdenTabla from '../../hooks/useOrdenTabla'
 import { cargosDe, esActivo, exportarNominaCSV } from './docentesUtils'
@@ -90,8 +91,8 @@ function DocentesTable({ data, categorias = [], categoriasPorDocente = {}, isLoa
               aria-label="Filtrar docentes"
             />
           </div>
-          <select
-            className="w-full sm:w-auto min-w-0 max-w-full h-10 px-3 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-sm font-medium focus:outline-none focus:border-primary cursor-pointer"
+          <FilterSelect
+            className="bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-sm font-medium focus:outline-none focus:border-primary cursor-pointer"
             value={cargo}
             onChange={(event) => {
               setCargo(event.target.value)
@@ -101,9 +102,9 @@ function DocentesTable({ data, categorias = [], categoriasPorDocente = {}, isLoa
           >
             <option value="todos">Cargo: Todos</option>
             {cargosDisponibles.map((item) => <option key={item} value={item}>{item}</option>)}
-          </select>
-          <select
-            className="w-full sm:w-auto min-w-0 max-w-full h-10 px-3 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-sm font-medium focus:outline-none focus:border-primary cursor-pointer"
+          </FilterSelect>
+          <FilterSelect
+            className="bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-sm font-medium focus:outline-none focus:border-primary cursor-pointer"
             value={categoria}
             onChange={(event) => {
               setCategoria(event.target.value)
@@ -113,9 +114,9 @@ function DocentesTable({ data, categorias = [], categoriasPorDocente = {}, isLoa
           >
             <option value="todas">Categoría: Todas</option>
             {categorias.map((item) => <option key={item.categoria_id} value={item.categoria_id}>{item.nombre}</option>)}
-          </select>
-          <select
-            className="w-full sm:w-auto min-w-0 max-w-full h-10 px-3 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-sm font-medium focus:outline-none focus:border-primary cursor-pointer"
+          </FilterSelect>
+          <FilterSelect
+            className="bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-sm font-medium focus:outline-none focus:border-primary cursor-pointer"
             value={estado}
             onChange={(event) => {
               setEstado(event.target.value)
@@ -126,7 +127,7 @@ function DocentesTable({ data, categorias = [], categoriasPorDocente = {}, isLoa
             <option value="todos">Estado: Todos</option>
             <option value="activo">Activo</option>
             <option value="baja">De baja / Inactivo</option>
-          </select>
+          </FilterSelect>
         </div>
         <div className="flex items-center justify-end xl:shrink-0">
           <button
