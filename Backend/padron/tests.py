@@ -601,6 +601,13 @@ class PadronViewTests(APITestCase):
         for campo in ("categoria", "obra_social", "tallaIndumentaria"):
             self.assertIn(campo, response.data)
 
+    def test_jugador_post_talle_invalido(self):
+        response = self.create_jugador(
+            self.crear_socio_menor_orm().socio_id, self.crear_categoria_orm().pk, tallaIndumentaria="XXXL"
+        )
+        self.assertEqual(status.HTTP_400_BAD_REQUEST, response.status_code)
+        self.assertIn("tallaIndumentaria", response.data)
+
     def test_jugador_post_sin_vinculo_familiar(self):
         response = self.create_jugador(
             self.crear_socio_menor_orm().socio_id, self.crear_categoria_orm().pk, vinculos_familiares=[]
