@@ -38,7 +38,7 @@ function Jugadores() {
           </button>
         )}
       />
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-10">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 xl:gap-10">
         <StatCard label="Total Jugadores" value={totales.total} icon="sports_soccer" tone="neutral" />
         <StatCard label="Jugadores Activos" value={totales.activos} icon="how_to_reg" tone="positive" />
         <StatCard label="Jugadores de Baja" value={totales.bajas} icon="person_off" tone="muted" />

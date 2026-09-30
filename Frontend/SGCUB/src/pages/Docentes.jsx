@@ -49,7 +49,7 @@ function Docentes() {
           </button>
         )}
       />
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-10">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 xl:gap-10">
         <StatCard label="Total Docentes" value={docentes.length.toLocaleString('es-AR')} icon="school" tone="neutral" />
       </div>
       <section aria-label="Docentes">

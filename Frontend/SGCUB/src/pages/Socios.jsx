@@ -43,7 +43,7 @@ function Padron() {
           )}
         />
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-10">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 xl:gap-10">
           <StatCard label="Total Padrón" value={totales.total} icon="group" tone="neutral" />
           <StatCard label="Activos Plenos" value={totales.activos} icon="how_to_reg" tone="positive" />
           <StatCard label="Inactivos / En Pausa" value={totales.inactivos} icon="person_off" tone="muted" />
