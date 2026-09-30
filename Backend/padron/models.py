@@ -95,9 +95,16 @@ ESTADO_ADMINISTRATIVO_ACTIVO = "Activo"
 ESTADO_ADMINISTRATIVO_INACTIVO = "Inactivo"
 
 
+from django.db import transaction
+
 def get_default_estado_administrativo():
-    estado, _ = EstadoAdministrativo.objects.get_or_create(nombre=ESTADO_ADMINISTRATIVO_ACTIVO)
-    return estado.pk
+    try:
+        with transaction.atomic():
+            estado, _ = EstadoAdministrativo.objects.get_or_create(nombre=ESTADO_ADMINISTRATIVO_ACTIVO)
+            return estado.pk
+    except Exception:
+        # Prevent migrations from crashing when the table doesn't exist yet
+        return 1
 
 
 # Alias requerido por migraciones históricas (0011, 0022) que referencian el nombre anterior.
@@ -210,10 +217,14 @@ class Categoria(models.Model):
 
 
 def get_default_categoria():
-    categoria = Categoria.objects.filter(nombre="No asignado").only("pk").first()
-    if categoria is None:
-        categoria = Categoria.objects.create(nombre="No asignado")
-    return categoria.pk
+    try:
+        with transaction.atomic():
+            categoria = Categoria.objects.filter(nombre="No asignado").only("pk").first()
+            if categoria is None:
+                categoria = Categoria.objects.create(nombre="No asignado")
+            return categoria.pk
+    except Exception:
+        return 1
 
 
 
@@ -234,8 +245,12 @@ EDAD_MAYORIA = 18
 
 
 def get_default_estado_deportivo():
-    estado, _ = EstadoDeportivo.objects.get_or_create(nombre=ESTADO_DEPORTIVO_ACTIVO)
-    return estado.pk
+    try:
+        with transaction.atomic():
+            estado, _ = EstadoDeportivo.objects.get_or_create(nombre=ESTADO_DEPORTIVO_ACTIVO)
+            return estado.pk
+    except Exception:
+        return 1
 
 SIZES_CHOICES = [
     ("XS", "Extra chica"),
