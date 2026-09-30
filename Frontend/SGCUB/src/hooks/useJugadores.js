@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
-  deleteJugador,
+  deactivateJugador,
   getJugadores,
   patchJugador,
   postJugador,
@@ -36,8 +36,8 @@ function useJugadores() {
     return jugadorEditado
   }, [cargarJugadores])
 
-  const eliminarJugador = useCallback(async (jugadorId) => {
-    await deleteJugador(jugadorId)
+  const darDeBajaJugador = useCallback(async (jugadorId) => {
+    await deactivateJugador(jugadorId)
     await cargarJugadores()
   }, [cargarJugadores])
 
@@ -51,7 +51,7 @@ function useJugadores() {
     error,
     crearJugador,
     editarJugador,
-    eliminarJugador,
+    darDeBajaJugador,
   }
 }
 

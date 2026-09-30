@@ -2,9 +2,8 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api/conf'
-import { deleteDocente, getDocente, postDocente } from '../api/docentes'
-import { deleteDocenteCategoria, docenteCategoriaByDocente, postDocenteCategoria } from '../api/docenteCategoria'
-import { CARGOS } from '../components/docentes/docentesUtils'
+import { getCargosDocente, getDocente, patchDocente, postDocente } from '../api/docentes'
+import { esCategoriaAsignable, etiquetaCategoria } from '../components/docentes/docentesUtils'
 import { ErrorFile, LoadingFile } from '../components/personas/FileStatus'
 import { formatDate, formatDni, getErrorMessage } from '../components/personas/format'
 import PageHeader from '../components/shared/PageHeader'
@@ -27,42 +26,25 @@ const formatearLegajo = (legajo) => `#${String(legajo).padStart(4, '0')}`
 
 const personaAFormulario = (persona) => {
   const datos = socioAFormulario(persona)
-  delete datos.estado_socio
+  delete datos.estado_administrativo
   return datos
 }
 
-const cargoDe = (registro) => (typeof registro.cargo === 'string' ? registro.cargo : registro.cargo?.nombre ?? '')
-const categoriaIdDe = (registro) => String(registro.categoria?.categoria_id ?? registro.categoria_id ?? '')
-
-function registrosAFilas(registros) {
-  const porCargo = new Map()
-  registros.forEach((registro) => {
-    const categoriaId = categoriaIdDe(registro)
-    if (!categoriaId) return
-    const cargo = cargoDe(registro)
-    porCargo.set(cargo, [...(porCargo.get(cargo) ?? []), categoriaId])
-  })
-  const filas = [...porCargo].map(([cargo, categorias]) => ({ clave: nuevaClave(), cargo, categorias }))
+// El backend devuelve las asignaciones agrupadas por cargo: [{ cargo, cargo_nombre, categorias: [...] }]
+function asignacionesAFilas(asignaciones = []) {
+  const filas = asignaciones.map((asignacion) => ({
+    clave: nuevaClave(),
+    cargo: asignacion.cargo ? String(asignacion.cargo) : '',
+    categorias: asignacion.categorias.map((categoria) => String(categoria.categoria_id)),
+  }))
   return filas.length > 0 ? filas : [nuevaAsignacion()]
 }
 
-// eslint-disable-next-line no-unused-vars -- desactivada hasta que el backend soporte cargo y categoría.
-async function sincronizarAsignaciones(docenteId, registros, asignaciones) {
-  const deseadas = new Map(asignaciones.flatMap((fila) => fila.categorias.map((categoriaId) => [categoriaId, fila.cargo])))
-  const aBorrar = registros.filter((registro) => deseadas.get(categoriaIdDe(registro)) !== cargoDe(registro))
-  const vigentes = new Set(registros.filter((registro) => !aBorrar.includes(registro)).map(categoriaIdDe))
+const filasAAsignaciones = (filas) => filas.map((fila) => ({
+  cargo: Number(fila.cargo),
+  categorias: fila.categorias.map(Number),
+}))
 
-  await Promise.all(aBorrar.map((registro) => deleteDocenteCategoria(registro.docente_categoria_id)))
-  await Promise.all([...deseadas]
-    .filter(([categoriaId]) => !vigentes.has(categoriaId))
-    .map(([categoriaId, cargo]) => postDocenteCategoria({
-      docente_id: Number(docenteId),
-      categoria_id: Number(categoriaId),
-      cargo,
-    })))
-}
-
-// eslint-disable-next-line no-unused-vars -- desactivada hasta que el backend soporte cargo y categoría.
 function validarAsignaciones(asignaciones) {
   const errores = {}
   const cargos = new Set()
@@ -260,8 +242,9 @@ function SelectMultiple({ id, opciones, seleccionadas, onToggle, conError, place
   )
 }
 
-function FilaAsignacion({ fila, indice, errores, categorias, categoriasOcupadas, onChange, onRemove, puedeQuitar }) {
+function FilaAsignacion({ fila, indice, errores, cargos, categorias, categoriasOcupadas, onChange, onRemove, puedeQuitar }) {
   const error = (campo) => errores[idCampoAsignacion(fila, campo)]
+  const nombreCargo = cargos.find((cargo) => String(cargo.cargo_id) === fila.cargo)?.nombre
 
   const alternarCategoria = (categoriaId) => {
     onChange('categorias', fila.categorias.includes(categoriaId)
@@ -274,7 +257,7 @@ function FilaAsignacion({ fila, indice, errores, categorias, categoriasOcupadas,
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <span className="w-7 h-7 rounded-full bg-primary/10 text-primary text-sm font-bold flex items-center justify-center">{indice + 1}</span>
-          <span className="text-base font-semibold text-on-surface">{fila.cargo || 'Nuevo cargo'}</span>
+          <span className="text-base font-semibold text-on-surface">{nombreCargo || 'Nuevo cargo'}</span>
           {fila.categorias.length > 0 && (
             <span className="px-2 py-0.5 rounded-md bg-primary/10 text-primary text-sm font-medium">
               {fila.categorias.length} {fila.categorias.length === 1 ? 'categoría' : 'categorías'}
@@ -297,7 +280,7 @@ function FilaAsignacion({ fila, indice, errores, categorias, categoriasOcupadas,
         <Campo id={idCampoAsignacion(fila, 'cargo')} label="Cargo" requerido error={error('cargo')}>
           <SelectSimple
             id={idCampoAsignacion(fila, 'cargo')}
-            opciones={CARGOS.map((cargo) => ({ valor: cargo, etiqueta: cargo }))}
+            opciones={cargos.map((cargo) => ({ valor: String(cargo.cargo_id), etiqueta: cargo.nombre }))}
             valor={fila.cargo}
             onChange={(valor) => onChange('cargo', valor)}
             conError={Boolean(error('cargo'))}
@@ -315,9 +298,9 @@ function FilaAsignacion({ fila, indice, errores, categorias, categoriasOcupadas,
         >
           <SelectMultiple
             id={idCampoAsignacion(fila, 'categorias')}
-            opciones={categorias.map((c) => ({
+            opciones={categorias.filter(esCategoriaAsignable).map((c) => ({
               valor: String(c.categoria_id),
-              etiqueta: c.nombre,
+              etiqueta: etiquetaCategoria(c),
               deshabilitadaPor: categoriasOcupadas[String(c.categoria_id)],
             }))}
             seleccionadas={fila.categorias}
@@ -348,21 +331,27 @@ function DocenteForm() {
   const [personaEncontrada, setPersonaEncontrada] = useState(null)
   const [buscandoPersona, setBuscandoPersona] = useState(false)
   const [docenteOriginal, setDocenteOriginal] = useState(null)
-  // eslint-disable-next-line no-unused-vars -- se usa al reactivar sincronizarAsignaciones.
-  const [registrosOriginales, setRegistrosOriginales] = useState([])
+  const [cargos, setCargos] = useState([])
   const [cargando, setCargando] = useState(editando)
   const [errorCarga, setErrorCarga] = useState('')
 
   useEffect(() => {
+    let activo = true
+    getCargosDocente()
+      .then((datos) => activo && setCargos(datos))
+      .catch((requestError) => console.error('Error al cargar cargos:', requestError))
+    return () => { activo = false }
+  }, [])
+
+  useEffect(() => {
     if (!editando) return undefined
     let activo = true
-    Promise.all([getDocente(id), docenteCategoriaByDocente(id).catch(() => [])])
-      .then(([docente, registros]) => {
+    getDocente(id)
+      .then((docente) => {
         if (!activo) return
         setDocenteOriginal(docente)
         setFormulario(personaAFormulario(docente.persona_detalle ?? {}))
-        setRegistrosOriginales(registros)
-        setAsignaciones(registrosAFilas(registros))
+        setAsignaciones(asignacionesAFilas(docente.asignaciones))
       })
       .catch((requestError) => {
         if (activo) setErrorCarga(requestError.response?.data?.detail || 'No se pudo cargar el docente.')
@@ -440,10 +429,12 @@ function DocenteForm() {
     limpiarError(`${clave}-${campo}`)
   }
 
+  const nombreDeCargo = (cargoId) => cargos.find((cargo) => String(cargo.cargo_id) === cargoId)?.nombre
+
   const categoriasOcupadasFuera = (clave) => Object.fromEntries(
     asignaciones
       .filter((fila) => fila.clave !== clave)
-      .flatMap((fila) => fila.categorias.map((categoriaId) => [categoriaId, fila.cargo || 'otro cargo'])),
+      .flatMap((fila) => fila.categorias.map((categoriaId) => [categoriaId, nombreDeCargo(fila.cargo) || 'otro cargo'])),
   )
 
   const quitarAsignacion = (clave) => setAsignaciones((actuales) => actuales.filter((fila) => fila.clave !== clave))
@@ -454,8 +445,7 @@ function DocenteForm() {
 
     const nuevosErrores = {
       ...validar(formulario, esGeneroOtro),
-      // TODO: reactivar cuando el backend soporte cargo y categoría del docente.
-      // ...validarAsignaciones(asignaciones),
+      ...validarAsignaciones(asignaciones),
     }
     if (docenteDelDni) nuevosErrores.dni = 'Esta persona ya está registrada como docente.'
     setErrores(nuevosErrores)
@@ -481,12 +471,9 @@ function DocenteForm() {
     if (editando) {
       try {
         await api.patch(`padron/persona/${docenteOriginal.persona}/`, datosPersona)
-        // TODO: reactivar cuando el backend soporte cargo y categoría del docente.
-        // await sincronizarAsignaciones(id, registrosOriginales, asignaciones)
+        await patchDocente(id, { asignaciones: filasAAsignaciones(asignaciones) })
         navigate(`/padron/docentes/${id}`)
       } catch (requestError) {
-        // TODO: reactivar junto con sincronizarAsignaciones.
-        // setRegistrosOriginales(await docenteCategoriaByDocente(id).catch(() => registrosOriginales))
         setErrorGuardado(getErrorMessage(requestError, 'No se pudo modificar el docente.'))
         window.scrollTo({ top: 0, behavior: 'smooth' })
       } finally {
@@ -495,7 +482,6 @@ function DocenteForm() {
       return
     }
 
-    let docente = null
     try {
       const personaExistente = personaEncontrada
         ?? (await api.get(`padron/persona/?dni=${dniIngresado}`)).data?.[0]
@@ -503,16 +489,10 @@ function DocenteForm() {
         ? (await api.patch(`padron/persona/${personaExistente.persona_id}/`, datosPersona)).data.persona_id
         : (await api.post('padron/persona/', datosPersona)).data.persona_id
 
-      docente = await postDocente({ persona: personaId, legajo: proximoLegajo })
-      // TODO: reactivar cuando el backend soporte cargo y categoría del docente.
-      // await Promise.all(asignaciones.flatMap((fila) => fila.categorias.map((categoriaId) => postDocenteCategoria({
-      //   docente_id: docente.docente_id,
-      //   categoria_id: Number(categoriaId),
-      //   cargo: fila.cargo,
-      // }))))
+      // El backend crea el docente y sus cargos en una sola operación y asigna el legajo
+      const docente = await postDocente({ persona: personaId, asignaciones: filasAAsignaciones(asignaciones) })
       navigate(`/padron/docentes/${docente.docente_id}`)
     } catch (requestError) {
-      if (docente) await deleteDocente(docente.docente_id).catch(() => {})
       setErrorGuardado(getErrorMessage(requestError, 'No se pudo agregar el docente.'))
       window.scrollTo({ top: 0, behavior: 'smooth' })
     } finally {
@@ -675,6 +655,7 @@ function DocenteForm() {
                   fila={fila}
                   indice={indice}
                   errores={errores}
+                  cargos={cargos}
                   categorias={categorias}
                   categoriasOcupadas={categoriasOcupadasFuera(fila.clave)}
                   puedeQuitar={asignaciones.length > 1}

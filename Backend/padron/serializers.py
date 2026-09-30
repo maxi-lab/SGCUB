@@ -1,6 +1,86 @@
+import re
+
 from rest_framework import serializers
 from django.db import transaction
-from .models import DocenteCategoria, Persona, Socio, Categoria, Jugador, Docente, EstadoDeportivo, ContactoEmergencia, EstadoSocio, Genero, Localidad, Domicilio
+from .models import CargoDocente, DocenteCategoria, Persona, Socio, Categoria, Jugador, Docente, EstadoDeportivo, VinculoFamiliar, EstadoAdministrativo, Genero, Localidad, Domicilio, EDAD_MAYORIA, age_from
+
+
+DNI_REGEX = re.compile(r"\d{7,8}")
+MANDATORY_PERSONA_FIELDS = {
+    "nombre": ("nombre",),
+    "apellido": ("apellido",),
+    "dni": ("dni",),
+    "telefono": ("telefono",),
+    "email": ("email",),
+    "fecha_nacimiento": ("fecha_nacimiento",),
+    "genero": ("genero",),
+    "domicilio_calle": ("domicilio", "calle"),
+    "domicilio_numero": ("domicilio", "numero"),
+    "domicilio_localidad": ("domicilio", "localidad"),
+}
+
+MANDATORY_CONTACT_FIELDS = {
+    field: MANDATORY_PERSONA_FIELDS[field] for field in ("nombre", "apellido", "dni", "telefono")
+}
+
+
+def validate_dni(value):
+    if not DNI_REGEX.fullmatch(value or ""):
+        raise serializers.ValidationError("El DNI debe ser numérico y tener entre 7 y 8 dígitos.")
+
+
+def validate_obligatory_fields(data, is_creation, fields=MANDATORY_PERSONA_FIELDS):
+    errors = {}
+    for field, path in fields.items():
+        value = data
+        present = True
+        for key in path:
+            if not isinstance(value, dict) or key not in value:
+                present = False
+                break
+            value = value[key]
+        if (is_creation and not present) or (present and value in (None, "")):
+            errors[field] = ["Este campo es obligatorio."]
+    if errors:
+        raise serializers.ValidationError(errors)
+
+
+def get_persona_profiles(person):
+    member = getattr(person, "socio", None)
+    player = getattr(member, "jugador", None) if member else None
+    teacher = getattr(person, "docente", None)
+    return {
+        "persona_id": person.pk,
+        "socio_id": member.pk if member else None,
+        "jugador_id": player.pk if player else None,
+        "docente_id": teacher.pk if teacher else None,
+    }
+
+
+def duplicated_dni_error(person, message="Ya existe una persona con este DNI."):
+    profiles = {key: pk for key, pk in get_persona_profiles(person).items() if pk is not None}
+    return serializers.ValidationError({"dni": [message], "persona_existente": profiles})
+
+
+def player_contacts_error(birth_date, legal_guardian_flags):
+    """Un jugador necesita al menos un vínculo familiar y, si es menor, un responsable legal."""
+    if not legal_guardian_flags:
+        return "Debe registrar al menos un vínculo familiar."
+    age = age_from(birth_date)
+    if age is not None and age < EDAD_MAYORIA and not any(legal_guardian_flags):
+        return "El jugador es menor de edad: al menos un vínculo familiar debe ser responsable legal."
+    return None
+
+
+def validate_dni_uniqueness(dni, current_person=None):
+    if not dni:
+        return
+    people = Persona.objects.all()
+    if current_person is not None:
+        people = people.exclude(pk=current_person.pk)
+    existing = people.filter(dni=dni).first()
+    if existing is not None:
+        raise duplicated_dni_error(existing)
 
 
 class GeneroSerializer(serializers.ModelSerializer):
@@ -21,15 +101,20 @@ class DomicilioSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
-class EstadoSocioSerializer(serializers.ModelSerializer):
+class EstadoAdministrativoSerializer(serializers.ModelSerializer):
     class Meta:
-        model = EstadoSocio
+        model = EstadoAdministrativo
         fields = "__all__"
 
 
 class PersonaSerializer(serializers.ModelSerializer):
-    dni = serializers.CharField(max_length=20, validators=[])
+    nombre = serializers.CharField(max_length=50, required=False)
+    apellido = serializers.CharField(max_length=50, required=False)
+    dni = serializers.CharField(max_length=8, required=False, validators=[validate_dni])
+    telefono = serializers.CharField(max_length=20, required=False)
     email = serializers.EmailField(max_length=100, validators=[], required=False, allow_null=True, allow_blank=True)
+    edad = serializers.IntegerField(read_only=True)
+    perfiles = serializers.SerializerMethodField()
     genero = serializers.PrimaryKeyRelatedField(queryset=Genero.objects.all(), required=False, allow_null=True)
     genero_nombre = serializers.CharField(source="genero.nombre", read_only=True)
     domicilio_calle = serializers.CharField(source="domicilio.calle", required=False, allow_blank=True, allow_null=True)
@@ -41,83 +126,71 @@ class PersonaSerializer(serializers.ModelSerializer):
     domicilio_barrio = serializers.CharField(source="domicilio.barrio", required=False, allow_blank=True, allow_null=True)
     domicilio_localidad = serializers.PrimaryKeyRelatedField(source="domicilio.localidad", queryset=Localidad.objects.all(), required=False, allow_null=True)
     domicilio_localidad_nombre = serializers.CharField(source="domicilio.localidad.nombre", read_only=True)
-    
+
     class Meta:
         model = Persona
         fields = [
             "persona_id", "nombre", "apellido", "dni", "telefono", "email",
-            "fecha_nacimiento", "genero", "genero_nombre", "genero_otro",
+            "fecha_nacimiento", "edad", "genero", "genero_nombre", "genero_otro",
             "domicilio_calle", "domicilio_numero", "domicilio_piso",
             "domicilio_departamento", "domicilio_entre_calle_1",
             "domicilio_entre_calle_2", "domicilio_barrio", "domicilio_localidad",
-            "domicilio_localidad_nombre",
+            "domicilio_localidad_nombre", "perfiles",
         ]
         read_only_fields = ["persona_id"]
 
+    def get_perfiles(self, person):
+        profiles = get_persona_profiles(person)
+        profiles.pop("persona_id")
+        return profiles
+
     @transaction.atomic
     def create(self, validated_data):
-        domicilio_data = validated_data.pop("domicilio", None)
-        if domicilio_data:
-            domicilio_data = {key: value for key, value in domicilio_data.items() if value not in (None, "")}
-            if domicilio_data.get("calle") and domicilio_data.get("numero") and domicilio_data.get("localidad"):
-                validated_data["domicilio"] = Domicilio.objects.create(**domicilio_data)
+        address_data = validated_data.pop("domicilio", None)
+        if address_data:
+            address_data = {key: value for key, value in address_data.items() if value not in (None, "")}
+            if address_data.get("calle") and address_data.get("numero") and address_data.get("localidad"):
+                validated_data["domicilio"] = Domicilio.objects.create(**address_data)
         return super().create(validated_data)
 
     @transaction.atomic
     def update(self, instance, validated_data):
-        domicilio_data = validated_data.pop("domicilio", None)
-        if domicilio_data:
-            domicilio_data = {key: value for key, value in domicilio_data.items() if value not in (None, "")}
+        address_data = validated_data.pop("domicilio", None)
+        if address_data:
+            address_data = {key: value for key, value in address_data.items() if value not in (None, "")}
             if instance.domicilio:
-                for attribute, value in domicilio_data.items():
+                for attribute, value in address_data.items():
                     setattr(instance.domicilio, attribute, value)
                 instance.domicilio.save()
-            elif domicilio_data.get("calle") and domicilio_data.get("numero") and domicilio_data.get("localidad"):
-                instance.domicilio = Domicilio.objects.create(**domicilio_data)
+            elif address_data.get("calle") and address_data.get("numero") and address_data.get("localidad"):
+                instance.domicilio = Domicilio.objects.create(**address_data)
                 instance.save(update_fields=["domicilio"])
         return super().update(instance, validated_data)
 
     def validate(self, attrs):
-        dni = attrs.get('dni')
-        email = attrs.get('email')
-        
-        if dni and not dni.isdigit():
-            raise serializers.ValidationError({"dni": "El DNI debe contener solo números."})
-        
-        persona = getattr(self.instance, "persona", None) or self.instance
-        if not persona and dni:
-            from .models import Persona
-            persona = Persona.objects.filter(dni=dni).first()
+        validate_obligatory_fields(attrs, is_creation=self.instance is None)
+        validate_dni_uniqueness(attrs.get("dni"), self.instance)
+        return attrs
 
-        if dni:
-            from .models import Persona
-            qs = Persona.objects.filter(dni=dni)
-            if persona:
-                qs = qs.exclude(pk=persona.pk)
-            if qs.exists():
-                raise serializers.ValidationError({"dni": "Ya existe una persona con este DNI."})
 
-        if email:
-            from .models import Persona
-            qs = Persona.objects.filter(email=email)
-            if persona:
-                qs = qs.exclude(pk=persona.pk)
-            if qs.exists():
-                raise serializers.ValidationError({"email": "Ya existe una persona con este email."})
-                
+class PersonaContactoSerializer(PersonaSerializer):
+    def validate(self, attrs):
+        is_creation = not getattr(self.root, "partial", False)
+        validate_obligatory_fields(attrs, is_creation, MANDATORY_CONTACT_FIELDS)
         return attrs
 
 class SocioSerializer(serializers.ModelSerializer):
     nombre = serializers.CharField(source="persona.nombre")
     apellido = serializers.CharField(source="persona.apellido")
-    dni = serializers.CharField(source="persona.dni")
+    dni = serializers.CharField(source="persona.dni", max_length=8, validators=[validate_dni])
     telefono = serializers.CharField(source="persona.telefono")
     email = serializers.EmailField(source="persona.email", required=False, allow_null=True, allow_blank=True)
     fecha_nacimiento = serializers.DateField(source="persona.fecha_nacimiento", required=False, allow_null=True)
+    edad = serializers.IntegerField(source="persona.edad", read_only=True)
     genero = serializers.PrimaryKeyRelatedField(source="persona.genero", queryset=Genero.objects.all(), required=False, allow_null=True)
     genero_nombre = serializers.CharField(source="persona.genero.nombre", read_only=True)
     genero_otro = serializers.CharField(source="persona.genero_otro", required=False, allow_null=True, allow_blank=True)
-    
+
     domicilio_calle = serializers.CharField(source="persona.domicilio.calle", required=False, allow_null=True, allow_blank=True)
     domicilio_numero = serializers.CharField(source="persona.domicilio.numero", required=False, allow_null=True, allow_blank=True)
     domicilio_piso = serializers.CharField(source="persona.domicilio.piso", required=False, allow_null=True, allow_blank=True)
@@ -126,96 +199,84 @@ class SocioSerializer(serializers.ModelSerializer):
     domicilio_entre_calle_2 = serializers.CharField(source="persona.domicilio.entre_calle_2", required=False, allow_null=True, allow_blank=True)
     domicilio_barrio = serializers.CharField(source="persona.domicilio.barrio", required=False, allow_null=True, allow_blank=True)
     domicilio_localidad = serializers.PrimaryKeyRelatedField(source="persona.domicilio.localidad", queryset=Localidad.objects.all(), required=False, allow_null=True)
-    
-    estado_socio = serializers.PrimaryKeyRelatedField(
-        queryset=EstadoSocio.objects.all(),
+
+    estado_administrativo = serializers.PrimaryKeyRelatedField(
+        queryset=EstadoAdministrativo.objects.all(),
         required=False
     )
-    estado_socio_nombre = serializers.CharField(source="estado_socio.nombre", read_only=True)
+    estado_administrativo_nombre = serializers.CharField(source="estado_administrativo.nombre", read_only=True)
 
     class Meta:
         model = Socio
         fields = [
-            "socio_id", "numero_socio", "nombre", "apellido", "dni", "telefono", "email", 
-            "fecha_nacimiento", "genero", "genero_nombre", "genero_otro", 
+            "socio_id", "numero_socio", "nombre", "apellido", "dni", "telefono", "email",
+            "fecha_nacimiento", "edad", "genero", "genero_nombre", "genero_otro",
             "domicilio_calle", "domicilio_numero", "domicilio_piso", "domicilio_departamento", "domicilio_entre_calle_1", "domicilio_entre_calle_2", "domicilio_barrio", "domicilio_localidad",
-            "estado_socio", "estado_socio_nombre", "fecha_alta"
+            "estado_administrativo", "estado_administrativo_nombre", "fecha_alta"
         ]
         read_only_fields = ["numero_socio", "fecha_alta"]
 
     def validate(self, attrs):
-        persona_data = attrs.get('persona', {})
-        dni = persona_data.get('dni')
-        email = persona_data.get('email')
-        
-        if dni and not dni.isdigit():
-            raise serializers.ValidationError({"dni": "El DNI debe contener solo números."})
-            
-        persona = getattr(self.instance, "persona", None)
-        if not persona and dni:
-            persona = Persona.objects.filter(dni=dni).first()
+        person_data = attrs.get("persona", {})
+        dni = person_data.get("dni")
+        is_creation = self.instance is None and not getattr(self.root, "partial", False)
+        validate_obligatory_fields(person_data, is_creation)
 
-        if dni:
-            qs = Persona.objects.filter(dni=dni)
-            if persona:
-                qs = qs.exclude(pk=persona.pk)
-            
-            if qs.exists():
-                raise serializers.ValidationError({"dni": "Ya existe una persona con este DNI."})
-            
-            if not getattr(self.instance, "persona", None) and persona:
-                if hasattr(persona, "socio"):
-                    if hasattr(persona.socio, "jugador"):
-                        raise serializers.ValidationError({"dni": "La persona con este DNI ya tiene un socio registrado como jugador."})
-                    elif self.parent is None:
-                        raise serializers.ValidationError({"dni": "Ya existe un socio asociado a esta persona (DNI existente)."})
+        person = getattr(self.instance, "persona", None)
+        if person is None and dni:
+            person = Persona.objects.filter(dni=dni).first()
+            member = getattr(person, "socio", None)
+            if member is not None:
+                if hasattr(member, "jugador") and member.jugador != getattr(self.root, "instance", None):
+                    raise duplicated_dni_error(person, "La persona con este DNI ya está registrada como jugador.")
+                if self.parent is None:
+                    raise duplicated_dni_error(person, "Ya existe un socio con este DNI.")
 
-        if email:
-            qs = Persona.objects.filter(email=email)
-            if persona:
-                qs = qs.exclude(pk=persona.pk)
-            if qs.exists():
-                raise serializers.ValidationError({"email": "Ya existe una persona con este email."})
-
+        validate_dni_uniqueness(dni, person)
         return attrs
+
+    def _save_person(self, person, person_data):
+        address_data = person_data.pop("domicilio", None)
+        if address_data:
+            address_data = {k: v for k, v in address_data.items() if v is not None}
+            if person.domicilio:
+                for attr, value in address_data.items():
+                    setattr(person.domicilio, attr, value)
+                person.domicilio.save()
+            elif address_data.get("calle") and address_data.get("numero") and address_data.get("localidad"):
+                person.domicilio = Domicilio.objects.create(**address_data)
+
+        for attr, value in person_data.items():
+            setattr(person, attr, value)
+        person.save()
+        return person
 
     @transaction.atomic
     def create(self, validated_data):
-        persona_data = validated_data.pop("persona")
-        dni = persona_data.get("dni")
-        if not persona_data.get("email"):
-            persona_data["email"] = None
-            
-        domicilio_data = persona_data.pop("domicilio", None)
-        if domicilio_data:
-            domicilio_data = {k: v for k, v in domicilio_data.items() if v is not None}
-            if domicilio_data:
-                persona_data["domicilio"] = Domicilio.objects.create(**domicilio_data)
-                
-        persona, _ = Persona.objects.update_or_create(dni=dni, defaults=persona_data)
-        return Socio.objects.create(persona=persona, **validated_data)
+        person_data = validated_data.pop("persona")
+        # El alta siempre queda en estado Activo (default del modelo)
+        validated_data.pop("estado_administrativo", None)
+        if not person_data.get("email"):
+            person_data["email"] = None
+
+        # Si la persona ya existe (contacto, docente o socio) se reutiliza en lugar de duplicarla
+        person = Persona.objects.filter(dni=person_data.get("dni")).first() or Persona()
+        self._save_person(person, person_data)
+
+        existing_member = getattr(person, "socio", None)
+        if existing_member is not None:
+            return existing_member
+        return Socio.objects.create(persona=person, **validated_data)
 
     @transaction.atomic
     def update(self, instance, validated_data):
-        persona_data = validated_data.pop("persona", None)
-        if persona_data:
-            if not persona_data.get("email"):
-                persona_data["email"] = None
-                
-            domicilio_data = persona_data.pop("domicilio", None)
-            if domicilio_data:
-                domicilio_data = {k: v for k, v in domicilio_data.items() if v is not None}
-                if instance.persona.domicilio:
-                    for attr, value in domicilio_data.items():
-                        setattr(instance.persona.domicilio, attr, value)
-                    instance.persona.domicilio.save()
-                elif domicilio_data:
-                    instance.persona.domicilio = Domicilio.objects.create(**domicilio_data)
-                    
-            for attr, value in persona_data.items():
-                setattr(instance.persona, attr, value)
-            instance.persona.save()
-        return super().update(instance, validated_data)
+        person_data = validated_data.pop("persona", None)
+        if person_data:
+            self._save_person(instance.persona, person_data)
+        member = super().update(instance, validated_data)
+        if "estado_administrativo" in validated_data and member.is_inactive:
+            member.deactivate()
+        return member
 
 
 class CategoriaSerializer(serializers.ModelSerializer):
@@ -247,22 +308,22 @@ class CategoriaSerializer(serializers.ModelSerializer):
         return value
 
     def validate(self, attrs):
-        def actual(campo):
-            if campo in attrs:
-                return attrs[campo]
-            return getattr(self.instance, campo, None)
-        nombre = actual("nombre")
-        anio_vigente = actual("anio_vigente")
-        genero = actual("genero")
-        if nombre and anio_vigente and genero:
-            categorias = Categoria.objects.filter(
-                nombre__iexact=nombre,
-                anio_vigente=anio_vigente,
-                genero=genero,
+        def current(field):
+            if field in attrs:
+                return attrs[field]
+            return getattr(self.instance, field, None)
+        name = current("nombre")
+        current_year = current("anio_vigente")
+        gender = current("genero")
+        if name and current_year and gender:
+            categories = Categoria.objects.filter(
+                nombre__iexact=name,
+                anio_vigente=current_year,
+                genero=gender,
             )
             if self.instance is not None:
-                categorias = categorias.exclude(pk=self.instance.pk)
-            if categorias.exists():
+                categories = categories.exclude(pk=self.instance.pk)
+            if categories.exists():
                 raise serializers.ValidationError(
                     "Ya existe una categoría con ese nombre, año vigente y género."
                 )
@@ -276,41 +337,48 @@ class EstadoDeportivoSerializer(serializers.ModelSerializer):
         read_only_fields = ["estado_id"]
 
 
-class ContactoEmergenciaSerializer(serializers.ModelSerializer):
-    contacto_emergencia_id = serializers.IntegerField(required=False)
-    persona = PersonaSerializer()
+class VinculoFamiliarSerializer(serializers.ModelSerializer):
+    vinculo_familiar_id = serializers.IntegerField(required=False)
+    persona = PersonaContactoSerializer()
     jugador = serializers.PrimaryKeyRelatedField(queryset=Jugador.objects.all(), required=False)
 
     class Meta:
-        model = ContactoEmergencia
-        fields = ['contacto_emergencia_id', 'persona', 'jugador', 'responsable_legal', 'relacion']
+        model = VinculoFamiliar
+        fields = ['vinculo_familiar_id', 'persona', 'jugador', 'responsable_legal', 'relacion']
 
     def validate(self, attrs):
-        persona_data = attrs.get('persona', {})
-        if not persona_data.get('telefono'):
-            raise serializers.ValidationError({'persona': {'telefono': 'El teléfono es obligatorio para los contactos de emergencia.'}})
+        if 'persona' in attrs and not attrs['persona'].get('telefono'):
+            raise serializers.ValidationError({'persona': {'telefono': 'El teléfono es obligatorio para los vinculos familiares.'}})
+
+        # Editado por separado (no dentro del jugador): no puede dejar a un menor sin responsable legal
+        if self.parent is None and self.instance is not None and "responsable_legal" in attrs:
+            player = self.instance.jugador
+            flags = list(player.vinculos_familiares.exclude(pk=self.instance.pk).values_list("responsable_legal", flat=True))
+            error = player_contacts_error(player.socio.persona.fecha_nacimiento, flags + [attrs["responsable_legal"]])
+            if error:
+                raise serializers.ValidationError({"responsable legal": [error]})
         return attrs
 
     @transaction.atomic
     def create(self, validated_data):
-        persona_data = validated_data.pop("persona")
-        dni = persona_data.get("dni")
-        if not persona_data.get("email"):
-            persona_data["email"] = None
-        persona, _ = Persona.objects.update_or_create(dni=dni, defaults=persona_data)
-        validated_data.pop("contacto_emergencia_id", None)
-        return ContactoEmergencia.objects.create(persona=persona, **validated_data)
+        person_data = validated_data.pop("persona")
+        dni = person_data.get("dni")
+        if not person_data.get("email"):
+            person_data["email"] = None
+        person, _ = Persona.objects.update_or_create(dni=dni, defaults=person_data)
+        validated_data.pop("vinculo_familiar_id", None)
+        return VinculoFamiliar.objects.create(persona=person, **validated_data)
 
     @transaction.atomic
     def update(self, instance, validated_data):
-        persona_data = validated_data.pop("persona", None)
-        validated_data.pop("contacto_emergencia_id", None)
-        if persona_data:
-            dni = persona_data.get("dni")
-            if not persona_data.get("email"):
-                persona_data["email"] = None
-            persona, _ = Persona.objects.update_or_create(dni=dni, defaults=persona_data)
-            instance.persona = persona
+        person_data = validated_data.pop("persona", None)
+        validated_data.pop("vinculo_familiar_id", None)
+        if person_data:
+            dni = person_data.get("dni")
+            if not person_data.get("email"):
+                person_data["email"] = None
+            person, _ = Persona.objects.update_or_create(dni=dni, defaults=person_data)
+            instance.persona = person
             instance.save()
         return super().update(instance, validated_data)
 
@@ -318,13 +386,16 @@ class ContactoEmergenciaSerializer(serializers.ModelSerializer):
 class JugadorSerializer(serializers.ModelSerializer):
     socio = serializers.PrimaryKeyRelatedField(queryset=Socio.objects.all(), required=False, allow_null=True)
     nuevo_socio = SocioSerializer(required=False, write_only=True, allow_null=True)
-    categoria = serializers.PrimaryKeyRelatedField(queryset=Categoria.objects.all(), allow_null=True, required=False)
-    estado = serializers.PrimaryKeyRelatedField(queryset=EstadoDeportivo.objects.all(), allow_null=True, required=False)
-    contactos_emergencia = ContactoEmergenciaSerializer(many=True, required=False)
+    categoria = serializers.PrimaryKeyRelatedField(queryset=Categoria.objects.all())
+    categoria_secundaria = serializers.PrimaryKeyRelatedField(queryset=Categoria.objects.all(), allow_null=True, required=False)
+    obra_social = serializers.CharField(max_length=50)
+    tallaIndumentaria = serializers.CharField(max_length=50)
+    estado = serializers.PrimaryKeyRelatedField(queryset=EstadoDeportivo.objects.all(), required=False)
+    vinculos_familiares = VinculoFamiliarSerializer(many=True, required=False)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['contactos_emergencia'].child.fields['jugador'].read_only = True
+        self.fields['vinculos_familiares'].child.fields['jugador'].read_only = True
 
     class Meta:
         model = Jugador
@@ -333,154 +404,291 @@ class JugadorSerializer(serializers.ModelSerializer):
             "socio",
             "nuevo_socio",
             "categoria",
+            "categoria_secundaria",
             "obra_social",
             "tallaIndumentaria",
             "estado",
-            "contactos_emergencia",
+            "vinculos_familiares",
         ]
 
-    def validate(self, attrs):
-        socio = attrs.get('socio')
-        nuevo_socio = attrs.get('nuevo_socio')
+    def _birth_date(self, attrs):
+        new_member_person = (attrs.get("nuevo_socio") or {}).get("persona", {})
+        if "fecha_nacimiento" in new_member_person:
+            return new_member_person["fecha_nacimiento"]
+        member = attrs.get("socio") or getattr(self.instance, "socio", None)
+        return member.persona.fecha_nacimiento if member else None
 
-        if self.instance is None and not socio and not nuevo_socio:
+    def validate(self, attrs):
+        member = attrs.get('socio')
+        new_member = attrs.get('nuevo_socio')
+        is_creation = self.instance is None
+
+        if is_creation and not member and not new_member:
             raise serializers.ValidationError({"socio": "Debe seleccionar un socio existente o ingresar los datos de un nuevo socio."})
 
-        if socio:
-            jugadores = Jugador.objects.filter(socio=socio)
+        if member:
+            players = Jugador.objects.filter(socio=member)
             if self.instance is not None:
-                jugadores = jugadores.exclude(pk=self.instance.pk)
-            if jugadores.exists():
+                players = players.exclude(pk=self.instance.pk)
+            if players.exists():
                 raise serializers.ValidationError({"socio": "Este socio ya tiene un jugador asociado."})
 
-        if nuevo_socio and self.instance is None:
-            persona_data = nuevo_socio.get('persona', {})
-            dni = persona_data.get('dni')
-            if dni:
-                persona = Persona.objects.filter(dni=dni).first()
-                if persona and hasattr(persona, 'socio') and hasattr(persona.socio, 'jugador'):
-                    raise serializers.ValidationError({"nuevo_socio": "La persona con este DNI ya tiene un socio registrado como jugador."})
+        self._validate_categories_and_contacts(attrs, is_creation)
 
-        for contacto in attrs.get('contactos_emergencia', []):
-            persona_data = contacto.get('persona', {})
-            telefono = persona_data.get('telefono')
-            if not telefono:
-                raise serializers.ValidationError({'contactos_emergencia': 'El teléfono es obligatorio para los contactos de emergencia.'})
+        for contact in attrs.get('vinculos_familiares', []):
+            person_data = contact.get('persona', {})
+            phone = person_data.get('telefono')
+            if not phone:
+                raise serializers.ValidationError({'vinculos_familiares': 'El teléfono es obligatorio para los vinculos familiares.'})
 
-            dni = persona_data.get('dni')
+            dni = person_data.get('dni')
             if not dni:
                 continue
-            
-            contacto_id = contacto.get('contacto_emergencia_id')
-            
-            if not contacto_id and self.instance:
-                if self.instance.contactos_emergencia.filter(persona__dni=dni).exists():
-                    raise serializers.ValidationError({'contactos_emergencia': 'Esta persona ya es contacto de emergencia de este jugador.'})
 
-            personas = Persona.objects.filter(dni=dni)
-            if contacto_id:
+            contact_id = contact.get('vinculo_familiar_id')
+
+            if not contact_id and self.instance:
+                if self.instance.vinculos_familiares.filter(persona__dni=dni).exists():
+                    raise serializers.ValidationError({'Vinculos familiares': 'Esta persona ya esta asociada a este jugador.'})
+
+            people = Persona.objects.filter(dni=dni)
+            if contact_id:
                 try:
-                    personas = personas.exclude(pk=ContactoEmergencia.objects.get(pk=contacto_id).persona_id)
-                except ContactoEmergencia.DoesNotExist:
-                    raise serializers.ValidationError({'contactos_emergencia': 'El contacto indicado no pertenece al jugador.'})
+                    people = people.exclude(pk=VinculoFamiliar.objects.get(pk=contact_id).persona_id)
+                except VinculoFamiliar.DoesNotExist:
+                    raise serializers.ValidationError({'vinculos familiares': 'El contacto indicado no pertenece al jugador.'})
         return attrs
+
+    def _validate_categories_and_contacts(self, attrs, is_creation):
+        errors = {}
+        birth_date = self._birth_date(attrs)
+        birth_date_changed = "fecha_nacimiento" in (attrs.get("nuevo_socio") or {}).get("persona", {})
+        if is_creation and birth_date is None:
+            errors["fecha_nacimiento"] = ["El socio debe tener fecha de nacimiento para registrarlo como jugador."]
+
+        category = attrs.get("categoria", getattr(self.instance, "categoria", None))
+        category_changed = is_creation or category != getattr(self.instance, "categoria", None)
+        if birth_date and category and (category_changed or birth_date_changed) and not category.accepts_age(birth_date):
+            errors["categoria"] = [
+                f"El jugador tiene {category.competition_age(birth_date)} años en la temporada {category.anio_vigente} "
+                f"y la categoría {category.nombre} admite hasta {category.edad_maxima}."
+            ]
+
+        secondary = attrs.get("categoria_secundaria", getattr(self.instance, "categoria_secundaria", None))
+        if secondary is not None and secondary == category:
+            errors["categoria_secundaria"] = ["La categoría secundaria debe ser distinta de la principal."]
+
+        if "vinculos_familiares" in attrs:
+            flags = [contact.get("responsable_legal", False) for contact in attrs["vinculos_familiares"]]
+        elif self.instance is not None:
+            flags = list(self.instance.vinculos_familiares.values_list("responsable_legal", flat=True))
+        else:
+            flags = []
+        if is_creation or "vinculos_familiares" in attrs or birth_date_changed:
+            contacts_error = player_contacts_error(birth_date, flags)
+            if contacts_error:
+                errors["vinculos_familiares"] = [contacts_error]
+
+        if errors:
+            raise serializers.ValidationError(errors)
 
     @transaction.atomic
     def create(self, validated_data):
-        nuevo_socio_data = validated_data.pop("nuevo_socio", None)
-        if nuevo_socio_data:
-            socio_serializer = SocioSerializer()
-            socio = socio_serializer.create(nuevo_socio_data)
-            validated_data["socio"] = socio
+        new_member_data = validated_data.pop("nuevo_socio", None)
+        if new_member_data:
+            member_serializer = SocioSerializer()
+            member = member_serializer.create(new_member_data)
+            validated_data["socio"] = member
 
-        if not validated_data.get("categoria"):
-            from .models import get_default_categoria
-            validated_data.pop("categoria", None)
-            validated_data["categoria_id"] = get_default_categoria()
+        # El alta siempre queda en estado deportivo Activo (default del modelo)
+        validated_data.pop("estado", None)
 
-        if not validated_data.get("estado"):
-            from .models import get_default_estado_deportivo
-            validated_data.pop("estado", None)
-            validated_data["estado_id"] = get_default_estado_deportivo()
-
-        contactos_data = validated_data.pop("contactos_emergencia", [])
-        jugador = Jugador.objects.create(**validated_data)
-        for contacto_data in contactos_data:
-            contacto_data["jugador"] = jugador
-            ContactoEmergenciaSerializer().create(contacto_data)
-        return jugador
+        contacts_data = validated_data.pop("vinculos_familiares", [])
+        player = Jugador.objects.create(**validated_data)
+        player.activate_member_if_inactive()
+        for contact_data in contacts_data:
+            contact_data["jugador"] = player
+            VinculoFamiliarSerializer().create(contact_data)
+        return player
 
     @transaction.atomic
     def update(self, instance, validated_data):
-        nuevo_socio_data = validated_data.pop("nuevo_socio", None)
-        if nuevo_socio_data:
-            socio_serializer = SocioSerializer()
+        new_member_data = validated_data.pop("nuevo_socio", None)
+        if new_member_data:
+            member_serializer = SocioSerializer()
             if hasattr(instance, 'socio') and instance.socio:
-                socio = socio_serializer.update(instance.socio, nuevo_socio_data)
+                member = member_serializer.update(instance.socio, new_member_data)
             else:
-                socio = socio_serializer.create(nuevo_socio_data)
-            validated_data["socio"] = socio
+                member = member_serializer.create(new_member_data)
+            validated_data["socio"] = member
 
-        contactos_data = validated_data.pop("contactos_emergencia", None)
-        jugador = super().update(instance, validated_data)
-        if contactos_data is not None:
-            contactos_ids = set()
-            for contacto_data in contactos_data:
-                contacto_id = contacto_data.get("contacto_emergencia_id")
-                contacto_data["jugador"] = jugador
-                if contacto_id:
-                    contacto = instance.contactos_emergencia.get(pk=contacto_id)
-                    ContactoEmergenciaSerializer().update(contacto, contacto_data)
-                    contactos_ids.add(contacto_id)
+        contacts_data = validated_data.pop("vinculos_familiares", None)
+        player = super().update(instance, validated_data)
+        if "estado" in validated_data:
+            player.activate_member_if_inactive()
+        if contacts_data is not None:
+            contact_ids = set()
+            for contact_data in contacts_data:
+                contact_id = contact_data.get("vinculo_familiar_id")
+                contact_data["jugador"] = player
+                if contact_id:
+                    contact = instance.vinculos_familiares.get(pk=contact_id)
+                    VinculoFamiliarSerializer().update(contact, contact_data)
+                    contact_ids.add(contact_id)
                 else:
-                    new_contacto = ContactoEmergenciaSerializer().create(contacto_data)
-                    contactos_ids.add(new_contacto.pk)
-            instance.contactos_emergencia.exclude(pk__in=contactos_ids).delete()
-        return jugador
+                    new_contact = VinculoFamiliarSerializer().create(contact_data)
+                    contact_ids.add(new_contact.pk)
+            instance.vinculos_familiares.exclude(pk__in=contact_ids).delete()
+        return player
 
 
 class JugadorListSerializer(serializers.ModelSerializer):
     socio = SocioSerializer(read_only=True)
     categoria = CategoriaSerializer(read_only=True)
+    categoria_secundaria = CategoriaSerializer(read_only=True)
     estado = EstadoDeportivoSerializer(read_only=True)
-    contactos_emergencia = ContactoEmergenciaSerializer(many=True, read_only=True)
+    vinculos_familiares = VinculoFamiliarSerializer(many=True, read_only=True)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['contactos_emergencia'].child.fields['jugador'].read_only = True
+        self.fields['vinculos_familiares'].child.fields['jugador'].read_only = True
 
     class Meta:
         model = Jugador
-        fields = ["jugador_id", "socio", "categoria", "obra_social", "tallaIndumentaria", "estado", "contactos_emergencia"]
+        fields = ["jugador_id", "socio", "categoria", "categoria_secundaria", "obra_social", "tallaIndumentaria", "estado", "vinculos_familiares"]
 
 
 class JugadorSerializerDetail(serializers.ModelSerializer):
     socio = SocioSerializer(read_only=True)
     categoria = CategoriaSerializer(read_only=True)
+    categoria_secundaria = CategoriaSerializer(read_only=True)
     estado = EstadoDeportivoSerializer(read_only=True)
-    contactos_emergencia = serializers.SerializerMethodField()
+    vinculos_familiares = serializers.SerializerMethodField()
 
-    def get_contactos_emergencia(self, jugador):
-        return ContactoEmergenciaSerializer(jugador.contactos_emergencia.select_related("persona"), many=True).data
+    def get_vinculos_familiares(self, player):
+        return VinculoFamiliarSerializer(player.vinculos_familiares.select_related("persona"), many=True).data
 
     class Meta:
         model = Jugador
-        fields = ["jugador_id", "socio", "categoria", "obra_social", "tallaIndumentaria", "contactos_emergencia", "estado"]
+        fields = ["jugador_id", "socio", "categoria", "categoria_secundaria", "obra_social", "tallaIndumentaria", "vinculos_familiares", "estado"]
         read_only_fields = ["jugador_id"]
+
+
+class CargoDocenteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CargoDocente
+        fields = ["cargo_id", "nombre"]
+
+
+class AsignacionDocenteSerializer(serializers.Serializer):
+    """Un cargo del docente con las categorías en las que lo ejerce."""
+    cargo = serializers.PrimaryKeyRelatedField(queryset=CargoDocente.objects.all())
+    categorias = serializers.PrimaryKeyRelatedField(queryset=Categoria.objects.all(), many=True, allow_empty=False)
+
+
+def group_teacher_assignments(teacher):
+    groups = {}
+    assignments = sorted(
+        teacher.categorias_docente.all(),
+        key=lambda a: (a.cargo.nombre if a.cargo else "", a.categoria.nombre),
+    )
+    for assignment in assignments:
+        group = groups.setdefault(assignment.cargo_id, {
+            "cargo": assignment.cargo_id,
+            "cargo_nombre": assignment.cargo.nombre if assignment.cargo else None,
+            "categorias": [],
+        })
+        group["categorias"].append(CategoriaSerializer(assignment.categoria).data)
+    return list(groups.values())
 
 
 class DocenteSerializer(serializers.ModelSerializer):
     persona = serializers.PrimaryKeyRelatedField(queryset=Persona.objects.all())
     persona_detalle = PersonaSerializer(source="persona", read_only=True)
+    estado = serializers.PrimaryKeyRelatedField(queryset=EstadoAdministrativo.objects.all(), required=False)
+    estado_nombre = serializers.CharField(source="estado.nombre", read_only=True)
+    # Escritura: [{"cargo": id, "categorias": [ids]}]. Lectura: agrupado por cargo con el detalle de cada categoría.
+    asignaciones = AsignacionDocenteSerializer(many=True, required=False, write_only=True)
 
     class Meta:
         model = Docente
-        fields = ["docente_id", "persona", "persona_detalle", "legajo", "fecha_ingreso"]
-        read_only_fields = ["docente_id"]
+        fields = [
+            "docente_id", "persona", "persona_detalle", "legajo", "fecha_ingreso",
+            "estado", "estado_nombre", "asignaciones",
+        ]
+        read_only_fields = ["docente_id", "legajo", "fecha_ingreso"]
+
+    def to_representation(self, teacher):
+        data = super().to_representation(teacher)
+        data["asignaciones"] = group_teacher_assignments(teacher)
+        return data
+
+    def validate(self, attrs):
+        is_creation = self.instance is None
+        person = attrs.get("persona")
+        if person is not None and person != getattr(self.instance, "persona", None):
+            existing = getattr(person, "docente", None)
+            if existing is not None:
+                raise serializers.ValidationError({
+                    "persona": ["Esta persona ya está registrada como docente."],
+                    "persona existente": {"docente_id": existing.pk},
+                })
+
+        assignments = attrs.get("asignaciones")
+        # Tanto en el alta como en una modificación el docente debe quedar con al menos un cargo con categoría
+        keeps_current_assignments = assignments is None and not is_creation and self.instance.has_assignments()
+        if not assignments and not keeps_current_assignments:
+            raise serializers.ValidationError({"asignaciones": ["Debe asignar al menos un cargo con sus categorías."]})
+        if assignments is not None:
+            self._validate_assignments(assignments)
+        return attrs
+
+    def _validate_assignments(self, assignments):
+        if not assignments:
+            raise serializers.ValidationError({"asignaciones": ["El docente debe tener al menos un cargo."]})
+        positions = [assignment["cargo"] for assignment in assignments]
+        if len(positions) != len(set(positions)):
+            raise serializers.ValidationError({"asignaciones": ["Cada cargo se puede agregar una sola vez."]})
+        categories = [category for assignment in assignments for category in assignment["categorias"]]
+        if len(categories) != len(set(categories)):
+            raise serializers.ValidationError({"asignaciones": ["Una categoría no puede estar asignada a más de un cargo del mismo docente."]})
+
+    def _save_assignments(self, teacher, assignments):
+        teacher.categorias_docente.all().delete()
+        DocenteCategoria.objects.bulk_create([
+            DocenteCategoria(docente=teacher, cargo=assignment["cargo"], categoria=category)
+            for assignment in assignments
+            for category in assignment["categorias"]
+        ])
+
+    @transaction.atomic
+    def create(self, validated_data):
+        assignments = validated_data.pop("asignaciones")
+        # El alta siempre queda en estado Activo; legajo y fecha de ingreso se asignan solos
+        validated_data.pop("estado", None)
+        teacher = Docente.objects.create(**validated_data)
+        self._save_assignments(teacher, assignments)
+        return teacher
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        assignments = validated_data.pop("asignaciones", None)
+        teacher = super().update(instance, validated_data)
+        if assignments is not None:
+            self._save_assignments(teacher, assignments)
+        return teacher
+
 
 class DocenteCategoriaSerializer(serializers.ModelSerializer):
     docente = DocenteSerializer(read_only=True)
     categoria = CategoriaSerializer(read_only=True)
+    cargo = CargoDocenteSerializer(read_only=True)
+    cargo_id = serializers.PrimaryKeyRelatedField(
+        source="cargo",
+        queryset=CargoDocente.objects.all(),
+        write_only=True,
+        required=True,
+    )
     docente_id = serializers.PrimaryKeyRelatedField(
         source="docente",
         queryset=Docente.objects.all(),
@@ -496,5 +704,5 @@ class DocenteCategoriaSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = DocenteCategoria
-        fields = ["docente_categoria_id", "docente", "categoria", "docente_id", "categoria_id"]
+        fields = ["docente_categoria_id", "docente", "categoria", "cargo", "docente_id", "categoria_id", "cargo_id"]
         read_only_fields = ["docente_categoria_id"]

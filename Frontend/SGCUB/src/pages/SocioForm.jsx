@@ -150,7 +150,7 @@ function SocioForm() {
     }
 
     const payload = { ...formulario }
-    if (!payload.estado_socio) delete payload.estado_socio
+    if (!payload.estado_administrativo) delete payload.estado_administrativo
     if (!esGeneroOtro) payload.genero_otro = ''
 
     setGuardando(true)
@@ -305,7 +305,7 @@ function SocioForm() {
                             El documento ingresado pertenece a{' '}
                             <strong>{`${socioDuplicado.nombre ?? ''} ${socioDuplicado.apellido ?? ''}`.trim()}</strong>
                             {' '}(Socio N° {socioDuplicado.numero_socio ? formatearNumeroSocio(socioDuplicado.numero_socio) : '—'}
-                            {socioDuplicado.estado_socio_nombre ? ` - ${socioDuplicado.estado_socio_nombre}` : ''}).
+                            {socioDuplicado.estado_administrativo_nombre ? ` - ${socioDuplicado.estado_administrativo_nombre}` : ''}).
                             {' '}No es posible duplicar legajos en el padrón.
                           </p>
                         </div>
@@ -340,8 +340,8 @@ function SocioForm() {
               <div className="flex flex-col gap-4 pt-4 border-t border-outline-variant/20">
                 <SeccionTitulo icono="verified_user" titulo="Estado Institucional" />
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
-                  <Campo id="estado_socio" label="Estado" requerido>
-                    <SelectConFlecha {...bindInput('estado_socio')} conError={false}>
+                  <Campo id="estado_administrativo" label="Estado" requerido>
+                    <SelectConFlecha {...bindInput('estado_administrativo')} conError={false}>
                       <option value="" disabled>Seleccione estado...</option>
                       {estadosSocio.map((e) => (
                         <option key={e.estado_id} value={String(e.estado_id)}>{e.nombre}</option>

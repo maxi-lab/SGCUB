@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { deleteSocio, getSocio } from '../api/socios'
-import DeleteSocioModal from '../components/socios/DeleteSocioModal'
-import PersonHeader, { EditButton, DeleteButton } from '../components/personas/HeaderPersona'
+import { activateSocio, deactivateSocio, getSocio } from '../api/socios'
+import ActivateSocioModal from '../components/socios/ActivateSocioModal'
+import DeactivateSocioModal from '../components/socios/DeactivateSocioModal'
+import PersonHeader, { EditButton, DeactivateButton, ActivateButton } from '../components/personas/HeaderPersona'
 import PersonTabs from '../components/personas/TabsNavPersonas'
 import PersonalDataTab from '../components/personas/tabs/PersonalDataTab'
 import FinancialTab from '../components/personas/tabs/FinancialTab'
@@ -17,15 +18,17 @@ function SocioDetail() {
   const { localidades } = useLocalidades()
   const financiero = useFinancialStatus(id)
 
-  // Guarda el id cargado para derivar "cargando" sin setState síncrono en el effect.
   const [carga, setCarga] = useState({ id: null, datos: null, error: null })
   const loading = carga.id !== id
   const socio = carga.datos
   const error = carga.error
 
-  const [modalEliminarAbierto, setModalEliminarAbierto] = useState(false)
-  const [eliminando, setEliminando] = useState(false)
+  const [modaldeactivateAbierto, setModaldeactivateAbierto] = useState(false)
+  const [deactivate, setdeactivate] = useState(false)
   const [errorEliminacion, setErrorEliminacion] = useState('')
+  const [modalActivarAbierto, setModalActivarAbierto] = useState(false)
+  const [activando, setActivando] = useState(false)
+  const [errorActivacion, setErrorActivacion] = useState('')
 
   useEffect(() => {
     let activo = true
@@ -38,16 +41,30 @@ function SocioDetail() {
   }, [id])
 
   const confirmarEliminacion = async () => {
-    setEliminando(true)
+    setdeactivate(true)
     setErrorEliminacion('')
     try {
-      await deleteSocio(socio.socio_id)
-      setModalEliminarAbierto(false)
+      await deactivateSocio(socio.socio_id)
+      setModaldeactivateAbierto(false)
       navigate('/padron/socios')
     } catch (requestError) {
-      setErrorEliminacion(requestError.response?.data?.detail || 'No se pudo eliminar el socio.')
+      setErrorEliminacion(requestError.response?.data?.detail || 'No se pudo dar de baja al socio.')
     } finally {
-      setEliminando(false)
+      setdeactivate(false)
+    }
+  }
+
+  const confirmarActivacion = async () => {
+    setActivando(true)
+    setErrorActivacion('')
+    try {
+      const actualizado = await activateSocio(socio.socio_id)
+      setCarga((actual) => ({ ...actual, datos: actualizado }))
+      setModalActivarAbierto(false)
+    } catch (requestError) {
+      setErrorActivacion(requestError.response?.data?.detail || 'No se pudo dar de alta al socio.')
+    } finally {
+      setActivando(false)
     }
   }
 
@@ -55,6 +72,8 @@ function SocioDetail() {
   if (error || !socio) {
     return <ErrorFile message={error || 'El socio solicitado no existe.'} backTo="/padron/socios" backText="Volver al padrón" />
   }
+
+  const activo = isActiveStatus(socio.estado_administrativo_nombre)
 
   const tabs = [
     {
@@ -82,34 +101,50 @@ function SocioDetail() {
         ]}
         name={socio.nombre}
         surname={socio.apellido}
-        status={socio.estado_socio_nombre ? { label: socio.estado_socio_nombre, isActive: isActiveStatus(socio.estado_socio_nombre) } : null}
+        status={socio.estado_administrativo_nombre ? { label: socio.estado_administrativo_nombre, isActive: isActiveStatus(socio.estado_administrativo_nombre) } : null}
         metadata={[
           { label: 'DNI', value: formatDni(socio.dni) },
           { label: 'Socio N°', value: formatNumber(socio.numero_socio), highlighted: true },
           { label: 'Fecha de alta', value: formatDate(socio.fecha_alta) },
           { label: 'Antigüedad', value: yearsText(yearsSince(socio.fecha_alta)) },
         ]}
-        actions={(
+        actions={activo ? (
           <>
             <EditButton onClick={() => navigate(`/padron/socios/${socio.socio_id}/editar`)} />
-            <DeleteButton
+            <DeactivateButton
               onClick={() => {
                 setErrorEliminacion('')
-                setModalEliminarAbierto(true)
+                setModaldeactivateAbierto(true)
               }}
             />
           </>
+        ) : (
+          <ActivateButton
+            onClick={() => {
+              setErrorActivacion('')
+              setModalActivarAbierto(true)
+            }}
+          />
         )}
       />
 
       <PersonTabs tabs={tabs} />
 
-      <DeleteSocioModal
-        opened={modalEliminarAbierto}
-        onClose={() => !eliminando && setModalEliminarAbierto(false)}
+      <ActivateSocioModal
+        opened={modalActivarAbierto}
+        onClose={() => !activando && setModalActivarAbierto(false)}
+        onConfirm={confirmarActivacion}
+        socio={socio}
+        loading={activando}
+        error={errorActivacion}
+      />
+
+      <DeactivateSocioModal
+        opened={modaldeactivateAbierto}
+        onClose={() => !deactivate && setModaldeactivateAbierto(false)}
         onConfirm={confirmarEliminacion}
         socio={socio}
-        loading={eliminando}
+        loading={deactivate}
         error={errorEliminacion}
       />
     </div>

@@ -1,18 +1,18 @@
 import { Button, Group, Modal, Text } from '@mantine/core'
 
-function DeleteSocioModal({ opened, onClose, onConfirm, socio, loading, error }) {
-  const nombreCompleto = socio
-    ? `${socio.nombre} ${socio.apellido}`.trim()
-    : 'este socio'
+function DeactivateDocenteModal({ opened, onClose, onConfirm, docente, loading, error }) {
+  const nombreCompleto = [docente?.persona_detalle?.nombre, docente?.persona_detalle?.apellido]
+    .filter(Boolean)
+    .join(' ') || 'este docente'
 
   return (
     <Modal opened={opened} onClose={onClose} title={
     <Text fw={700} size="xl" >
-      Confirmar eliminación
+      Confirmar baja de docente
     </Text>
     } centered>
       <Text size="md">
-        ¿Seguro que querés eliminar a <strong>{nombreCompleto}</strong>?
+        ¿Seguro que desea dar de baja al docente <strong>{nombreCompleto}</strong>?
       </Text>
       {error && (
         <Text color="red" size="base" mt="md">
@@ -24,11 +24,11 @@ function DeleteSocioModal({ opened, onClose, onConfirm, socio, loading, error })
           Cancelar
         </Button>
         <Button color="red" onClick={onConfirm} loading={loading}>
-          Eliminar
+          Dar de baja
         </Button>
       </Group>
     </Modal>
   )
 }
 
-export default DeleteSocioModal
+export default DeactivateDocenteModal

@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { deleteDocente, getDocente } from '../api/docentes'
+import { deactivateDocente, getDocente } from '../api/docentes'
 import { docenteCategoriaByDocente } from '../api/docenteCategoria'
-import DeleteDocenteModal from '../components/docentes/DeleteDocenteModal'
-import PersonHeader, { EditButton, DeleteButton } from '../components/personas/HeaderPersona'
+import DeactivateDocenteModal from '../components/docentes/DeactivateDocenteModal'
+import PersonHeader, { EditButton, DeactivateButton } from '../components/personas/HeaderPersona'
 import PersonTabs from '../components/personas/TabsNavPersonas'
 import PersonalDataTab from '../components/personas/tabs/PersonalDataTab'
 import CategoriesTab from '../components/personas/tabs/CategoriesTab'
@@ -21,9 +21,9 @@ function DocenteDetail() {
   const loading = carga.id !== id
   const { docente, categorias, error } = carga
 
-  const [modalEliminarAbierto, setModalEliminarAbierto] = useState(false)
-  const [eliminando, setEliminando] = useState(false)
-  const [errorEliminacion, setErrorEliminacion] = useState('')
+  const [modalBajaAbierto, setModalBajaAbierto] = useState(false)
+  const [dandoDeBaja, setDandoDeBaja] = useState(false)
+  const [errorBaja, setErrorBaja] = useState('')
 
   const cargarDetalle = useCallback(async () => {
     const [datosDocente, asignaciones] = await Promise.all([
@@ -45,17 +45,17 @@ function DocenteDetail() {
     return () => { activo = false }
   }, [cargarDetalle, id])
 
-  const confirmarEliminacion = async () => {
-    setEliminando(true)
-    setErrorEliminacion('')
+  const confirmarBaja = async () => {
+    setDandoDeBaja(true)
+    setErrorBaja('')
     try {
-      await deleteDocente(docente.docente_id)
-      setModalEliminarAbierto(false)
+      await deactivateDocente(docente.docente_id)
+      setModalBajaAbierto(false)
       navigate('/padron/docentes')
     } catch (requestError) {
-      setErrorEliminacion(requestError.response?.data?.detail || 'No se pudo eliminar el docente.')
+      setErrorBaja(requestError.response?.data?.detail || 'No se pudo dar de baja el docente.')
     } finally {
-      setEliminando(false)
+      setDandoDeBaja(false)
     }
   }
 
@@ -108,10 +108,10 @@ function DocenteDetail() {
         actions={(
           <>
             <EditButton onClick={() => navigate(`/padron/docentes/${docente.docente_id}/editar`)} />
-            <DeleteButton
+            <DeactivateButton
               onClick={() => {
-                setErrorEliminacion('')
-                setModalEliminarAbierto(true)
+                setErrorBaja('')
+                setModalBajaAbierto(true)
               }}
             />
           </>
@@ -120,13 +120,13 @@ function DocenteDetail() {
 
       <PersonTabs tabs={tabs} />
 
-      <DeleteDocenteModal
-        opened={modalEliminarAbierto}
-        onClose={() => !eliminando && setModalEliminarAbierto(false)}
-        onConfirm={confirmarEliminacion}
+      <DeactivateDocenteModal
+        opened={modalBajaAbierto}
+        onClose={() => !dandoDeBaja && setModalBajaAbierto(false)}
+        onConfirm={confirmarBaja}
         docente={docente}
-        loading={eliminando}
-        error={errorEliminacion}
+        loading={dandoDeBaja}
+        error={errorBaja}
       />
     </div>
   )

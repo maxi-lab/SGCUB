@@ -1,15 +1,16 @@
-export const CARGOS = [
-  'Director Técnico',
-  'Entrenador',
-  'Ayudante de campo',
-  'Preparador físico',
-  'Entrenador de arqueros',
-  'Coordinador',
-  'Profesor',
-]
+const nombreCargo = (cargo) => (typeof cargo === 'string' ? cargo : cargo?.nombre)
 
 export const cargosDe = (asignaciones = []) =>
-  [...new Set(asignaciones.map((asignacion) => asignacion.cargo).filter(Boolean))]
+  [...new Set(asignaciones.map((asignacion) => nombreCargo(asignacion.cargo)).filter(Boolean))]
+
+const GENERO_CATEGORIA = { M: 'Masculino', F: 'Femenino' }
+
+export const etiquetaCategoria = (categoria) => {
+  const genero = GENERO_CATEGORIA[categoria.genero]
+  return genero ? `${categoria.nombre} · ${genero}` : categoria.nombre
+}
+
+export const esCategoriaAsignable = (categoria) => categoria.nombre !== 'No asignado'
 
 const nombreEstado = (docente) => {
   const estado = docente.estado

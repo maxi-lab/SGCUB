@@ -22,6 +22,11 @@ export const patchDocente = async (docenteId, docente) => {
   return response.data
 }
 
-export const deleteDocente = async (docenteId) => {
+export const deactivateDocente = async (docenteId) => {
   await api.delete(`${docentesEndpoint}${docenteId}/`)
+}
+
+export const getCargosDocente = async () => {
+  const response = await api.get('padron/cargo-docente/')
+  return response.data
 }

@@ -14,8 +14,8 @@ const iniciales = (socio) =>
 
 const telefonoDe = (socio) => socio.telefono ?? socio.persona?.telefono ?? ''
 
-const esActivo = (socio) => (socio.estado_socio_nombre ?? '').toLowerCase().includes('activo')
-  && !(socio.estado_socio_nombre ?? '').toLowerCase().includes('inactivo')
+const esActivo = (socio) => (socio.estado_administrativo_nombre ?? '').toLowerCase().includes('activo')
+  && !(socio.estado_administrativo_nombre ?? '').toLowerCase().includes('inactivo')
 
 const paginasVisibles = (paginaActual, totalPaginas) => {
   if (totalPaginas <= 5) return Array.from({ length: totalPaginas }, (_, i) => i + 1)
@@ -38,7 +38,7 @@ const exportarCSV = (socios) => {
     socio.dni ?? '',
     telefonoDe(socio),
     formatearFecha(socio.fecha_alta),
-    socio.estado_socio_nombre ?? '',
+    socio.estado_administrativo_nombre ?? '',
   ])
   const csv = [encabezados, ...filas]
     .map((fila) => fila.map((celda) => `"${String(celda).replace(/"/g, '""')}"`).join(','))
@@ -64,7 +64,7 @@ function SociosTable({ data, isLoading, error }) {
   const socios = useMemo(() => data ?? [], [data])
 
   const tiposDisponibles = useMemo(
-    () => [...new Set(socios.map((socio) => socio.estado_socio_nombre).filter(Boolean))].sort(),
+    () => [...new Set(socios.map((socio) => socio.estado_administrativo_nombre).filter(Boolean))].sort(),
     [socios],
   )
 
@@ -73,7 +73,7 @@ function SociosTable({ data, isLoading, error }) {
     return socios.filter((socio) => {
       if (estado === 'activo' && !esActivo(socio)) return false
       if (estado === 'inactivo' && esActivo(socio)) return false
-      if (tipo !== 'todos' && socio.estado_socio_nombre !== tipo) return false
+      if (tipo !== 'todos' && socio.estado_administrativo_nombre !== tipo) return false
       if (!texto) return true
       return [socio.nombre, socio.apellido, socio.dni, socio.numero_socio]
         .some((campo) => String(campo ?? '').toLowerCase().includes(texto))
@@ -96,7 +96,7 @@ function SociosTable({ data, isLoading, error }) {
               search
             </span>
             <input
-              className="w-full h-10 pl-11 pr-4 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface placeholder:text-outline font-body-sm text-base focus:outline-none focus:border-primary focus:bg-surface-container-lowest transition-colors"
+              className="w-full h-10 pl-11 pr-4 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface placeholder:text-outline font-body-sm text-sm focus:outline-none focus:border-primary focus:bg-surface-container-lowest transition-colors"
               placeholder="Filtrar por DNI, Nombre o Apellido..."
               type="text"
               value={busqueda}
@@ -109,7 +109,7 @@ function SociosTable({ data, isLoading, error }) {
           </div>
           <div className="flex items-center gap-2">
             <select
-              className="h-10 px-3 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-base font-medium focus:outline-none focus:border-primary cursor-pointer"
+              className="h-10 px-3 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-sm focus:outline-none focus:border-primary cursor-pointer"
               value={estado}
               onChange={(event) => {
                 setEstado(event.target.value)
@@ -147,7 +147,7 @@ function SociosTable({ data, isLoading, error }) {
         <table className="w-full text-left text-sm border-collapse">
           <thead>
             <tr className="bg-surface-container-low/60 border-b border-outline-variant/30 text-sm font-semibold text-on-surface-variant uppercase tracking-wider">
-              <th className="py-3 px-4" scope="col">N° Socio</th>
+              <th className="py-3 px-4 w-28 whitespace-nowrap" scope="col">N° Socio</th>
               <th className="py-3 px-4" scope="col">Nombre y Apellido</th>
               <th className="py-3 px-4 pl-5" scope="col">DNI</th>
               <th className="py-3 px-4" scope="col">Teléfono</th>
@@ -178,12 +178,12 @@ function SociosTable({ data, isLoading, error }) {
                 onClick={() => navigate(`/padron/socios/${socio.socio_id}`)}
                 className="hover:bg-surface-container-low/80 transition-colors cursor-pointer group"
               >
-                <td className="py-3 px-4 font-bold text-primary pl-6">
+                <td className="py-3 px-4 font-bold text-primary text-base pl-6">
                   {socio.numero_socio ? `#${socio.numero_socio}` : '—'}
                 </td>
                 <td className="py-3 px-4">
                   <div className="flex items-center gap-2.5">
-                    <span className="font-medium text-on-surface block text-base group-hover:text-primary transition-colors">
+                    <span className="font-medium text-on-surface block text-base group-hover: transition-colors">
                       {socio.nombre} {socio.apellido}
                     </span>
                   </div>
@@ -198,7 +198,7 @@ function SociosTable({ data, isLoading, error }) {
                       Activo
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-base font-medium bg-surface-container-high text-on-surface-variant border border-outline-variant/30">
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-sm font-medium bg-surface-container-high text-on-surface-variant border border-outline-variant/30">
                       <span className="w-1.5 h-1.5 rounded-full bg-outline" />
                       Inactivo
                     </span>

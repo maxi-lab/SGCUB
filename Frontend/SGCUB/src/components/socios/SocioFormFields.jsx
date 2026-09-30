@@ -106,11 +106,11 @@ export function SeccionDatosPersonales({ campoDni, bindInput, errores, generos, 
           label="Teléfono / Móvil"
           requerido
           error={errores.telefono}
-          extra={(
+          /*extra={(
             <span className="text-base text-[#00875a] font-medium flex items-center gap-1">
               <span className="material-symbols-outlined text-sm">chat</span> WhatsApp activo
             </span>
-          )}
+          )}*/
         >
           <InputConIcono {...bindInput('telefono')} type="tel" placeholder="Ej: +54 221 459-2810" icono="call" conError={Boolean(errores.telefono)} />
         </Campo>
