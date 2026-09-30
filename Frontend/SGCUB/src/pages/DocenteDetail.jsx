@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { deactivateDocente, getDocente } from '../api/docentes'
+import { activateDocente, deactivateDocente, getDocente } from '../api/docentes'
 import { docenteCategoriaByDocente } from '../api/docenteCategoria'
+import ActivateDocenteModal from '../components/docentes/ActivateDocenteModal'
 import DeactivateDocenteModal from '../components/docentes/DeactivateDocenteModal'
-import PersonHeader, { EditButton, DeactivateButton } from '../components/personas/HeaderPersona'
+import PersonHeader, { EditButton, DeactivateButton, ActivateButton } from '../components/personas/HeaderPersona'
 import PersonTabs from '../components/personas/TabsNavPersonas'
 import PersonalDataTab from '../components/personas/tabs/PersonalDataTab'
 import CategoriesTab from '../components/personas/tabs/CategoriesTab'
 import { LoadingFile, ErrorFile } from '../components/personas/FileStatus'
-import { yearsSince, formatDni, formatDate, yearsText } from '../components/personas/format'
+import { yearsSince, formatDni, formatDate, yearsText, isActiveStatus, getErrorMessage } from '../components/personas/format'
 import useLocalidades from '../hooks/useLocalidades'
 
 function DocenteDetail() {
@@ -24,6 +25,9 @@ function DocenteDetail() {
   const [modalBajaAbierto, setModalBajaAbierto] = useState(false)
   const [dandoDeBaja, setDandoDeBaja] = useState(false)
   const [errorBaja, setErrorBaja] = useState('')
+  const [modalAltaAbierto, setModalAltaAbierto] = useState(false)
+  const [dandoDeAlta, setDandoDeAlta] = useState(false)
+  const [errorAlta, setErrorAlta] = useState('')
 
   const cargarDetalle = useCallback(async () => {
     const [datosDocente, asignaciones] = await Promise.all([
@@ -59,6 +63,20 @@ function DocenteDetail() {
     }
   }
 
+  const confirmarAlta = async () => {
+    setDandoDeAlta(true)
+    setErrorAlta('')
+    try {
+      const actualizado = await activateDocente(docente.docente_id)
+      setCarga((actual) => ({ ...actual, docente: actualizado }))
+      setModalAltaAbierto(false)
+    } catch (requestError) {
+      setErrorAlta(getErrorMessage(requestError, 'No se pudo dar de alta el docente.'))
+    } finally {
+      setDandoDeAlta(false)
+    }
+  }
+
   if (loading) return <LoadingFile text="Cargando detalle del docente..." />
   if (error || !docente) {
     return (
@@ -72,6 +90,7 @@ function DocenteDetail() {
 
   const persona = docente.persona_detalle ?? {}
   const nombresCategorias = categorias.map((c) => c.categoria?.nombre).filter(Boolean).join(', ')
+  const activo = isActiveStatus(docente.estado_nombre)
 
   const tabs = [
     {
@@ -98,6 +117,7 @@ function DocenteDetail() {
         ]}
         name={persona.nombre}
         surname={persona.apellido}
+        status={docente.estado_nombre ? { label: docente.estado_nombre, isActive: activo } : null}
         metadata={[
           { label: 'DNI', value: formatDni(persona.dni) },
           { label: 'Legajo', value: `#${docente.legajo}`, highlighted: true },
@@ -105,7 +125,7 @@ function DocenteDetail() {
           { label: 'Antigüedad', value: yearsText(yearsSince(docente.fecha_ingreso)) },
           ...(nombresCategorias ? [{ label: 'Categorías', value: nombresCategorias }] : []),
         ]}
-        actions={(
+        actions={activo ? (
           <>
             <EditButton onClick={() => navigate(`/padron/docentes/${docente.docente_id}/editar`)} />
             <DeactivateButton
@@ -115,10 +135,26 @@ function DocenteDetail() {
               }}
             />
           </>
+        ) : (
+          <ActivateButton
+            onClick={() => {
+              setErrorAlta('')
+              setModalAltaAbierto(true)
+            }}
+          />
         )}
       />
 
       <PersonTabs tabs={tabs} />
+
+      <ActivateDocenteModal
+        opened={modalAltaAbierto}
+        onClose={() => !dandoDeAlta && setModalAltaAbierto(false)}
+        onConfirm={confirmarAlta}
+        docente={docente}
+        loading={dandoDeAlta}
+        error={errorAlta}
+      />
 
       <DeactivateDocenteModal
         opened={modalBajaAbierto}

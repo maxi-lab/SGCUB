@@ -4,15 +4,18 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api/conf'
 import { getCargosDocente, getDocente, patchDocente, postDocente } from '../api/docentes'
 import { esCategoriaAsignable, etiquetaCategoria } from '../components/docentes/docentesUtils'
+import { BotonCambiarPersona, ListaSugerenciasPersona } from '../components/personas/PersonaSearchDNI'
 import { ErrorFile, LoadingFile } from '../components/personas/FileStatus'
-import { formatDate, formatDni, getErrorMessage } from '../components/personas/format'
+import { formatDate, formatDni, formatNumber, getErrorMessage } from '../components/personas/format'
 import PageHeader from '../components/shared/PageHeader'
 import { CAMPOS_OBLIGATORIOS, FORM_INICIAL, claseInput, enfocarCampo, socioAFormulario, validar } from '../components/socios/socioForm'
 import { Campo, SeccionDatosPersonales, SeccionDomicilio, SeccionTitulo } from '../components/socios/SocioFormFields'
+import usePersonaSearchDNI, { campoBloqueadoPorSocio } from '../hooks/usePersonaSearchDNI'
 import useCategorias from '../hooks/useCategorias'
 import useDocentes from '../hooks/useDocentes'
 import useGeneros from '../hooks/useGeneros'
 import useLocalidades from '../hooks/useLocalidades'
+import useSocio from '../hooks/useSocio'
 
 const CAMPOS_ASIGNACION = ['cargo', 'categorias']
 
@@ -319,6 +322,7 @@ function DocenteForm() {
   const navigate = useNavigate()
 
   const { docentes } = useDocentes()
+  const { socios } = useSocio()
   const { categorias } = useCategorias()
   const { generos } = useGeneros()
   const { localidades } = useLocalidades()
@@ -329,11 +333,11 @@ function DocenteForm() {
   const [guardando, setGuardando] = useState(false)
   const [errorGuardado, setErrorGuardado] = useState('')
   const [personaEncontrada, setPersonaEncontrada] = useState(null)
-  const [buscandoPersona, setBuscandoPersona] = useState(false)
   const [docenteOriginal, setDocenteOriginal] = useState(null)
   const [cargos, setCargos] = useState([])
   const [cargando, setCargando] = useState(editando)
   const [errorCarga, setErrorCarga] = useState('')
+  const busqueda = usePersonaSearchDNI({ habilitada: !editando })
 
   useEffect(() => {
     let activo = true
@@ -378,9 +382,25 @@ function DocenteForm() {
 
   const dniIngresado = formulario.dni.trim()
   const docenteDelDni = useMemo(() => {
-    if (!/^\d{7,8}$/.test(dniIngresado)) return null
+    if (!editando || !/^\d{7,8}$/.test(dniIngresado)) return null
     return docentes.find((d) => String(d.persona_detalle?.dni) === dniIngresado && String(d.docente_id) !== String(id)) ?? null
-  }, [docentes, dniIngresado, id])
+  }, [docentes, dniIngresado, editando, id])
+
+  // Solo se vincula a una persona existente cuando se la elige de la lista de sugerencias.
+  const perfilesSeleccionados = editando ? null : personaEncontrada?.perfiles
+  const socioVinculado = perfilesSeleccionados?.socio_id
+    ? socios.find((s) => String(s.socio_id) === String(perfilesSeleccionados.socio_id)) ?? { ...personaEncontrada, socio_id: perfilesSeleccionados.socio_id }
+    : null
+  const docenteSeleccionado = perfilesSeleccionados?.docente_id
+    ? docentes.find((d) => String(d.docente_id) === String(perfilesSeleccionados.docente_id)) ?? { docente_id: perfilesSeleccionados.docente_id }
+    : null
+  const datosSocioVinculado = useMemo(
+    () => (perfilesSeleccionados?.socio_id ? personaAFormulario(personaEncontrada) : null),
+    [perfilesSeleccionados, personaEncontrada],
+  )
+  const dniSinSeleccionar = !editando && !personaEncontrada
+    ? busqueda.coincidencias.find((persona) => String(persona.dni) === dniIngresado) ?? null
+    : null
 
   const limpiarError = (campo) => {
     if (errores[campo]) setErrores((actuales) => ({ ...actuales, [campo]: undefined }))
@@ -389,7 +409,6 @@ function DocenteForm() {
   const actualizarCampo = (campo, valor) => {
     setFormulario((actual) => ({ ...actual, [campo]: valor }))
     limpiarError(campo)
-    if (campo === 'dni') setPersonaEncontrada(null)
   }
 
   const bindInput = (campo) => ({
@@ -397,31 +416,41 @@ function DocenteForm() {
     name: campo,
     value: formulario[campo],
     onChange: (event) => actualizarCampo(campo, event.target.value),
+    disabled: campoBloqueadoPorSocio(datosSocioVinculado, campo),
   })
 
-  const buscarPersonaPorDni = async () => {
-    if (editando || !/^\d{7,8}$/.test(dniIngresado) || docenteDelDni) return
-    setBuscandoPersona(true)
-    try {
-      const response = await api.get(`padron/persona/?dni=${dniIngresado}`)
-      const persona = response.data?.[0]
-      if (persona) {
-        const datosPersona = personaAFormulario(persona)
-        setFormulario((actual) => ({
-          ...actual,
-          ...Object.fromEntries(Object.entries(datosPersona).filter(([, valor]) => valor)),
-        }))
-        setErrores((actuales) => ({
-          ...actuales,
-          ...Object.fromEntries(CAMPOS_OBLIGATORIOS.filter((campo) => campo !== 'dni').map((campo) => [campo, undefined])),
-        }))
-        setPersonaEncontrada(persona)
-      }
-    } catch (requestError) {
-      console.error('Error al buscar persona:', requestError)
-    } finally {
-      setBuscandoPersona(false)
+  const limpiarErroresPersona = () => setErrores((actuales) => ({
+    ...actuales,
+    ...Object.fromEntries(CAMPOS_OBLIGATORIOS.map((campo) => [campo, undefined])),
+  }))
+
+  const cambiarDni = (event) => {
+    const dni = event.target.value.replace(/\D/g, '').slice(0, 8)
+    if (personaEncontrada) {
+      // Al cambiar el DNI se descarta la persona elegida y los datos que se habían autocompletado.
+      setPersonaEncontrada(null)
+      setFormulario({ ...personaAFormulario(FORM_INICIAL), dni })
+    } else {
+      actualizarCampo('dni', dni)
     }
+    limpiarError('dni')
+    busqueda.buscar(dni)
+  }
+
+  const quitarSeleccion = () => {
+    setPersonaEncontrada(null)
+    busqueda.limpiar()
+    setFormulario(personaAFormulario(FORM_INICIAL))
+    limpiarErroresPersona()
+    // El DNI sigue deshabilitado hasta el próximo render.
+    setTimeout(() => enfocarCampo('dni'))
+  }
+
+  const seleccionarPersona = (persona) => {
+    setPersonaEncontrada(persona)
+    busqueda.setAbiertas(false)
+    setFormulario(personaAFormulario(persona))
+    limpiarErroresPersona()
   }
 
   const actualizarAsignacion = (clave, campo, valor) => {
@@ -447,7 +476,8 @@ function DocenteForm() {
       ...validar(formulario, esGeneroOtro),
       ...validarAsignaciones(asignaciones),
     }
-    if (docenteDelDni) nuevosErrores.dni = 'Esta persona ya está registrada como docente.'
+    if (docenteDelDni || docenteSeleccionado) nuevosErrores.dni = 'Esta persona ya está registrada como docente.'
+    if (dniSinSeleccionar) nuevosErrores.dni = 'Este DNI ya está registrado: seleccioná la persona en la lista de sugerencias.'
     setErrores(nuevosErrores)
 
     const ordenCampos = [
@@ -506,8 +536,9 @@ function DocenteForm() {
   const rutaVolver = editando ? `/padron/docentes/${id}` : '/padron/docentes'
   const personaOriginal = docenteOriginal?.persona_detalle
   const nombreEditado = personaOriginal ? `${personaOriginal.nombre ?? ''} ${personaOriginal.apellido ?? ''}`.trim() : ''
-  const dniConError = Boolean(errores.dni) || Boolean(docenteDelDni)
-  const iconoDni = buscandoPersona ? 'progress_activity' : dniConError ? 'warning' : personaEncontrada ? 'check_circle' : 'fingerprint'
+  const dniConError = Boolean(errores.dni) || Boolean(docenteDelDni) || Boolean(docenteSeleccionado)
+  const mostrarSugerencias = !editando && !personaEncontrada && busqueda.abiertas && busqueda.coincidencias.length > 0
+  const iconoDni = busqueda.buscando ? 'progress_activity' : dniConError ? 'warning' : personaEncontrada ? 'check_circle' : 'fingerprint'
   const colorIconoDni = dniConError ? 'text-error' : personaEncontrada ? 'text-[#00875a]' : 'text-outline'
 
   return (
@@ -528,6 +559,12 @@ function DocenteForm() {
                 {formatearLegajo(editando ? docenteOriginal.legajo : proximoLegajo)}
               </span>
             </div>
+            {socioVinculado && !docenteSeleccionado && (
+              <div className="px-3 py-1.5 bg-surface-container-lowest border border-outline-variant/30 rounded flex items-center gap-2">
+                <span className="text-base font-semibold text-outline uppercase tracking-wider">N° de socio:</span>
+                <span className="font-mono text-base font-bold text-primary">{formatNumber(socioVinculado.numero_socio)}</span>
+              </div>
+            )}
             <div className="px-3 py-1.5 bg-surface-container-lowest border border-outline-variant/30 rounded flex items-center gap-2">
               <span className="text-base font-semibold text-outline uppercase tracking-wider">Fecha de ingreso:</span>
               <span className="text-base font-semibold text-on-surface">
@@ -583,17 +620,35 @@ function DocenteForm() {
                   <div className="relative">
                     <input
                       {...bindInput('dni')}
-                      onChange={(event) => actualizarCampo('dni', event.target.value.replace(/\D/g, '').slice(0, 8))}
-                      onBlur={buscarPersonaPorDni}
+                      onChange={cambiarDni}
+                      onFocus={() => busqueda.setAbiertas(true)}
+                      onBlur={() => busqueda.setAbiertas(false)}
                       type="text"
                       inputMode="numeric"
+                      autoComplete="off"
                       placeholder="Ej: 38492104"
+                      role="combobox"
+                      aria-expanded={mostrarSugerencias}
+                      aria-controls="sugerencias-dni"
                       aria-invalid={dniConError || undefined}
                       className={claseInput(dniConError, 'pr-10 font-mono font-medium')}
                     />
-                    <span className={`material-symbols-outlined absolute right-3 top-3 text-base pointer-events-none ${colorIconoDni} ${buscandoPersona ? 'animate-spin' : ''}`}>
+                    <span className={`material-symbols-outlined absolute right-3 top-3 text-base pointer-events-none ${colorIconoDni} ${busqueda.buscando ? 'animate-spin' : ''}`}>
                       {iconoDni}
                     </span>
+
+                    {mostrarSugerencias && (
+                      <ListaSugerenciasPersona
+                        id="sugerencias-dni"
+                        coincidencias={busqueda.coincidencias}
+                        onSelect={seleccionarPersona}
+                        etiquetaDe={(persona) => {
+                          if (persona.perfiles?.docente_id) return { texto: 'Ya es docente', tono: 'error' }
+                          if (persona.perfiles?.socio_id) return { texto: 'Socio', tono: 'info' }
+                          return null
+                        }}
+                      />
+                    )}
                   </div>
 
                   {docenteDelDni && (
@@ -618,7 +673,46 @@ function DocenteForm() {
                     </div>
                   )}
 
-                  {personaEncontrada && !docenteDelDni && (
+                  {docenteSeleccionado && (
+                    <div className="bg-error-container text-on-error-container p-3 rounded-lg border border-error/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm mt-1" role="alert">
+                      <div className="flex items-start sm:items-center gap-2.5">
+                        <div className="p-1 bg-error/10 text-error rounded shrink-0">
+                          <span className="material-symbols-outlined text-base">error</span>
+                        </div>
+                        <p className="text-base">
+                          <strong>{`${personaEncontrada.nombre ?? ''} ${personaEncontrada.apellido ?? ''}`.trim()}</strong>
+                          {' '}(DNI {formatDni(personaEncontrada.dni)}) ya está registrado como docente
+                          {docenteSeleccionado.legajo ? ` (Legajo ${formatearLegajo(docenteSeleccionado.legajo)})` : ''}.
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <BotonCambiarPersona onClick={quitarSeleccion} />
+                        <Link
+                          to={`/padron/docentes/${docenteSeleccionado.docente_id}`}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-on-error-container hover:opacity-90 rounded text-base font-semibold shrink-0 transition-opacity"
+                        >
+                          <span>Ver ficha existente</span>
+                          <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                        </Link>
+                      </div>
+                    </div>
+                  )}
+
+                  {socioVinculado && !docenteSeleccionado && (
+                    <div className="bg-surface-container-low text-on-surface p-3 rounded-lg border border-outline-variant/40 flex items-center justify-between gap-2.5 mt-1">
+                      <div className="flex items-center gap-2.5">
+                        <span className="material-symbols-outlined text-base text-[#00875a]">how_to_reg</span>
+                        <p className="text-base">
+                          <strong>{`${socioVinculado.nombre ?? ''} ${socioVinculado.apellido ?? ''}`.trim()}</strong>
+                          {' '}ya es socio (N° {formatNumber(socioVinculado.numero_socio)}). Se lo registrará como docente:
+                          {' '}solo se pueden modificar el teléfono y el correo electrónico.
+                        </p>
+                      </div>
+                      <BotonCambiarPersona onClick={quitarSeleccion} />
+                    </div>
+                  )}
+
+                  {personaEncontrada && !socioVinculado && !docenteSeleccionado && (
                     <div className="bg-surface-container-low text-on-surface p-3 rounded-lg border border-outline-variant/40 flex items-center gap-2.5 mt-1">
                       <span className="material-symbols-outlined text-base text-[#00875a]">how_to_reg</span>
                       <p className="text-base">
