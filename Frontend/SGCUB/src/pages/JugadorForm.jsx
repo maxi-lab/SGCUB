@@ -329,8 +329,8 @@ function JugadorForm() {
     : null
   const jugadorDelSocio = perfilesSeleccionados?.jugador_id ? { jugador_id: perfilesSeleccionados.jugador_id } : null
   const datosSocioVinculado = useMemo(
-    () => (socioVinculado ? socioAFormulario(personaEncontrada) : null),
-    [socioVinculado, personaEncontrada],
+    () => (perfilesSeleccionados?.socio_id ? socioAFormulario(personaEncontrada) : null),
+    [perfilesSeleccionados, personaEncontrada],
   )
   // Un dato obligatorio que el socio no tiene cargado se deja completar.
   const campoBloqueado = (campo) => Boolean(datosSocioVinculado)

@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { deactivateJugador, getJugador, patchJugador } from '../api/jugadores'
+import { activateJugador, deactivateJugador, getJugador, patchJugador } from '../api/jugadores'
+import ActivateJugadorModal from '../components/jugadores/ActivateJugadorModal'
 import DeactivateJugadorModal from '../components/jugadores/DeactivateJugadorModal'
-import PersonHeader, { EditButton, DeactivateButton } from '../components/personas/HeaderPersona'
+import PersonHeader, { EditButton, DeactivateButton, ActivateButton } from '../components/personas/HeaderPersona'
 import PersonTabs from '../components/personas/TabsNavPersonas'
 import PersonalDataTab from '../components/personas/tabs/PersonalDataTab'
 import FamilyTab from '../components/personas/tabs/FamilyTab'
@@ -42,6 +43,9 @@ function JugadorDetail() {
   const [modalBajaAbierto, setModalBajaAbierto] = useState(false)
   const [dandoDeBaja, setDandoDeBaja] = useState(false)
   const [errorBaja, setErrorBaja] = useState('')
+  const [modalAltaAbierto, setModalAltaAbierto] = useState(false)
+  const [dandoDeAlta, setDandoDeAlta] = useState(false)
+  const [errorAlta, setErrorAlta] = useState('')
 
   useEffect(() => {
     let activo = true
@@ -92,6 +96,19 @@ function JugadorDetail() {
     }
   }
 
+  const confirmarAlta = async () => {
+    setDandoDeAlta(true)
+    setErrorAlta('')
+    try {
+      setJugador(await activateJugador(jugador.jugador_id))
+      setModalAltaAbierto(false)
+    } catch (requestError) {
+      setErrorAlta(getErrorMessage(requestError, 'No se pudo dar de alta el jugador.'))
+    } finally {
+      setDandoDeAlta(false)
+    }
+  }
+
   if (loading) return <LoadingFile text="Cargando detalle del jugador..." />
   if (error || !jugador) {
     return (
@@ -105,6 +122,7 @@ function JugadorDetail() {
 
   const socio = jugador.socio ?? {}
   const contactos = jugador.vinculos_familiares ?? []
+  const activo = isActiveStatus(jugador.estado?.nombre)
 
   const tabs = [
     {
@@ -164,7 +182,7 @@ function JugadorDetail() {
           { label: 'Categoría', value: jugador.categoria?.nombre || '—' },
           { label: 'Fecha de alta', value: formatDate(socio.fecha_alta) },
         ]}
-        actions={(
+        actions={activo ? (
           <>
             <EditButton onClick={() => navigate(`/padron/jugadores/${jugador.jugador_id}/editar`)} />
             <DeactivateButton
@@ -174,10 +192,26 @@ function JugadorDetail() {
               }}
             />
           </>
+        ) : (
+          <ActivateButton
+            onClick={() => {
+              setErrorAlta('')
+              setModalAltaAbierto(true)
+            }}
+          />
         )}
       />
 
       <PersonTabs tabs={tabs} />
+
+      <ActivateJugadorModal
+        opened={modalAltaAbierto}
+        onClose={() => !dandoDeAlta && setModalAltaAbierto(false)}
+        onConfirm={confirmarAlta}
+        jugador={jugador}
+        loading={dandoDeAlta}
+        error={errorAlta}
+      />
 
       <DeactivateJugadorModal
         opened={modalBajaAbierto}
