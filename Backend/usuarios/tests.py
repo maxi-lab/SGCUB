@@ -1,6 +1,10 @@
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group, Permission
+from django.core.cache import cache
 from django.test import TestCase
+from django.urls import reverse
+from rest_framework import status
+from rest_framework.test import APITestCase
 
 from .roles import ADMINISTRADOR, ROLE_PERMISSIONS
 
@@ -57,3 +61,123 @@ class StaffFlagTests(TestCase):
         superuser.groups.add(Group.objects.get(name="Directivo"))
         superuser.refresh_from_db()
         self.assertTrue(superuser.is_staff)
+
+
+class AuthEndpointsTests(APITestCase):
+    password = "Clave-segura-123"
+
+    def setUp(self):
+        # El throttle guarda los intentos en la caché, que se comparte entre tests
+        cache.clear()
+        self.user = User.objects.create_user(
+            username="tesorero",
+            password=self.password,
+            first_name="Juana",
+            last_name="Pérez",
+        )
+        self.user.groups.add(Group.objects.get(name="Tesorero"))
+
+    def login(self, password=None):
+        return self.client.post(
+            reverse("auth-login"),
+            {"username": "tesorero", "password": password or self.password},
+            format="json",
+        )
+
+    def test_login_returns_tokens(self):
+        response = self.login()
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("access", response.data)
+        self.assertIn("refresh", response.data)
+
+    def test_login_with_wrong_password_returns_401(self):
+        response = self.login(password="incorrecta")
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_login_is_throttled_after_too_many_attempts(self):
+        for _ in range(10):
+            self.login(password="incorrecta")
+        response = self.login()
+        self.assertEqual(response.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
+
+    def test_api_requires_authentication(self):
+        response = self.client.get(reverse("auth-me"))
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_me_returns_user_roles_and_permissions(self):
+        access = self.login().data["access"]
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {access}")
+
+        response = self.client.get(reverse("auth-me"))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["username"], "tesorero")
+        self.assertEqual(response.data["full_name"], "Juana Pérez")
+        self.assertEqual(response.data["roles"], ["Tesorero"])
+        self.assertEqual(response.data["permissions"], [])
+        self.assertFalse(response.data["is_superuser"])
+
+    def test_me_lists_every_permission_for_administrador(self):
+        self.user.groups.set([Group.objects.get(name=ADMINISTRADOR)])
+        self.client.force_authenticate(self.user)
+
+        response = self.client.get(reverse("auth-me"))
+
+        self.assertEqual(len(response.data["permissions"]), Permission.objects.count())
+
+    def test_refresh_rotates_and_invalidates_the_previous_token(self):
+        refresh = self.login().data["refresh"]
+
+        response = self.client.post(reverse("auth-refresh"), {"refresh": refresh}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("access", response.data)
+        self.assertNotEqual(response.data["refresh"], refresh)
+
+        reused = self.client.post(reverse("auth-refresh"), {"refresh": refresh}, format="json")
+        self.assertEqual(reused.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_logout_invalidates_refresh_token(self):
+        refresh = self.login().data["refresh"]
+
+        response = self.client.post(reverse("auth-logout"), {"refresh": refresh}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        reused = self.client.post(reverse("auth-refresh"), {"refresh": refresh}, format="json")
+        self.assertEqual(reused.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_change_password(self):
+        self.client.force_authenticate(self.user)
+
+        response = self.client.post(
+            reverse("auth-change-password"),
+            {"current_password": self.password, "new_password": "Otra-clave-456"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password("Otra-clave-456"))
+
+    def test_change_password_rejects_wrong_current_password(self):
+        self.client.force_authenticate(self.user)
+
+        response = self.client.post(
+            reverse("auth-change-password"),
+            {"current_password": "incorrecta", "new_password": "Otra-clave-456"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("current_password", response.data)
+
+    def test_change_password_rejects_weak_password(self):
+        self.client.force_authenticate(self.user)
+
+        response = self.client.post(
+            reverse("auth-change-password"),
+            {"current_password": self.password, "new_password": "1234"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("new_password", response.data)
