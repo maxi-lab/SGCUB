@@ -68,7 +68,7 @@ const ORDEN_INICIAL = { columna: 'numero', direccion: 'desc' }
 function SociosTable({ data, isLoading, error }) {
   const navigate = useNavigate()
   const [busqueda, setBusqueda] = useState('')
-  const [estado, setEstado] = useState('todos')
+  const [estado, setEstado] = useState('activo')
   const [tipo, setTipo] = useState('todos')
   const [filasPorPagina, setFilasPorPagina] = useState(25)
   const [pagina, setPagina] = useState(1)
@@ -133,9 +133,9 @@ function SociosTable({ data, isLoading, error }) {
               }}
               aria-label="Filtrar por estado"
             >
+              <option value="activo">Estado: Activo</option>
               <option value="todos">Estado: Todos</option>
-              <option value="activo">Activo</option>
-              <option value="inactivo">Inactivo / De baja</option>
+              <option value="baja">De baja / Inactivo</option>
             </FilterSelect>
             
           </div>

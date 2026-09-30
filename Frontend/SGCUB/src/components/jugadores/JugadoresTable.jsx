@@ -64,7 +64,7 @@ function JugadoresTable({ data, categorias = [], isLoading, error, onEdit }) {
   const navigate = useNavigate()
   const [busqueda, setBusqueda] = useState('')
   const [categoria, setCategoria] = useState('todas')
-  const [estado, setEstado] = useState('todos')
+  const [estado, setEstado] = useState('activo')
   const [filasPorPagina, setFilasPorPagina] = useState(25)
   const [pagina, setPagina] = useState(1)
   const jugadores = useMemo(() => data ?? [], [data])
@@ -103,8 +103,8 @@ function JugadoresTable({ data, categorias = [], isLoading, error, onEdit }) {
             {categorias.map((item) => <option key={item.categoria_id} value={item.categoria_id}>{item.nombre}</option>)}
           </FilterSelect>
           <FilterSelect className="bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-sm font-medium focus:outline-none focus:border-primary cursor-pointer" value={estado} onChange={(event) => { setEstado(event.target.value); setPagina(1) }} aria-label="Filtrar por estado">
+            <option value="activo">Estado: Activo</option>
             <option value="todos">Estado: Todos</option>
-            <option value="activo">Activo</option>
             <option value="baja">De baja / Inactivo</option>
           </FilterSelect>
         </div>

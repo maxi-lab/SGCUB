@@ -35,7 +35,7 @@ function DocentesTable({ data, categorias = [], categoriasPorDocente = {}, isLoa
   const [busqueda, setBusqueda] = useState('')
   const [cargo, setCargo] = useState('todos')
   const [categoria, setCategoria] = useState('todas')
-  const [estado, setEstado] = useState('todos')
+  const [estado, setEstado] = useState('activo')
   const [filasPorPagina, setFilasPorPagina] = useState(25)
   const [pagina, setPagina] = useState(1)
 
@@ -123,9 +123,9 @@ function DocentesTable({ data, categorias = [], categoriasPorDocente = {}, isLoa
               setPagina(1)
             }}
             aria-label="Filtrar por estado"
-          >
+          > 
+            <option value="activo">Estado: Activo</option>
             <option value="todos">Estado: Todos</option>
-            <option value="activo">Activo</option>
             <option value="baja">De baja / Inactivo</option>
           </FilterSelect>
         </div>
