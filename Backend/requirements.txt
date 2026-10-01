@@ -7,3 +7,4 @@ tzdata==2026.3
 psycopg2-binary>=2.9.12
 django-q2>=1.11.1
 drf-spectacular>=0.28.0
+djangorestframework-simplejwt>=5.4,<6

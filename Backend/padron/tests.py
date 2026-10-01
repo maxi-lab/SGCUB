@@ -1,3 +1,4 @@
+from django.contrib.auth import get_user_model
 from django.db.models import ProtectedError
 from rest_framework import status
 from rest_framework.test import APITestCase
@@ -11,6 +12,9 @@ from .models import CargoDocente, Categoria, VinculoFamiliar, Docente, DocenteCa
 
 class PadronViewTests(APITestCase):
     def setUp(self):
+        # Toda la API requiere un usuario autenticado
+        self.user = get_user_model().objects.create_user(username="30123456", password="Clave-segura-123")
+        self.client.force_authenticate(self.user)
         self.persona_data = {
             "nombre": "Juan",
             "apellido": "Perez",
