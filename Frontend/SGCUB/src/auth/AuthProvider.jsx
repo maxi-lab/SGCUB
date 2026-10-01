@@ -39,6 +39,10 @@ export default function AuthProvider({ children }) {
     setUser(await getCurrentUser())
   }, [])
 
+  const refreshUser = useCallback(async () => {
+    setUser(await getCurrentUser())
+  }, [])
+
   const logout = useCallback(async () => {
     // Al quedar sin usuario, las rutas protegidas redirigen a /login
     setUser(null)
@@ -52,8 +56,8 @@ export default function AuthProvider({ children }) {
   )
 
   const value = useMemo(
-    () => ({ user, isLoading, login, logout, hasPermission }),
-    [user, isLoading, login, logout, hasPermission],
+    () => ({ user, isLoading, login, logout, refreshUser, hasPermission }),
+    [user, isLoading, login, logout, refreshUser, hasPermission],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

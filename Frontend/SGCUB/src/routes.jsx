@@ -20,6 +20,8 @@ import Docentes from './pages/Docentes'
 import CategoriaDetalle from './pages/CategoriaDetalle'
 import EnDesarrollo from './pages/EnDesarrollo'
 import Usuarios from './pages/Usuarios'
+import ChangePassword from './pages/ChangePassword'
+import { CHANGE_PASSWORD_PATH } from './auth/paths'
 
 export const router = createBrowserRouter([
   {
@@ -27,9 +29,12 @@ export const router = createBrowserRouter([
     element: <Login />,
   },
   {
-    // Todas las rutas hijas requieren una sesión iniciada
     element: <ProtectedRoute />,
     children: [
+      {
+        path: CHANGE_PASSWORD_PATH,
+        element: <ChangePassword />,
+      },
       {
         path: '/',
         element: <MainLayout />,

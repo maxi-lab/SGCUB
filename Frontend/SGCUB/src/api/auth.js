@@ -28,8 +28,7 @@ export const getCurrentUser = async () => {
 }
 
 export const changePassword = async (currentPassword, newPassword) => {
-  await api.post(`${authEndpoint}change-password/`, {
-    current_password: currentPassword,
-    new_password: newPassword,
-  })
+  const data = { new_password: newPassword }
+  if (currentPassword) data.current_password = currentPassword
+  await api.post(`${authEndpoint}change-password/`, data)
 }
