@@ -1,6 +1,11 @@
+import os
+from io import StringIO
+from unittest.mock import patch
+
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group, Permission
 from django.core.cache import cache
+from django.core.management import call_command
 from django.test import TestCase
 from django.urls import reverse
 from rest_framework import status
@@ -447,3 +452,40 @@ class MustChangePasswordTests(APITestCase):
 
         self.assertTrue(rows["30123456"]["must_change_password"])
         self.assertFalse(rows["44256087"]["must_change_password"])
+
+
+class CreateInitialAdminCommandTests(TestCase):
+    def run_command(self, **env):
+        output = StringIO()
+        with patch.dict(os.environ, env, clear=False):
+            call_command("create_initial_admin", stdout=output, stderr=output)
+        return output.getvalue()
+
+    def test_creates_administrador_that_must_change_password(self):
+        self.run_command(ADMIN_DNI="30.123.456", ADMIN_PASSWORD="clave-del-env")
+
+        user = User.objects.get(username="30123456")
+        self.assertTrue(user.check_password("clave-del-env"))
+        self.assertEqual(list(user.groups.values_list("name", flat=True)), [ADMINISTRADOR])
+        self.assertTrue(user.is_staff)
+        self.assertTrue(user.perfil.must_change_password)
+
+    def test_does_nothing_if_user_already_exists(self):
+        User.objects.create_user(username="30123456", password="mi-clave")
+
+        output = self.run_command(ADMIN_DNI="30123456", ADMIN_PASSWORD="clave-del-env")
+
+        self.assertIn("ya existe", output)
+        self.assertTrue(User.objects.get(username="30123456").check_password("mi-clave"))
+
+    def test_skips_without_env_variables(self):
+        output = self.run_command(ADMIN_DNI="", ADMIN_PASSWORD="")
+
+        self.assertIn("no se crea", output)
+        self.assertFalse(User.objects.exists())
+
+    def test_invalid_dni_warns_without_failing(self):
+        output = self.run_command(ADMIN_DNI="admin", ADMIN_PASSWORD="clave-del-env")
+
+        self.assertIn("ADMIN_DNI inválido", output)
+        self.assertFalse(User.objects.exists())
