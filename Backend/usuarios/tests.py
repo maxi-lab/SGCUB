@@ -220,3 +220,146 @@ class DniUsernameAdminFormTests(TestCase):
         )
         self.assertFalse(form.is_valid())
         self.assertIn("username", form.errors)
+
+
+class UsuarioApiTests(APITestCase):
+    def setUp(self):
+        cache.clear()
+        self.admin = User.objects.create_user(username="44256087", password="Clave-segura-123")
+        self.admin.groups.add(Group.objects.get(name=ADMINISTRADOR))
+        self.client.force_authenticate(self.admin)
+        self.payload = {
+            "dni": "30.123.456",
+            "first_name": "Juana",
+            "last_name": "Pérez",
+            "email": "JPerez@Club.org",
+            "role": "Tesorero",
+        }
+
+    def create_usuario(self, **overrides):
+        return self.client.post(reverse("usuario-list"), {**self.payload, **overrides}, format="json")
+
+    def test_only_users_with_permission_can_access(self):
+        tesorero = User.objects.create_user(username="30111222", password="Clave-segura-123")
+        tesorero.groups.add(Group.objects.get(name="Tesorero"))
+        self.client.force_authenticate(tesorero)
+
+        self.assertEqual(self.client.get(reverse("usuario-list")).status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(self.create_usuario().status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_list_includes_role_and_status(self):
+        response = self.client.get(reverse("usuario-list"))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data[0]["dni"], "44256087")
+        self.assertEqual(response.data[0]["role"], ADMINISTRADOR)
+        self.assertTrue(response.data[0]["is_active"])
+        self.assertNotIn("password", response.data[0])
+
+    def test_create_uses_dni_as_initial_password(self):
+        response = self.create_usuario()
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["dni"], "30123456")
+        self.assertEqual(response.data["email"], "jperez@club.org")
+        self.assertEqual(response.data["role"], "Tesorero")
+        user = User.objects.get(username="30123456")
+        self.assertTrue(user.check_password("30123456"))
+        self.assertFalse(user.is_staff)
+
+    def test_create_administrador_grants_staff(self):
+        self.create_usuario(role=ADMINISTRADOR)
+        self.assertTrue(User.objects.get(username="30123456").is_staff)
+
+    def test_create_validates_fields(self):
+        cases = {
+            "dni": {"dni": "abc"},
+            "email": {"email": ""},
+            "first_name": {"first_name": ""},
+            "role": {"role": "Secretaría"},
+        }
+        for field, override in cases.items():
+            with self.subTest(field=field):
+                response = self.create_usuario(**override)
+                self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertIn(field, response.data)
+
+    def test_create_rejects_duplicated_dni_and_email(self):
+        self.create_usuario()
+
+        duplicated_dni = self.create_usuario(email="otro@club.org")
+        self.assertIn("dni", duplicated_dni.data)
+
+        duplicated_email = self.create_usuario(dni="31222333", email="jperez@CLUB.org")
+        self.assertIn("email", duplicated_email.data)
+
+    def test_update_data_and_role(self):
+        user_id = self.create_usuario().data["id"]
+
+        response = self.client.patch(
+            reverse("usuario-detail", args=[user_id]),
+            {"first_name": "Juana María", "role": "Directivo"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["first_name"], "Juana María")
+        self.assertEqual(response.data["role"], "Directivo")
+        self.assertEqual(User.objects.get(pk=user_id).groups.count(), 1)
+
+    def test_cannot_change_own_role(self):
+        response = self.client.patch(
+            reverse("usuario-detail", args=[self.admin.pk]), {"role": "Tesorero"}, format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("role", response.data)
+
+    def test_deactivate_blocks_login_and_existing_tokens(self):
+        self.create_usuario()
+        user = User.objects.get(username="30123456")
+        self.client.force_authenticate(None)
+        access = self.client.post(
+            reverse("auth-login"), {"username": "30123456", "password": "30123456"}, format="json"
+        ).data["access"]
+
+        self.client.force_authenticate(self.admin)
+        response = self.client.delete(reverse("usuario-detail", args=[user.pk]))
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+
+        self.client.force_authenticate(None)
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {access}")
+        self.assertEqual(self.client.get(reverse("auth-me")).status_code, status.HTTP_401_UNAUTHORIZED)
+        self.client.credentials()
+        login = self.client.post(reverse("auth-login"), {"username": "30123456", "password": "30123456"}, format="json")
+        self.assertEqual(login.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_cannot_deactivate_yourself(self):
+        response = self.client.delete(reverse("usuario-detail", args=[self.admin.pk]))
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.admin.refresh_from_db()
+        self.assertTrue(self.admin.is_active)
+
+    def test_activate(self):
+        user_id = self.create_usuario().data["id"]
+        self.client.delete(reverse("usuario-detail", args=[user_id]))
+
+        response = self.client.post(reverse("usuario-activate", args=[user_id]))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["is_active"])
+
+    def test_reset_password_restores_dni(self):
+        user_id = self.create_usuario().data["id"]
+        user = User.objects.get(pk=user_id)
+        user.set_password("Otra-clave-456")
+        user.save()
+
+        response = self.client.post(reverse("usuario-reset-password", args=[user_id]))
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        user.refresh_from_db()
+        self.assertTrue(user.check_password("30123456"))
+
+    def test_roles_endpoint(self):
+        response = self.client.get(reverse("usuario-roles"))
+        self.assertEqual(sorted(response.data), sorted([*ROLE_PERMISSIONS, ADMINISTRADOR]))
