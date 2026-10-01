@@ -3,5 +3,7 @@
 // ACA VAN LAS RESTRICCIONES
 export const PERMISSIONS = {
   manageUsers: 'auth.view_user',
+  createUsers: 'auth.add_user',
+  editUsers: 'auth.change_user',
   manageAutomations: 'django_q.view_schedule',
 }
