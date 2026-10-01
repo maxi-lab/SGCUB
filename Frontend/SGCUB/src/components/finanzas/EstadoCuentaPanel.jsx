@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getEstadoCuenta } from '../../api/estadoCuenta'
+import { postItemCuota } from '../../api/cuotas'
 import { formatAmount, formatDate, formatNumber } from '../personas/format'
 import { EmptyState, KPI, PrimaryButton } from '../personas/tabs/parts'
+import BecaDescuentoModal from './BecaDescuentoModal'
 
 const estadoNormalizado = (estado) => String(estado ?? '').toLowerCase().replaceAll(' ', '')
 
@@ -12,9 +14,12 @@ const montoCuota = (cuota) => {
 
 const conceptosDe = (cuota) => (cuota.items ?? []).map((item) => item.concepto).filter(Boolean).join(', ') || 'Cuota social'
 
-function EstadoCuentaPanel({ socio, onRegisterPayment }) {
+function EstadoCuentaPanel({ socio, onRegisterPayment, enableBenefits = false }) {
   const navigate = useNavigate()
   const [carga, setCarga] = useState({ loading: true, error: null, cuenta: null })
+  const [cuotaSeleccionada, setCuotaSeleccionada] = useState(null)
+  const [modalBeneficio, setModalBeneficio] = useState(false)
+  const [aplicandoBeneficio, setAplicandoBeneficio] = useState(false)
 
   useEffect(() => {
     let activo = true
@@ -27,6 +32,24 @@ function EstadoCuentaPanel({ socio, onRegisterPayment }) {
 
   const cuenta = carga.cuenta
   const cuotas = cuenta?.cuotas ?? []
+
+  const aplicarBeneficio = async (beneficio) => {
+    if (!cuotaSeleccionada) return
+    setAplicandoBeneficio(true)
+    try {
+      await postItemCuota({ ...beneficio, cuota: cuotaSeleccionada.cuota_id })
+      setModalBeneficio(false)
+      setCuotaSeleccionada(null)
+      try {
+        const cuentaActualizada = await getEstadoCuenta(socio.socio_id)
+        setCarga({ loading: false, error: null, cuenta: cuentaActualizada })
+      } catch {
+        setCarga((actual) => ({ ...actual, error: 'El beneficio se aplicó, pero no se pudo actualizar el estado de cuenta.' }))
+      }
+    } finally {
+      setAplicandoBeneficio(false)
+    }
+  }
 
   const resumen = useMemo(() => {
     const pagas = cuotas.filter((cuota) => estadoNormalizado(cuota.estado_cuota ?? cuota.estado) === 'paga')
@@ -84,8 +107,21 @@ function EstadoCuentaPanel({ socio, onRegisterPayment }) {
               {cuotas.map((cuota) => {
                 const estado = cuota.estado_cuota ?? cuota.estado ?? 'Pendiente'
                 const paga = estadoNormalizado(estado) === 'paga'
+                const seleccionada = cuotaSeleccionada?.cuota_id === cuota.cuota_id
                 return (
-                  <tr key={cuota.cuota_id} className="hover:bg-surface-container-low transition-colors">
+                  <tr
+                    key={cuota.cuota_id}
+                    tabIndex={0}
+                    aria-selected={seleccionada}
+                    onClick={() => setCuotaSeleccionada(seleccionada ? null : cuota)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault()
+                        setCuotaSeleccionada(seleccionada ? null : cuota)
+                      }
+                    }}
+                    className={`cursor-pointer transition-colors ${seleccionada ? 'bg-primary/5 ring-1 ring-inset ring-primary/40' : 'hover:bg-surface-container-low'}`}
+                  >
                     <td className="py-3.5 px-4 font-semibold text-on-surface">{cuota.periodo || '—'}</td>
                     <td className="py-3.5 px-4 text-on-surface-variant">{formatDate(cuota.fecha_venc1)} / {formatDate(cuota.fecha_venc2)}</td>
                     <td className="py-3.5 px-4 text-on-surface-variant">{conceptosDe(cuota)}</td>
@@ -98,6 +134,23 @@ function EstadoCuentaPanel({ socio, onRegisterPayment }) {
           </table>
         </div>
       )}
+
+      {enableBenefits && cuotaSeleccionada && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-surface-container-low border border-outline-variant/30 rounded-lg">
+          <p className="text-sm text-on-surface-variant">Cuota seleccionada: <strong className="text-on-surface">{cuotaSeleccionada.periodo}</strong> · {formatAmount(cuotaSeleccionada.monto_total)}</p>
+          <button type="button" onClick={() => setModalBeneficio(true)} disabled={estadoNormalizado(cuotaSeleccionada.estado_cuota) === 'paga'} className="inline-flex items-center justify-center gap-2 h-10 px-4 bg-primary text-on-primary rounded-md font-semibold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed">
+            <span className="material-symbols-outlined text-lg">redeem</span>Asignar beca o descuento
+          </button>
+        </div>
+      )}
+
+      <BecaDescuentoModal
+        opened={modalBeneficio}
+        cuota={cuotaSeleccionada}
+        onClose={() => !aplicandoBeneficio && setModalBeneficio(false)}
+        onSubmit={aplicarBeneficio}
+        isSaving={aplicandoBeneficio}
+      />
     </section>
   )
 }

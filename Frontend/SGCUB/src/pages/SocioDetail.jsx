@@ -84,7 +84,7 @@ function SocioDetail() {
       id: 'financiero',
       label: 'Financiero',
       icon: 'account_balance_wallet',
-      content: <EstadoCuentaPanel socio={socio} />,
+      content: <EstadoCuentaPanel socio={socio} enableBenefits />,
     },
   ]
 
