@@ -6,6 +6,7 @@ import { getComprobante, getComprobantes } from '../api/comprobantes'
 import PagoForm from '../components/finanzas/PagoForm'
 import ComprobantesTable from '../components/finanzas/ComprobantesTable'
 import ComprobanteDetalleModal from '../components/finanzas/ComprobanteDetalleModal'
+import CorregirPagoModal from '../components/finanzas/CorregirPagoModal'
 import PageHeader from '../components/shared/PageHeader'
 import { ErrorFile, LoadingFile } from '../components/personas/FileStatus'
 
@@ -20,6 +21,7 @@ function Caja() {
   const [detalleComprobante, setDetalleComprobante] = useState(null)
   const [cargandoDetalle, setCargandoDetalle] = useState(false)
   const [errorDetalle, setErrorDetalle] = useState(null)
+  const [pagoEnCorreccion, setPagoEnCorreccion] = useState(null)
 
   const cargarComprobantes = useCallback(async () => {
     try {
@@ -69,7 +71,18 @@ function Caja() {
       {!carga.loading && socioId && carga.socio && carga.cuenta && <section className="bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-5 shadow-sm"><PagoForm socio={carga.socio} cuenta={carga.cuenta} onCancel={() => navigate(`/finanzas/estado-cuenta?socio=${socioId}`)} onSuccess={cargarComprobantes} /></section>}
       {!socioId && <p className="p-4 bg-surface-container-low rounded-lg text-on-surface-variant">Para registrar un pago, ingresá desde el estado de cuenta de un socio.</p>}
       <ComprobantesTable comprobantes={comprobantes} isLoading={cargaComprobantes.loading} error={cargaComprobantes.error} onSelect={seleccionarComprobante} />
-      <ComprobanteDetalleModal comprobante={comprobanteSeleccionado} detalle={detalleComprobante} loading={cargandoDetalle} error={errorDetalle} opened={Boolean(comprobanteSeleccionado)} onClose={() => setComprobanteSeleccionado(null)} />
+      <ComprobanteDetalleModal comprobante={comprobanteSeleccionado} detalle={detalleComprobante} loading={cargandoDetalle} error={errorDetalle} opened={Boolean(comprobanteSeleccionado)} onClose={() => setComprobanteSeleccionado(null)} onCorrect={setPagoEnCorreccion} />
+      <CorregirPagoModal
+        comprobante={comprobanteSeleccionado}
+        pago={pagoEnCorreccion}
+        opened={Boolean(pagoEnCorreccion)}
+        onClose={() => setPagoEnCorreccion(null)}
+        onSuccess={async () => {
+          await cargarComprobantes()
+          setPagoEnCorreccion(null)
+          setComprobanteSeleccionado(null)
+        }}
+      />
     </div>
   )
 }
