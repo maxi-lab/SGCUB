@@ -2,6 +2,8 @@ import { createBrowserRouter, Navigate } from 'react-router-dom'
 import MainLayout from './layouts/MainLayout'
 import AdminLayout from './layouts/AdminLayout'
 import ProtectedRoute from './auth/ProtectedRoute'
+import RequirePermission from './auth/RequirePermission'
+import { PERMISSIONS } from './auth/permissions'
 import Login from './pages/Login'
 import Principal from './pages/Principal'
 import AdminPage from './pages/AdminPage'
@@ -17,6 +19,7 @@ import Categorias from './pages/Categorias'
 import Docentes from './pages/Docentes'
 import CategoriaDetalle from './pages/CategoriaDetalle'
 import EnDesarrollo from './pages/EnDesarrollo'
+import Usuarios from './pages/Usuarios'
 
 export const router = createBrowserRouter([
   {
@@ -127,6 +130,25 @@ export const router = createBrowserRouter([
           {
             path: 'administracion',
             element: <EnDesarrollo title="Administración" />,
+          },
+          // Secciones del rol Administrador
+          {
+            element: <RequirePermission permission={PERMISSIONS.manageUsers} />,
+            children: [
+              {
+                path: 'usuarios',
+                element: <Usuarios />,
+              },
+            ],
+          },
+          {
+            element: <RequirePermission permission={PERMISSIONS.manageAutomations} />,
+            children: [
+              {
+                path: 'automatizaciones',
+                element: <EnDesarrollo title="Automatizaciones" />,
+              },
+            ],
           },
     ],
 

@@ -1,11 +1,16 @@
 import { useEffect, useState } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
+import PermissionGate from '../../auth/PermissionGate';
+import { PERMISSIONS } from '../../auth/permissions';
+import { useAuth } from '../../auth/useAuth';
 import './sidebar.css';
 
 const DURACION_CONTRAER = 220;
 
 export default function Sidebar({ collapsed, onToggle }) {
   const { pathname } = useLocation();
+  const { hasPermission } = useAuth();
+  const showAdminSection = hasPermission(PERMISSIONS.manageUsers) || hasPermission(PERMISSIONS.manageAutomations);
 
   const [contrayendo, setContrayendo] = useState(false);
   const [collapsedAnterior, setCollapsedAnterior] = useState(collapsed);
@@ -145,6 +150,29 @@ export default function Sidebar({ collapsed, onToggle }) {
                 <span className="app-sidebar-label font-body-md text-body-md">Administración</span>
               </div>
             </NavLink>
+
+            {/* Sección del rol Administrador. ACA VAN LAS RESTRICCIONES del menú (ver auth/permissions.js) */}
+            {showAdminSection && (
+              <hr className="app-sidebar-divider border-0 border-t border-outline-variant/40 my-2 mx-space-sm" />
+            )}
+
+            <PermissionGate permission={PERMISSIONS.manageUsers}>
+              <NavLink to="/usuarios" className={({ isActive }) => `app-sidebar-link flex items-center justify-between px-space-sm py-2 rounded text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors ${isActive ? 'app-sidebar-link--active' : ''}`}>
+                <div className="flex items-center gap-space-sm">
+                  <span className="material-symbols-outlined text-[20px]">admin_panel_settings</span>
+                  <span className="app-sidebar-label font-body-md text-body-md">Usuarios</span>
+                </div>
+              </NavLink>
+            </PermissionGate>
+
+            <PermissionGate permission={PERMISSIONS.manageAutomations}>
+              <NavLink to="/automatizaciones" className={({ isActive }) => `app-sidebar-link flex items-center justify-between px-space-sm py-2 rounded text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors ${isActive ? 'app-sidebar-link--active' : ''}`}>
+                <div className="flex items-center gap-space-sm">
+                  <span className="material-symbols-outlined text-[20px]">autorenew</span>
+                  <span className="app-sidebar-label font-body-md text-body-md">Automatizaciones</span>
+                </div>
+              </NavLink>
+            </PermissionGate>
           </nav>
         </div>
       </div>
