@@ -1,13 +1,14 @@
 from decimal import Decimal, InvalidOperation
 
 from django.db import transaction
-from django.db.models import Max, Prefetch
+from django.db.models import Max, Prefetch, Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from drf_spectacular.utils import extend_schema
+from padron.models import Socio
 
 from .models import (
 	Comprobante,
@@ -393,6 +394,113 @@ def estado_cuenta_socio(request, socio_id):
 		socio_id=socio_id,
 	)
 	return Response(CuentaCorrienteEstadoSerializer(cuenta).data)
+
+
+@extend_schema(tags=["Finanzas/Morosidad"])
+@api_view(["GET"])
+def reporte_morosidad(request):
+	alcance = request.query_params.get("alcance", "activos").strip().lower()
+	if alcance not in {"activos", "filtrados", "manual", "socio"}:
+		return Response(
+			{"detail": "El alcance debe ser activos, filtrados, manual o socio."},
+			status=status.HTTP_400_BAD_REQUEST,
+		)
+
+	hoy = timezone.localdate()
+	socios = Socio.objects.select_related(
+		"persona",
+		"estado_administrativo",
+		"jugador__categoria",
+		"cuenta_corriente",
+	).prefetch_related(
+		Prefetch(
+			"cuenta_corriente__cuotas",
+			queryset=Cuota.objects.filter(fecha_venc2__lt=hoy)
+			.exclude(estado_cuota=EstadoCuotaChoices.PAGA)
+			.prefetch_related("items"),
+		)
+	)
+
+	if alcance == "activos":
+		socios = socios.filter(estado_administrativo__nombre__iexact="Activo")
+	elif alcance == "manual":
+		ids_texto = request.query_params.get("socio_ids", "")
+		try:
+			socio_ids = [int(value) for value in ids_texto.split(",") if value]
+		except ValueError:
+			return Response({"detail": "La selección de socios no es válida."}, status=status.HTTP_400_BAD_REQUEST)
+		if not socio_ids:
+			return Response({"detail": "Debe seleccionar al menos un socio."}, status=status.HTTP_400_BAD_REQUEST)
+		socios = socios.filter(socio_id__in=socio_ids)
+	elif alcance == "socio":
+		try:
+			socio_id = int(request.query_params.get("socio_id", ""))
+		except ValueError:
+			return Response({"detail": "Debe indicar un socio válido."}, status=status.HTTP_400_BAD_REQUEST)
+		socios = socios.filter(socio_id=socio_id)
+	else:
+		termino = request.query_params.get("q", "").strip()
+		for palabra in termino.split():
+			filtro = (
+				Q(persona__nombre__icontains=palabra)
+				| Q(persona__apellido__icontains=palabra)
+				| Q(persona__dni__icontains=palabra)
+			)
+			if palabra.isdigit():
+				filtro |= Q(numero_socio=int(palabra))
+			socios = socios.filter(filtro)
+
+		categoria = request.query_params.get("categoria", "").strip()
+		if categoria and categoria.lower() == "sin categoría":
+			socios = socios.filter(jugador__isnull=True)
+		elif categoria:
+			socios = socios.filter(jugador__categoria__nombre__iexact=categoria)
+
+	objetivos = list(socios.order_by("persona__apellido", "persona__nombre"))
+	sin_cuenta = sum(1 for socio in objetivos if getattr(socio, "cuenta_corriente", None) is None)
+	filas = []
+	for socio in objetivos:
+		cuenta = getattr(socio, "cuenta_corriente", None)
+		if cuenta is None:
+			continue
+
+		cuotas_vencidas = list(cuenta.cuotas.all())
+		monto_adeudado = sum(
+			(
+				-item.monto if item.es_descuento else item.monto
+				for cuota in cuotas_vencidas
+				for item in cuota.items.all()
+			),
+			Decimal("0.00"),
+		)
+		if monto_adeudado <= 0:
+			continue
+
+		jugador = getattr(socio, "jugador", None)
+		categoria_deportiva = jugador.categoria.nombre if jugador else "Sin categoría"
+		filas.append({
+			"socio_id": socio.socio_id,
+			"numero_socio": socio.numero_socio,
+			"nombre": socio.persona.nombre,
+			"apellido": socio.persona.apellido,
+			"dni": socio.persona.dni,
+			"categoria_deportiva": categoria_deportiva,
+			"monto_adeudado": monto_adeudado,
+			"dias_mora": max((hoy - cuota.fecha_venc2).days for cuota in cuotas_vencidas),
+		})
+
+	return Response({
+		"filas": filas,
+		"fecha": timezone.localtime().strftime("%d/%m/%Y %H:%M"),
+		"alcance": {
+			"activos": "Socios activos",
+			"filtrados": "Filtros aplicados",
+			"manual": "Selección manual",
+			"socio": "Socio individual",
+		}[alcance],
+		"sinCuenta": sin_cuenta,
+		"erroresConsulta": 0,
+	})
 
 
 @extend_schema(tags=["Finanzas/MovimientoCuenta"], request=MovimientoCuentaSerializer, responses=MovimientoCuentaSerializer)

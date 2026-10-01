@@ -18,6 +18,7 @@ import Cuotas from './pages/Cuotas'
 import EstadoCuenta from './pages/EstadoCuenta'
 import EnDesarrollo from './pages/EnDesarrollo'
 import Caja from './pages/Caja'
+import Morosidad from './pages/Morosidad'
 
 export const router = createBrowserRouter([
   {
@@ -116,7 +117,7 @@ export const router = createBrowserRouter([
       },
       {
         path: 'morosidad',
-        element: <EnDesarrollo title="Reporte de morosidad" />,
+        element: <Morosidad />,
       },
       {
         path: 'caja',
