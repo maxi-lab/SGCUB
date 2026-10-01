@@ -11,7 +11,7 @@ import CategoriaHeader from '../components/categorias/CategoriaHeader'
 import CategoriaJugadoresTable from '../components/categorias/CategoriaJugadoresTable'
 import ConfirmCategoriaModal from '../components/categorias/ConfirmCategoriaModal'
 import ConfirmRemoveDocenteModal from '../components/categorias/ConfirmRemoveDocenteModal'
-import { GENERO_BADGE_CLASSES, getGeneroLabel } from '../components/categorias/categoriaFormat'
+import { formatEdadMaxima, GENERO_BADGE_CLASSES, getGeneroLabel } from '../components/categorias/categoriaFormat'
 import { LoadingFile, ErrorFile } from '../components/personas/FileStatus'
 import { DeactivateButton, EditButton } from '../components/personas/HeaderPersona'
 import PersonTabs from '../components/personas/TabsNavPersonas'
@@ -193,7 +193,7 @@ function CategoriaDetail() {
         )}
         metadata={[
           { label: 'Año vigente', value: categoria.anio_vigente ?? '—' },
-          { label: 'Edad máxima', value: categoria.edad_maxima != null ? `${categoria.edad_maxima} años` : '—' },
+          { label: 'Edad máxima', value: formatEdadMaxima(categoria.edad_maxima) },
           { label: 'Género', value: getGeneroLabel(categoria.genero) },
         ]}
         actions={(

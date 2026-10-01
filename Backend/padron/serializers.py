@@ -330,6 +330,17 @@ class CategoriaSerializer(serializers.ModelSerializer):
         return attrs
 
 
+class CategoriaListSerializer(CategoriaSerializer):
+    cantidad_jugadores = serializers.SerializerMethodField()
+    cantidad_docentes = serializers.IntegerField(read_only=True)
+
+    class Meta(CategoriaSerializer.Meta):
+        fields = CategoriaSerializer.Meta.fields + ["cantidad_jugadores", "cantidad_docentes"]
+
+    def get_cantidad_jugadores(self, category):
+        return category.main_players_count + category.secondary_players_count
+
+
 class EstadoDeportivoSerializer(serializers.ModelSerializer):
     class Meta:
         model = EstadoDeportivo

@@ -1,4 +1,4 @@
-from django.db.models import Q
+from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.decorators import api_view
@@ -14,6 +14,7 @@ from .serializers import (
     PersonaSerializer,
     SocioSerializer,
     CategoriaSerializer,
+    CategoriaListSerializer,
     EstadoDeportivoSerializer,
     JugadorSerializer,
     JugadorListSerializer,
@@ -149,12 +150,16 @@ def socio_detail(request, pk):
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-@extend_schema(tags=["Padron / Categoria"], request=CategoriaSerializer, responses=CategoriaSerializer)
+@extend_schema(tags=["Padron / Categoria"], request=CategoriaSerializer, responses=CategoriaListSerializer)
 @api_view(["GET", "POST"])
 def categoria_list_create(request):
     if request.method == "GET":
-        categories = Categoria.objects.all()
-        serializer = CategoriaSerializer(categories, many=True)
+        categories = Categoria.objects.annotate(
+            main_players_count=Count("jugadores", distinct=True),
+            secondary_players_count=Count("jugadores_secundarios", distinct=True),
+            cantidad_docentes=Count("docentes_categoria", distinct=True),
+        )
+        serializer = CategoriaListSerializer(categories, many=True)
         return Response(serializer.data)
 
     serializer = CategoriaSerializer(data=request.data)

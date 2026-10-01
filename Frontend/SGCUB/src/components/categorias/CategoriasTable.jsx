@@ -4,55 +4,42 @@ import FilterSelect from '../shared/FilterSelect'
 import SortableHeader from '../shared/SortableHeader'
 import TablePagination from '../shared/TablePagination'
 import useOrdenTabla from '../../hooks/useOrdenTabla'
-import { GENERO_BADGE_CLASSES, GENERO_OPTIONS, getGeneroLabel } from './categoriaFormat'
+import { formatEdadMaxima, GENERO_BADGE_CLASSES, GENERO_OPTIONS, getGeneroLabel } from './categoriaFormat'
 
 const filterClass = 'bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-sm focus:outline-none focus:border-primary cursor-pointer'
 const iconButtonClass = 'inline-flex items-center justify-center p-2 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container-low transition-colors cursor-pointer'
 
 const SORT_VALUES = {
   name: (categoria) => categoria.nombre,
-  year: (categoria) => categoria.anio_vigente,
-  maxAge: (categoria) => categoria.edad_maxima,
   genero: (categoria) => getGeneroLabel(categoria.genero),
+  maxAge: (categoria) => categoria.edad_maxima,
+  jugadores: (categoria) => categoria.cantidad_jugadores,
+  docentes: (categoria) => categoria.cantidad_docentes,
 }
-const INITIAL_SORT = { columna: 'maxAge', direccion: 'asc' }
-const COLUMN_COUNT = 5
+const INITIAL_SORT = { columna: 'maxAge', direccion: 'desc' }
+const COLUMN_COUNT = 6
 
 function CategoriasTable({ data, isLoading, error, onEdit, onDelete }) {
   const navigate = useNavigate()
   const [search, setSearch] = useState('')
   const [genero, setGenero] = useState('todos')
-  const [year, setYear] = useState('todos')
   const [rowsPerPage, setRowsPerPage] = useState(25)
   const [page, setPage] = useState(1)
 
   const categorias = useMemo(() => data ?? [], [data])
 
-  const years = useMemo(
-    () => [...new Set(categorias.map((categoria) => categoria.anio_vigente).filter(Boolean))].sort((a, b) => b - a),
-    [categorias],
-  )
-
   const filtered = useMemo(() => {
     const text = search.trim().toLowerCase()
     return categorias.filter((categoria) => {
       if (genero !== 'todos' && categoria.genero !== genero) return false
-      if (year !== 'todos' && String(categoria.anio_vigente) !== year) return false
       return !text || String(categoria.nombre ?? '').toLowerCase().includes(text)
     })
-  }, [categorias, search, genero, year])
+  }, [categorias, search, genero])
 
   const { ordenadas: sorted, orden: sort, ordenarPor: sortBy } = useOrdenTabla(filtered, SORT_VALUES, INITIAL_SORT)
 
   const withFirstPage = (setter) => (value) => {
     setter(value)
-    setPage(1)
-  }
-
-  const resetFilters = () => {
-    setSearch('')
-    setGenero('todos')
-    setYear('todos')
     setPage(1)
   }
 
@@ -104,8 +91,10 @@ function CategoriasTable({ data, isLoading, error, onEdit, onDelete }) {
           <thead>
             <tr className="bg-surface-container-low/60 border-b border-outline-variant/30 text-sm font-semibold text-on-surface-variant uppercase tracking-wider">
               <SortableHeader className="py-3 px-4 pl-6" etiqueta="Nombre" columna="name" orden={sort} onOrdenar={withFirstPage(sortBy)} />
-              <SortableHeader className="py-3 px-4" etiqueta="Edad máxima" columna="maxAge" orden={sort} onOrdenar={withFirstPage(sortBy)} />
               <SortableHeader className="py-3 px-4" etiqueta="Género" columna="genero" orden={sort} onOrdenar={withFirstPage(sortBy)} />
+              <SortableHeader className="py-3 px-4" etiqueta="Edad máxima" columna="maxAge" orden={sort} onOrdenar={withFirstPage(sortBy)} />
+              <SortableHeader className="py-3 px-4" etiqueta="Jugadores" columna="jugadores" orden={sort} onOrdenar={withFirstPage(sortBy)} />
+              <SortableHeader className="py-3 px-4" etiqueta="Docentes" columna="docentes" orden={sort} onOrdenar={withFirstPage(sortBy)} />
               <th className="py-3 px-4 pr-6 text-right" scope="col">Acciones</th>
             </tr>
           </thead>
@@ -133,9 +122,6 @@ function CategoriasTable({ data, isLoading, error, onEdit, onDelete }) {
                 className="hover:bg-surface-container-low/80 transition-colors cursor-pointer"
               >
                 <td className="py-3 px-4 pl-6 font-medium text-on-surface text-base">{categoria.nombre}</td>
-                <td className="py-3 px-4 text-on-surface-variant">
-                  {categoria.edad_maxima != null ? `${categoria.edad_maxima} años` : '—'}
-                </td>
                 <td className="py-3 px-4">
                   {GENERO_BADGE_CLASSES[categoria.genero] ? (
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-semibold ${GENERO_BADGE_CLASSES[categoria.genero]}`}>
@@ -145,6 +131,9 @@ function CategoriasTable({ data, isLoading, error, onEdit, onDelete }) {
                     <span className="text-on-surface-variant">—</span>
                   )}
                 </td>
+                <td className="py-3 px-4 text-on-surface-variant">{formatEdadMaxima(categoria.edad_maxima)}</td>
+                <td className="py-3 px-4 text-on-surface-variant">{categoria.cantidad_jugadores ?? '—'}</td>
+                <td className="py-3 px-4 text-on-surface-variant">{categoria.cantidad_docentes ?? '—'}</td>
                 <td className="py-2 px-4 pr-6">
                   <div className="flex items-center justify-end gap-1">
                     <button type="button" className={iconButtonClass} onClick={handleAction(onEdit, categoria)} title="Editar categoría" aria-label={`Editar ${categoria.nombre}`}>
