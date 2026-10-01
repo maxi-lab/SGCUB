@@ -121,6 +121,7 @@ class AuthEndpointsTests(APITestCase):
         self.assertEqual(response.data["roles"], ["Tesorero"])
         self.assertEqual(response.data["permissions"], [])
         self.assertFalse(response.data["is_superuser"])
+        self.assertFalse(response.data["must_change_password"])
 
     def test_me_lists_every_permission_for_administrador(self):
         self.user.groups.set([Group.objects.get(name=ADMINISTRADOR)])
@@ -175,12 +176,37 @@ class AuthEndpointsTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("current_password", response.data)
 
-    def test_change_password_rejects_weak_password(self):
+    def test_change_password_has_no_format_restrictions(self):
+        self.client.force_authenticate(self.user)
+
+        for new_password in ("1234", "30123456"):
+            with self.subTest(new_password=new_password):
+                current = self.password if new_password == "1234" else "1234"
+                response = self.client.post(
+                    reverse("auth-change-password"),
+                    {"current_password": current, "new_password": new_password},
+                    format="json",
+                )
+                self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+                self.user.refresh_from_db()
+                self.assertTrue(self.user.check_password(new_password))
+
+    def test_change_password_requires_current_password_when_not_forced(self):
+        self.client.force_authenticate(self.user)
+
+        response = self.client.post(
+            reverse("auth-change-password"), {"new_password": "Otra-clave-456"}, format="json"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("current_password", response.data)
+
+    def test_change_password_rejects_empty_password(self):
         self.client.force_authenticate(self.user)
 
         response = self.client.post(
             reverse("auth-change-password"),
-            {"current_password": self.password, "new_password": "1234"},
+            {"current_password": self.password, "new_password": ""},
             format="json",
         )
 
@@ -363,3 +389,61 @@ class UsuarioApiTests(APITestCase):
     def test_roles_endpoint(self):
         response = self.client.get(reverse("usuario-roles"))
         self.assertEqual(sorted(response.data), sorted([*ROLE_PERMISSIONS, ADMINISTRADOR]))
+
+
+class MustChangePasswordTests(APITestCase):
+    def setUp(self):
+        cache.clear()
+        self.admin = User.objects.create_user(username="44256087", password="Clave-segura-123")
+        self.admin.groups.add(Group.objects.get(name=ADMINISTRADOR))
+        self.client.force_authenticate(self.admin)
+        response = self.client.post(
+            reverse("usuario-list"),
+            {"dni": "30123456", "first_name": "Juana", "last_name": "Pérez", "email": "jperez@club.org", "role": "Tesorero"},
+            format="json",
+        )
+        self.user = User.objects.get(pk=response.data["id"])
+
+    def me(self, user):
+        # Instancia nueva, como en una request real: la anterior puede tener el perfil en caché
+        self.client.force_authenticate(User.objects.get(pk=user.pk))
+        return self.client.get(reverse("auth-me")).data["must_change_password"]
+
+    def change_password(self, user, **data):
+        self.client.force_authenticate(user)
+        return self.client.post(reverse("auth-change-password"), data, format="json")
+
+    def test_new_user_must_change_password(self):
+        self.assertTrue(self.me(self.user))
+
+    def test_forced_change_does_not_ask_current_password_and_clears_flag(self):
+        response = self.change_password(self.user, new_password="Mi-clave-nueva")
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password("Mi-clave-nueva"))
+        self.assertFalse(self.me(self.user))
+
+    def test_user_can_keep_dni_as_password(self):
+        response = self.change_password(self.user, new_password="30123456")
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(self.me(self.user))
+
+    def test_reset_password_forces_change_again(self):
+        self.change_password(self.user, new_password="Mi-clave-nueva")
+
+        self.client.force_authenticate(self.admin)
+        self.client.post(reverse("usuario-reset-password", args=[self.user.pk]))
+
+        self.assertTrue(self.me(self.user))
+
+    def test_users_without_perfil_are_not_forced(self):
+        self.assertFalse(self.me(self.admin))
+
+    def test_list_shows_flag(self):
+        self.client.force_authenticate(self.admin)
+        rows = {row["dni"]: row for row in self.client.get(reverse("usuario-list")).data}
+
+        self.assertTrue(rows["30123456"]["must_change_password"])
+        self.assertFalse(rows["44256087"]["must_change_password"])

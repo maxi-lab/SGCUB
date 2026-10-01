@@ -4,6 +4,7 @@ from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.forms import UserChangeForm, UserCreationForm
 
 from .dni import normalize_dni, validate_dni
+from .models import Perfil
 
 User = get_user_model()
 
@@ -34,7 +35,14 @@ class UsuarioChangeForm(DniUsernameMixin, UserChangeForm):
 admin.site.unregister(User)
 
 
+class PerfilInline(admin.StackedInline):
+    model = Perfil
+    can_delete = False
+    verbose_name_plural = "Perfil"
+
+
 @admin.register(User)
 class UsuarioAdmin(UserAdmin):
     add_form = UsuarioCreationForm
     form = UsuarioChangeForm
+    inlines = [PerfilInline]

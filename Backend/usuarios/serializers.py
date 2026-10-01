@@ -1,12 +1,12 @@
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
-from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from .dni import normalize_dni
 from .dni import validate_dni as check_dni_format
+from .models import must_change_password, set_must_change_password
 from .roles import ADMINISTRADOR, ROLE_PERMISSIONS
 
 User = get_user_model()
@@ -25,6 +25,7 @@ class UsuarioActualSerializer(serializers.Serializer):
     roles = serializers.SerializerMethodField()
     permissions = serializers.SerializerMethodField()
     is_superuser = serializers.BooleanField()
+    must_change_password = serializers.SerializerMethodField()
 
     def get_full_name(self, user) -> str:
         return user.get_full_name() or user.username
@@ -36,19 +37,24 @@ class UsuarioActualSerializer(serializers.Serializer):
         # Formato "<app_label>.<codename>", el mismo que usa ROLE_PERMISSIONS
         return sorted(user.get_all_permissions())
 
+    def get_must_change_password(self, user) -> bool:
+        return must_change_password(user)
+
 
 class CambioPasswordSerializer(serializers.Serializer):
-    current_password = serializers.CharField(write_only=True)
-    new_password = serializers.CharField(write_only=True)
+    current_password = serializers.CharField(write_only=True, required=False)
+    new_password = serializers.CharField(write_only=True, trim_whitespace=False)
 
-    def validate_current_password(self, value):
-        if not self.context["request"].user.check_password(value):
-            raise serializers.ValidationError("La contraseña actual es incorrecta.")
-        return value
-
-    def validate_new_password(self, value):
-        validate_password(value, self.context["request"].user)
-        return value
+    def validate(self, attrs):
+        user = self.context["request"].user
+        if must_change_password(user):
+            return attrs
+        current_password = attrs.get("current_password")
+        if not current_password:
+            raise serializers.ValidationError({"current_password": "Este campo es requerido."})
+        if not user.check_password(current_password):
+            raise serializers.ValidationError({"current_password": "La contraseña actual es incorrecta."})
+        return attrs
 
 
 ROLES = [*ROLE_PERMISSIONS, ADMINISTRADOR]
@@ -64,6 +70,7 @@ def _to_drf_error(validator, value):
 class UsuarioSerializer(serializers.ModelSerializer):
     dni = serializers.CharField(source="username", max_length=12)
     full_name = serializers.SerializerMethodField()
+    must_change_password = serializers.SerializerMethodField()
     # Cada usuario tiene un único rol; en la lectura se agrega en to_representation
     role = serializers.ChoiceField(choices=ROLES, write_only=True)
 
@@ -71,7 +78,7 @@ class UsuarioSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             "id", "dni", "first_name", "last_name", "full_name", "email", "role",
-            "is_active", "last_login", "date_joined",
+            "is_active", "must_change_password", "last_login", "date_joined",
         ]
         read_only_fields = ["is_active", "last_login", "date_joined"]
         extra_kwargs = {
@@ -82,6 +89,9 @@ class UsuarioSerializer(serializers.ModelSerializer):
 
     def get_full_name(self, user) -> str:
         return user.get_full_name() or user.username
+
+    def get_must_change_password(self, user) -> bool:
+        return must_change_password(user)
 
     def to_representation(self, user):
         data = super().to_representation(user)
@@ -120,6 +130,7 @@ class UsuarioSerializer(serializers.ModelSerializer):
         # La clave inicial es el DNI; el usuario la cambia después de ingresar
         user.set_password(user.username)
         user.save()
+        set_must_change_password(user)
         user.groups.set([Group.objects.get(name=role)])
         return user
 

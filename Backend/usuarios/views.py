@@ -7,6 +7,7 @@ from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework_simplejwt.views import TokenBlacklistView, TokenObtainPairView, TokenRefreshView
 
+from .models import set_must_change_password
 from .permissions import CanChangeUsuarios, CanManageUsuarios
 from .serializers import ROLES, CambioPasswordSerializer, LoginSerializer, UsuarioActualSerializer, UsuarioSerializer
 
@@ -43,11 +44,12 @@ def change_password(request):
     serializer.is_valid(raise_exception=True)
     request.user.set_password(serializer.validated_data["new_password"])
     request.user.save(update_fields=["password"])
+    set_must_change_password(request.user, required=False)
     return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 def _usuarios_queryset():
-    return User.objects.prefetch_related("groups").order_by("last_name", "first_name", "username")
+    return User.objects.select_related("perfil").prefetch_related("groups").order_by("last_name", "first_name", "username")
 
 
 @extend_schema(tags=["Usuarios"], methods=["GET"], responses=UsuarioSerializer(many=True))
@@ -100,9 +102,9 @@ def usuario_activate(request, pk):
 @permission_classes([CanChangeUsuarios])
 def usuario_reset_password(request, pk):
     user = get_object_or_404(User, pk=pk)
-    # Vuelve a la clave inicial: el DNI del usuario
     user.set_password(user.username)
     user.save(update_fields=["password"])
+    set_must_change_password(user)
     return Response(status=status.HTTP_204_NO_CONTENT)
 
 
