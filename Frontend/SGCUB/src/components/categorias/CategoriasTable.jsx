@@ -4,15 +4,10 @@ import FilterSelect from '../shared/FilterSelect'
 import SortableHeader from '../shared/SortableHeader'
 import TablePagination from '../shared/TablePagination'
 import useOrdenTabla from '../../hooks/useOrdenTabla'
-import { GENERO_OPTIONS, getGeneroLabel } from './categoriaFormat'
+import { GENERO_BADGE_CLASSES, GENERO_OPTIONS, getGeneroLabel } from './categoriaFormat'
 
 const filterClass = 'bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-sm focus:outline-none focus:border-primary cursor-pointer'
 const iconButtonClass = 'inline-flex items-center justify-center p-2 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container-low transition-colors cursor-pointer'
-
-const GENERO_BADGES = {
-  M: 'bg-sky-50 text-sky-700 border border-sky-200',
-  F: 'bg-pink-50 text-pink-700 border border-pink-200',
-}
 
 const SORT_VALUES = {
   name: (categoria) => categoria.nombre,
@@ -100,17 +95,6 @@ function CategoriasTable({ data, isLoading, error, onEdit, onDelete }) {
                 <option key={option.value} value={option.value}>{option.label}</option>
               ))}
             </FilterSelect>
-            <FilterSelect
-              className={filterClass}
-              value={year}
-              onChange={(event) => withFirstPage(setYear)(event.target.value)}
-              aria-label="Filtrar por año vigente"
-            >
-              <option value="todos">Año: Todos</option>
-              {years.map((item) => (
-                <option key={item} value={item}>{item}</option>
-              ))}
-            </FilterSelect>
             <button
               type="button"
               onClick={resetFilters}
@@ -129,7 +113,6 @@ function CategoriasTable({ data, isLoading, error, onEdit, onDelete }) {
           <thead>
             <tr className="bg-surface-container-low/60 border-b border-outline-variant/30 text-sm font-semibold text-on-surface-variant uppercase tracking-wider">
               <SortableHeader className="py-3 px-4 pl-6" etiqueta="Nombre" columna="name" orden={sort} onOrdenar={withFirstPage(sortBy)} />
-              <SortableHeader className="py-3 px-4" etiqueta="Año vigente" columna="year" orden={sort} onOrdenar={withFirstPage(sortBy)} />
               <SortableHeader className="py-3 px-4" etiqueta="Edad máxima" columna="maxAge" orden={sort} onOrdenar={withFirstPage(sortBy)} />
               <SortableHeader className="py-3 px-4" etiqueta="Género" columna="genero" orden={sort} onOrdenar={withFirstPage(sortBy)} />
               <th className="py-3 px-4 pr-6 text-right" scope="col">Acciones</th>
@@ -159,13 +142,12 @@ function CategoriasTable({ data, isLoading, error, onEdit, onDelete }) {
                 className="hover:bg-surface-container-low/80 transition-colors cursor-pointer"
               >
                 <td className="py-3 px-4 pl-6 font-medium text-on-surface text-base">{categoria.nombre}</td>
-                <td className="py-3 px-4 text-on-surface-variant">{categoria.anio_vigente ?? '—'}</td>
                 <td className="py-3 px-4 text-on-surface-variant">
                   {categoria.edad_maxima != null ? `${categoria.edad_maxima} años` : '—'}
                 </td>
                 <td className="py-3 px-4">
-                  {GENERO_BADGES[categoria.genero] ? (
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-semibold ${GENERO_BADGES[categoria.genero]}`}>
+                  {GENERO_BADGE_CLASSES[categoria.genero] ? (
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-semibold ${GENERO_BADGE_CLASSES[categoria.genero]}`}>
                       {getGeneroLabel(categoria.genero)}
                     </span>
                   ) : (

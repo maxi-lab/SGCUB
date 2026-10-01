@@ -252,6 +252,11 @@ def jugador_list_create(request):
             "socio__persona__genero", "socio__persona__domicilio__localidad", "socio__estado_administrativo",
             "categoria", "categoria_secundaria", "estado",
         ).prefetch_related("vinculos_familiares__persona")
+        category_id = request.query_params.get("categoria")
+        if category_id:
+            if not category_id.isdigit():
+                return Response({"categoria": "Debe ser un número."}, status=status.HTTP_400_BAD_REQUEST)
+            players = players.filter(Q(categoria_id=category_id) | Q(categoria_secundaria_id=category_id))
         serializer = JugadorListSerializer(players, many=True)
         return Response(serializer.data)
 

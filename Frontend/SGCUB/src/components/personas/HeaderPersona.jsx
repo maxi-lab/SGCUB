@@ -79,14 +79,14 @@ export function EditButton({ onClick, children = 'Editar legajo' }) {
   )
 }
 
-export function DeactivateButton({ onClick, children = 'Dar de baja' }) {
+export function DeactivateButton({ onClick, icon = 'person_off', children = 'Dar de baja' }) {
   return (
     <button
       type="button"
       onClick={onClick}
       className="inline-flex items-center gap-1.5 h-10 px-4 bg-error-container/40 text-error hover:bg-error hover:text-on-error transition-all rounded-lg text-base font-semibold focus:outline-none focus:ring-2 focus:ring-error shadow-sm cursor-pointer"
     >
-      <span className="material-symbols-outlined text-[20px]">person_off</span>
+      <span className="material-symbols-outlined text-[20px]">{icon}</span>
       <span>{children}</span>
     </button>
   )

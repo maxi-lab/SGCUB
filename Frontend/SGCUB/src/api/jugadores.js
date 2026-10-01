@@ -8,6 +8,11 @@ export const getJugadores = async () => {
   return response.data
 }
 
+export const getJugadoresByCategoria = async (categoriaId) => {
+  const response = await api.get(jugadoresEndpoint, { params: { categoria: categoriaId } })
+  return response.data
+}
+
 export const getJugador = async (jugadorId) => {
   const response = await api.get(`${jugadoresEndpoint}${jugadorId}/`)
   return response.data

@@ -17,7 +17,7 @@ import DocenteForm from './pages/DocenteForm'
 import SocioForm from './pages/SocioForm'
 import Categorias from './pages/Categorias'
 import Docentes from './pages/Docentes'
-import CategoriaDetalle from './pages/CategoriaDetalle'
+import CategoriaDetail from './pages/CategoriaDetail'
 import EnDesarrollo from './pages/EnDesarrollo'
 import Usuarios from './pages/Usuarios'
 import ChangePassword from './pages/ChangePassword'
@@ -104,7 +104,7 @@ export const router = createBrowserRouter([
               },
               {
                 path: 'categorias/:id',
-                element: <CategoriaDetalle />,
+                element: <CategoriaDetail />,
               },
             ],
           },
