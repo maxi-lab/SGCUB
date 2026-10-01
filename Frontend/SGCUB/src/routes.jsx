@@ -15,6 +15,7 @@ import Categorias from './pages/Categorias'
 import Docentes from './pages/Docentes'
 import CategoriaDetalle from './pages/CategoriaDetalle'
 import EnDesarrollo from './pages/EnDesarrollo'
+import DocumentacionDashboard from './pages/DocumentacionDashboard'
 
 export const router = createBrowserRouter([
   {
@@ -104,7 +105,7 @@ export const router = createBrowserRouter([
       },
       {
         path: 'documental',
-        element: <EnDesarrollo title="Documental" />,
+        element: <DocumentacionDashboard />,
       },
       {
         path: 'comunicaciones',
