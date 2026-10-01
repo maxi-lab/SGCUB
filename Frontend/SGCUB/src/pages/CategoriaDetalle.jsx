@@ -283,6 +283,7 @@ function CategoriaDetalle() {
             </Stack>
           </Card>
         </Grid.Col>
+      </Grid>
 
       {/* Modal de Edición */}
       <CategoriaFormModal
