@@ -18,34 +18,11 @@ import {
 import { IconAlertCircle, IconArrowLeft, IconEdit, IconId, IconShirt, IconTrash, IconUser, IconUserPlus } from '@tabler/icons-react'
 import { deleteCategoria, getCategoria, patchCategoria } from '../api/categorias'
 import { deleteDocenteCategoria, docenteCategoriaByCategoria, postDocenteCategoria } from '../api/docenteCategoria'
-import DeleteCategoriaModal from '../components/categorias/DeleteCategoriaModal'
-import AddCategoriaModal from '../components/categorias/AddCategoriaModal'
+import CategoriaFormModal from '../components/categorias/CategoriaFormModal'
+import ConfirmCategoriaModal from '../components/categorias/ConfirmCategoriaModal'
 import AsignarDocenteModal from '../components/categorias/AsignarDocenteModal'
-import useCategorias from '../hooks/useCategorias'
 import useDocentes from '../hooks/useDocentes'
 import CategoriaDocenteTable from '../components/categorias/CategoriaDocenteTable'
-
-const formularioInicial = (categoria, docenteCategorias = []) => {
-  if (!categoria) {
-    return {
-      nombre: '',
-      anio_vigente: '',
-      edad_minima: '',
-      edad_maxima: '',
-      genero: "",
-      docentes: [],
-    }
-  }
-
-  return {
-    nombre: categoria.nombre ?? '',
-    anio_vigente: categoria.anio_vigente ?? '',
-    edad_minima: categoria.edad_minima ?? '',
-    edad_maxima: categoria.edad_maxima ?? '',
-    genero: categoria.genero ?? '',
-    docentes: docenteCategorias.map((dc) => dc.docente),
-  }
-}
 
 function CategoriaDetalle() {
   const { id } = useParams()
@@ -56,18 +33,11 @@ function CategoriaDetalle() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  // Opciones para edición
-  const { categorias } = useCategorias()
   const { docentes } = useDocentes()
-  // Estados de modales
-  const [modalEdicionAbierto, setModalEdicionAbierto] = useState(false)
-  const [guardandoEdicion, setGuardandoEdicion] = useState(false)
-  const [errorEdicion, setErrorEdicion] = useState('')
-  const [formulario, setFormulario] = useState(() => formularioInicial(null))
 
-  const [modalEliminarAbierto, setModalEliminarAbierto] = useState(false)
-  const [eliminando, setEliminando] = useState(false)
-  const [errorEliminacion, setErrorEliminacion] = useState('')
+  const [modalKey, setModalKey] = useState(0)
+  const [isFormOpen, setIsFormOpen] = useState(false)
+  const [isDeletionOpen, setIsDeletionOpen] = useState(false)
   const [modalAsignarAbierto, setModalAsignarAbierto] = useState(false)
   const [docenteAsignando, setDocenteAsignando] = useState(null)
   const [errorAsignacion, setErrorAsignacion] = useState('')
@@ -100,13 +70,9 @@ function CategoriaDetalle() {
     cargarDocenteCategorias()
   }, [cargarDetalle, cargarDocenteCategorias])
 
-  const actualizarCampo = (campo, valor) =>
-    setFormulario((actual) => ({ ...actual, [campo]: valor }))
-
-  const abrirModalEdicion = () => {
-    setErrorEdicion('')
-    setFormulario(formularioInicial(categoria, docenteCategorias))
-    setModalEdicionAbierto(true)
+  const openModal = (setOpened) => {
+    setModalKey((key) => key + 1)
+    setOpened(true)
   }
 
   const handleDeleteDocenteCategoria = async (docenteCategoriaId) => {
@@ -136,67 +102,13 @@ function CategoriaDetalle() {
     }
   }
 
-  const guardarEdicion = async (event) => {
-    event.preventDefault()
-    setGuardandoEdicion(true)
-    setErrorEdicion('')
-
-    const payload = {
-      nombre: formulario.nombre,
-      anio_vigente: formulario.anio_vigente,
-      edad_minima: formulario.edad_minima,
-      edad_maxima: formulario.edad_maxima,
-      genero: formulario.genero,
-      docentes: formulario.docentes.map((docente) => docente.docente_id), // Solo enviar los IDs de los docentes
-    }
-
-    try {
-      const actualizado = await patchCategoria(categoria.categoria_id, payload)
-      setCategoria(actualizado)
-      setModalEdicionAbierto(false)
-    } catch (requestError) {
-      const errorData = requestError.response?.data
-      let errorMsg = 'No se pudo editar la categoría.'
-      if (errorData) {
-        if (typeof errorData === 'string') {
-          errorMsg = errorData
-        } else if (errorData.detail) {
-          errorMsg = errorData.detail
-        } else {
-          errorMsg = Object.entries(errorData)
-            .map(
-              ([k, v]) =>
-                `${k}: ${
-                  Array.isArray(v)
-                    ? v.join(' ')
-                    : typeof v === 'object'
-                      ? JSON.stringify(v)
-                      : v
-                }`,
-            )
-            .join(' | ')
-        }
-      }
-      setErrorEdicion(errorMsg)
-    } finally {
-      setGuardandoEdicion(false)
-    }
+  const handleUpdate = async (data) => {
+    setCategoria(await patchCategoria(categoria.categoria_id, data))
   }
 
-  const confirmarEliminacion = async () => {
-    setEliminando(true)
-    setErrorEliminacion('')
-    try {
-      await deleteCategoria(categoria.categoria_id)
-      setModalEliminarAbierto(false)
-      navigate('/padron/categorias')
-    } catch (requestError) {
-      setErrorEliminacion(
-        requestError.response?.data?.detail || 'No se pudo eliminar la categoría.',
-      )
-    } finally {
-      setEliminando(false)
-    }
+  const handleDelete = async () => {
+    await deleteCategoria(categoria.categoria_id)
+    navigate('/padron/categorias')
   }
 
   if (loading) {
@@ -262,7 +174,7 @@ function CategoriaDetalle() {
           <Button
             leftIcon={<IconEdit size={16} />}
             color="teal"
-            onClick={abrirModalEdicion}
+            onClick={() => openModal(setIsFormOpen)}
           >
             Editar categoría
           </Button>
@@ -270,10 +182,7 @@ function CategoriaDetalle() {
             leftIcon={<IconTrash size={16} />}
             color="red"
             variant="light"
-            onClick={() => {
-              setErrorEliminacion('')
-              setModalEliminarAbierto(true)
-            }}
+            onClick={() => openModal(setIsDeletionOpen)}
           >
             Eliminar
           </Button>
@@ -375,124 +284,22 @@ function CategoriaDetalle() {
           </Card>
         </Grid.Col>
 
-        {/* Sección: Contactos de Emergencia */}
-    {/*<Grid.Col span={12}>
-          <Card shadow="xs" p="lg" radius="md" withBorder>
-            <Group position="apart" mb="md">
-              <Group spacing="xs">
-                <ThemeIcon color="teal" variant="light" size="md">
-                  <IconHeartbeat size={18} />
-                </ThemeIcon>
-                <Text weight={600} size="md">
-                  Jugadores Asociados
-                </Text>
-              </Group>
-              <Badge color="gray" variant="light">
-                {jugador.vinculos_familiares?.length || 0} registrados
-              </Badge>
-            </Group>
-            <Divider mb="md" />
-
-            {!jugador.vinculos_familiares ||
-            jugador.vinculos_familiares.length === 0 ? (
-              <Text color="dimmed" size="sm" align="center" py="md">
-                No hay contactos de emergencia registrados para este jugador.
-              </Text>
-            ) : (
-              <SimpleGrid
-                cols={2}
-                breakpoints={[{ maxWidth: 'sm', cols: 1 }]}
-                spacing="md"
-              >
-                {jugador.vinculos_familiares.map((contacto, idx) => (
-                  <Paper
-                    key={contacto.vinculo_familiar_id ?? idx}
-                    p="md"
-                    radius="md"
-                    withBorder
-                    style={{ backgroundColor: 'var(--bg)' }}
-                  >
-                    <Group position="apart" mb="xs">
-                      <Group spacing="xs">
-                        <ThemeIcon color="teal" size="sm" variant="subtle">
-                          <IconUsers size={16} />
-                        </ThemeIcon>
-                        <Text weight={600} size="sm">
-                          {contacto.persona?.nombre} {contacto.persona?.apellido}
-                        </Text>
-                      </Group>
-                      <Group spacing={4}>
-                        {contacto.relacion && (
-                          <Badge size="sm" variant="outline" color="teal">
-                            {contacto.relacion}
-                          </Badge>
-                        )}
-                        {contacto.responsable_legal && (
-                          <Badge size="sm" variant="filled" color="indigo">
-                            Responsable Legal
-                          </Badge>
-                        )}
-                      </Group>
-                    </Group>
-
-                    <Stack spacing={4} mt="xs">
-                      <Group spacing="xs">
-                        <Text size="xs" color="dimmed">
-                          DNI:
-                        </Text>
-                        <Text size="xs" weight={500}>
-                          {contacto.persona?.dni || '-'}
-                        </Text>
-                      </Group>
-
-                      <Group spacing="xs">
-                        <Text size="xs" color="dimmed">
-                          Teléfono:
-                        </Text>
-                        <Text size="xs" weight={500}>
-                          {contacto.persona?.telefono || '-'}
-                        </Text>
-                      </Group>
-
-                      {contacto.persona?.email && (
-                        <Group spacing="xs">
-                          <Text size="xs" color="dimmed">
-                            Email:
-                          </Text>
-                          <Text size="xs" weight={500}>
-                            {contacto.persona.email}
-                          </Text>
-                        </Group>
-                      )}
-                    </Stack>
-                  </Paper>
-                ))}
-              </SimpleGrid>
-            )}
-          </Card>
-        </Grid.Col>*/}
-      </Grid>
-
       {/* Modal de Edición */}
-      <AddCategoriaModal
-        opened={modalEdicionAbierto}
-        onClose={() => !guardandoEdicion && setModalEdicionAbierto(false)}
-        onSubmit={guardarEdicion}
-        formulario={formulario}
-        onChange={actualizarCampo}
-        categorias={categorias}
-        loading={guardandoEdicion}
-        error={errorEdicion}
+      <CategoriaFormModal
+        key={`form-${modalKey}`}
+        opened={isFormOpen}
+        onClose={() => setIsFormOpen(false)}
+        onSubmit={handleUpdate}
+        categoria={categoria}
       />
 
       {/* Modal de Eliminación */}
-      <DeleteCategoriaModal
-        opened={modalEliminarAbierto}
-        onClose={() => !eliminando && setModalEliminarAbierto(false)}
-        onConfirm={confirmarEliminacion}
+      <ConfirmCategoriaModal
+        key={`delete-${modalKey}`}
+        opened={isDeletionOpen}
+        onClose={() => setIsDeletionOpen(false)}
+        onConfirm={handleDelete}
         categoria={categoria}
-        loading={eliminando}
-        error={errorEliminacion}
       />
 
       <AsignarDocenteModal
