@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api/conf'
 import DocentesTable from '../components/docentes/DocentesTable'
+import { esActivo } from '../components/docentes/docentesUtils'
 import PageHeader from '../components/shared/PageHeader'
 import StatCard from '../components/shared/StatCard'
 import useCategorias from '../hooks/useCategorias'
@@ -33,6 +34,15 @@ function Docentes() {
     }
   }, [])
 
+  const totales = useMemo(() => {
+    const activos = docentes.filter(esActivo).length
+    return {
+      total: docentes.length.toLocaleString('es-AR'),
+      activos: activos.toLocaleString('es-AR'),
+      bajas: (docentes.length - activos).toLocaleString('es-AR'),
+    }
+  }, [docentes])
+
   return (
     <div className="w-full flex flex-col gap-5">
       <PageHeader
@@ -50,7 +60,9 @@ function Docentes() {
         )}
       />
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 xl:gap-10">
-        <StatCard label="Total Docentes" value={docentes.length.toLocaleString('es-AR')} icon="school" tone="neutral" />
+        <StatCard label="Total Docentes" value={totales.total} icon="school" tone="neutral" />
+        <StatCard label="Docentes Activos" value={totales.activos} icon="how_to_reg" tone="positive" />
+        <StatCard label="Docentes de Baja" value={totales.bajas} icon="person_off" tone="muted" />
       </div>
       <section aria-label="Docentes">
         <DocentesTable

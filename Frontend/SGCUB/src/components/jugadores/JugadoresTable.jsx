@@ -1,5 +1,8 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import FilterSelect from '../shared/FilterSelect'
+import SortableHeader from '../shared/SortableHeader'
+import useOrdenTabla from '../../hooks/useOrdenTabla'
 
 const estadoActivo = (jugador) => {
   const estado = (jugador.estado?.nombre ?? '').toLowerCase()
@@ -48,11 +51,20 @@ const exportarCSV = (jugadores) => {
   URL.revokeObjectURL(enlace.href)
 }
 
+// Valor por el que se ordena cada columna. Estado: activos primero en orden ascendente.
+const VALORES_ORDEN = {
+  numero: (jugador) => (jugador.socio?.numero_socio ? Number(jugador.socio.numero_socio) : null),
+  nombre: (jugador) => `${jugador.socio?.nombre ?? ''} ${jugador.socio?.apellido ?? ''}`.trim(),
+  estado: (jugador) => (estadoActivo(jugador) ? 0 : 1),
+}
+// Al cargar: los más recientes primero.
+const ORDEN_INICIAL = { columna: 'numero', direccion: 'desc' }
+
 function JugadoresTable({ data, categorias = [], isLoading, error, onEdit }) {
   const navigate = useNavigate()
   const [busqueda, setBusqueda] = useState('')
   const [categoria, setCategoria] = useState('todas')
-  const [estado, setEstado] = useState('todos')
+  const [estado, setEstado] = useState('activo')
   const [filasPorPagina, setFilasPorPagina] = useState(25)
   const [pagina, setPagina] = useState(1)
   const jugadores = useMemo(() => data ?? [], [data])
@@ -67,37 +79,42 @@ function JugadoresTable({ data, categorias = [], isLoading, error, onEdit }) {
         .some((campo) => String(campo ?? '').toLowerCase().includes(texto))
     })
   }, [jugadores, busqueda, categoria, estado])
-  const totalPaginas = Math.max(1, Math.ceil(filtrados.length / filasPorPagina))
+  const { ordenadas, orden, ordenarPor } = useOrdenTabla(filtrados, VALORES_ORDEN, ORDEN_INICIAL)
+  const ordenar = (columna) => {
+    ordenarPor(columna)
+    setPagina(1)
+  }
+
+  const totalPaginas = Math.max(1, Math.ceil(ordenadas.length / filasPorPagina))
   const paginaActual = Math.min(pagina, totalPaginas)
   const desde = (paginaActual - 1) * filasPorPagina
-  const visibles = filtrados.slice(desde, desde + filasPorPagina)
+  const visibles = ordenadas.slice(desde, desde + filasPorPagina)
 
   return (
-    <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-lg shadow-sm">
-      <div className="p-4 border-b border-outline-variant/20 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
-        <div className="flex flex-1 flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
-          <div className="relative flex-1 max-w-md">
+    <div className="min-w-0 bg-surface-container-lowest border border-outline-variant/30 rounded-lg shadow-sm">
+      <div className="p-4 border-b border-outline-variant/20 flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-3">
+        <div className="flex flex-1 min-w-0 flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-2.5">
+          <div className="relative w-full sm:w-auto sm:flex-1 sm:min-w-[16rem] sm:max-w-md">
             <span className="material-symbols-outlined absolute left-4 top-1.5 text-outline text-sm" aria-hidden="true">search</span>
             <input className="w-full h-10 pl-11 pr-4 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface placeholder:text-outline font-body-sm text-sm focus:outline-none focus:border-primary focus:bg-surface-container-lowest transition-colors" placeholder="Filtrar por DNI, Nombre o Apellido..." type="text" value={busqueda} onChange={(event) => { setBusqueda(event.target.value); setPagina(1) }} aria-label="Filtrar jugadores" />
           </div>
-          <select className="h-10 px-3 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-sm font-medium focus:outline-none focus:border-primary cursor-pointer" value={categoria} onChange={(event) => { setCategoria(event.target.value); setPagina(1) }} aria-label="Filtrar por categoría">
+          <FilterSelect className="bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-sm font-medium focus:outline-none focus:border-primary cursor-pointer" value={categoria} onChange={(event) => { setCategoria(event.target.value); setPagina(1) }} aria-label="Filtrar por categoría">
             <option value="todas">Categoría: Todas</option>
             {categorias.map((item) => <option key={item.categoria_id} value={item.categoria_id}>{item.nombre}</option>)}
-          </select>
-          <select className="h-10 px-3 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-sm font-medium focus:outline-none focus:border-primary cursor-pointer" value={estado} onChange={(event) => { setEstado(event.target.value); setPagina(1) }} aria-label="Filtrar por estado">
+          </FilterSelect>
+          <FilterSelect className="bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-sm font-medium focus:outline-none focus:border-primary cursor-pointer" value={estado} onChange={(event) => { setEstado(event.target.value); setPagina(1) }} aria-label="Filtrar por estado">
+            <option value="activo">Estado: Activo</option>
             <option value="todos">Estado: Todos</option>
-            <option value="activo">Activo</option>
             <option value="baja">De baja / Inactivo</option>
-          </select>
+          </FilterSelect>
         </div>
-        <div className="flex items-center justify-between sm:justify-end gap-3 pt-2 lg:pt-0">
-          <span className="text-base text-on-surface-variant whitespace-nowrap">{filtrados.length === 0 ? 'Sin resultados' : `Mostrando ${desde + 1}-${desde + visibles.length} de ${filtrados.length.toLocaleString('es-AR')} jugadores`}</span>
-          <button type="button" onClick={() => exportarCSV(filtrados)} disabled={filtrados.length === 0} className="inline-flex items-center gap-1.5 h-10 px-3 bg-surface-container-low hover:bg-surface-container-high border border-outline-variant/40 text-on-surface rounded text-lg font-medium transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"><span className="material-symbols-outlined text-[16px]" aria-hidden="true">file_download</span><span>Exportar jugadores</span></button>
+        <div className="flex items-center justify-end xl:shrink-0">
+          <button type="button" onClick={() => exportarCSV(filtrados)} disabled={filtrados.length === 0} className="inline-flex items-center justify-center gap-1.5 h-10 px-3 w-full sm:w-auto shrink-0 bg-surface-container-low hover:bg-surface-container-high border border-outline-variant/40 text-on-surface rounded text-lg font-medium transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"><span className="material-symbols-outlined text-[16px]" aria-hidden="true">file_download</span><span>Exportar jugadores</span></button>
         </div>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-left text-base border-collapse">
-          <thead><tr className="bg-surface-container-low/60 border-b border-outline-variant/30 text-sm font-semibold text-on-surface-variant uppercase tracking-wider"><th className="py-3 px-4 w-28 whitespace-nowrap" scope="col">N° Socio</th><th className="py-3 px-4" scope="col">Nombre y Apellido</th><th className="py-3 px-4" scope="col">DNI</th><th className="py-3 px-4" scope="col">Categoría principal</th><th className="py-3 px-4" scope="col">Categoría secundaria</th><th className="py-3 px-4" scope="col">Estado</th></tr></thead>
+          <thead><tr className="bg-surface-container-low/60 border-b border-outline-variant/30 text-sm font-semibold text-on-surface-variant uppercase tracking-wider"><SortableHeader className="py-3 px-4 w-28 whitespace-nowrap" etiqueta="N° Socio" columna="numero" orden={orden} onOrdenar={ordenar} /><SortableHeader className="py-3 px-4" etiqueta="Nombre y Apellido" columna="nombre" orden={orden} onOrdenar={ordenar} /><th className="py-3 px-4" scope="col">DNI</th><th className="py-3 px-4" scope="col">Categoría principal</th><th className="py-3 px-4" scope="col">Categoría secundaria</th><SortableHeader className="py-3 px-4" etiqueta="Estado" columna="estado" orden={orden} onOrdenar={ordenar} /></tr></thead>
           <tbody className="divide-y divide-outline-variant/20 font-body-sm text-sm text-on-surface">
             {isLoading && <tr><td className="py-10 px-4 text-center text-on-surface-variant" colSpan={6}>Cargando jugadores...</td></tr>}
             {!isLoading && visibles.length === 0 && <tr><td className="py-10 px-4 text-center text-on-surface-variant" colSpan={6}>{error ? 'No se pudieron cargar los jugadores.' : 'No hay jugadores que coincidan con el filtro.'}</td></tr>}
@@ -105,7 +122,7 @@ function JugadoresTable({ data, categorias = [], isLoading, error, onEdit }) {
           </tbody>
         </table>
       </div>
-      <div className="p-4 border-t border-outline-variant/20 flex flex-col sm:flex-row items-center justify-between gap-3 text-lg text-on-surface-variant"><div className="flex items-center gap-2"><label className="font-label-md" htmlFor="jugadores-rows-per-page">Filas por página:</label><select className="h-8 px-2 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-lg focus:outline-none focus:border-primary cursor-pointer" id="jugadores-rows-per-page" value={filasPorPagina} onChange={(event) => { setFilasPorPagina(Number(event.target.value)); setPagina(1) }}><option value={25}>25</option><option value={50}>50</option><option value={100}>100</option></select><span className="ml-2">Página {paginaActual} de {totalPaginas}</span></div><div className="flex items-center gap-1"><button type="button" title="Página anterior" aria-label="Página anterior" disabled={paginaActual === 1} onClick={() => setPagina(Math.max(1, paginaActual - 1))} className="w-8 h-8 flex items-center justify-center rounded border border-outline-variant/30 text-on-surface-variant hover:bg-surface-container-low transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"><span className="material-symbols-outlined text-[18px]" aria-hidden="true">chevron_left</span></button>{paginasVisibles(paginaActual, totalPaginas).map((item, indice) => item === '...' ? <span key={`sep-${indice}`} className="px-1 text-outline">...</span> : <button key={item} type="button" onClick={() => setPagina(item)} aria-current={item === paginaActual ? 'page' : undefined} className={item === paginaActual ? 'w-8 h-8 flex items-center justify-center rounded bg-primary text-on-primary font-semibold font-label-md transition-colors' : 'w-8 h-8 flex items-center justify-center rounded border border-outline-variant/30 text-on-surface hover:bg-surface-container-low font-label-md transition-colors cursor-pointer'}>{item}</button>)}<button type="button" title="Página siguiente" aria-label="Página siguiente" disabled={paginaActual === totalPaginas} onClick={() => setPagina(Math.min(totalPaginas, paginaActual + 1))} className="w-8 h-8 flex items-center justify-center rounded border border-outline-variant/30 text-on-surface-variant hover:bg-surface-container-low transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"><span className="material-symbols-outlined text-[18px]" aria-hidden="true">chevron_right</span></button></div></div>
+      <div className="p-4 border-t border-outline-variant/20 flex flex-col sm:flex-row items-center justify-between gap-3 text-base text-on-surface-variant"><div className="flex items-center gap-2"><label className="font-label-md" htmlFor="jugadores-rows-per-page">Filas por página:</label><select className="h-8 px-2 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-base focus:outline-none focus:border-primary cursor-pointer" id="jugadores-rows-per-page" value={filasPorPagina} onChange={(event) => { setFilasPorPagina(Number(event.target.value)); setPagina(1) }}><option value={25}>25</option><option value={50}>50</option><option value={100}>100</option></select><span className="ml-2">Página {paginaActual} de {totalPaginas}</span></div><div className="flex items-center gap-1"><button type="button" title="Página anterior" aria-label="Página anterior" disabled={paginaActual === 1} onClick={() => setPagina(Math.max(1, paginaActual - 1))} className="w-8 h-8 flex items-center justify-center rounded border border-outline-variant/30 text-on-surface-variant hover:bg-surface-container-low transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"><span className="material-symbols-outlined text-base" aria-hidden="true">chevron_left</span></button>{paginasVisibles(paginaActual, totalPaginas).map((item, indice) => item === '...' ? <span key={`sep-${indice}`} className="px-1 text-outline">...</span> : <button key={item} type="button" onClick={() => setPagina(item)} aria-current={item === paginaActual ? 'page' : undefined} className={item === paginaActual ? 'w-8 h-8 flex items-center justify-center rounded border border-outline-variant/30 text-on-surface-variant bg-surface-container-low transition-colors' : 'w-8 h-8 flex items-center justify-center rounded border border-outline-variant/30 text-on-surface hover:bg-surface-container-low font-label-md transition-colors cursor-pointer'}>{item}</button>)}<button type="button" title="Página siguiente" aria-label="Página siguiente" disabled={paginaActual === totalPaginas} onClick={() => setPagina(Math.min(totalPaginas, paginaActual + 1))} className="w-8 h-8 flex items-center justify-center rounded border border-outline-variant/30 text-on-surface-variant hover:bg-surface-container-low transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"><span className="material-symbols-outlined text-base" aria-hidden="true">chevron_right</span></button></div></div>
     </div>
   )
 }
