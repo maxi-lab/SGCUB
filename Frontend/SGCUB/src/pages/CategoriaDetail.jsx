@@ -1,20 +1,23 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { deleteCategoria, getCategoria, patchCategoria } from '../api/categorias'
-import { deleteDocenteCategoria, docenteCategoriaByCategoria, postDocenteCategoria } from '../api/docenteCategoria'
+import { deleteDocenteCategoria, docenteCategoriaByCategoria } from '../api/docenteCategoria'
+import { getCargosDocente } from '../api/docentes'
 import { getJugadoresByCategoria } from '../api/jugadores'
-import AsignarDocenteModal from '../components/categorias/AsignarDocenteModal'
+import AssignDocenteModal from '../components/categorias/AssignDocenteModal'
 import CategoriaDocenteTable from '../components/categorias/CategoriaDocenteTable'
 import CategoriaFormModal from '../components/categorias/CategoriaFormModal'
 import CategoriaHeader from '../components/categorias/CategoriaHeader'
 import CategoriaJugadoresTable from '../components/categorias/CategoriaJugadoresTable'
 import ConfirmCategoriaModal from '../components/categorias/ConfirmCategoriaModal'
+import ConfirmRemoveDocenteModal from '../components/categorias/ConfirmRemoveDocenteModal'
 import { GENERO_BADGE_CLASSES, getGeneroLabel } from '../components/categorias/categoriaFormat'
 import { LoadingFile, ErrorFile } from '../components/personas/FileStatus'
 import { DeactivateButton, EditButton } from '../components/personas/HeaderPersona'
 import PersonTabs from '../components/personas/TabsNavPersonas'
 import { EmptyState, PrimaryButton, TabHeader } from '../components/personas/tabs/parts'
 import { getErrorMessage } from '../components/personas/format'
+import useCategorias from '../hooks/useCategorias'
 import useDocentes from '../hooks/useDocentes'
 
 const fetchDetail = (id) => Promise.all([
@@ -33,7 +36,9 @@ const ErrorAlert = ({ message }) => (
 function CategoriaDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { docentes } = useDocentes()
+  const { docentes, editarDocente, recargarDocentes } = useDocentes()
+  const { categorias } = useCategorias()
+  const [cargos, setCargos] = useState([])
 
   const [detail, setDetail] = useState({ id: null, categoria: null, docenteCategorias: [], jugadores: null, error: null })
   const isLoading = detail.id !== id
@@ -43,8 +48,7 @@ function CategoriaDetail() {
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [isDeletionOpen, setIsDeletionOpen] = useState(false)
   const [isAssignOpen, setIsAssignOpen] = useState(false)
-  const [assigningDocenteId, setAssigningDocenteId] = useState(null)
-  const [docentesError, setDocentesError] = useState('')
+  const [removal, setRemoval] = useState({ opened: false, docenteCategoria: null })
 
   useEffect(() => {
     let active = true
@@ -74,6 +78,14 @@ function CategoriaDetail() {
     return () => { active = false }
   }, [id])
 
+  useEffect(() => {
+    let active = true
+    getCargosDocente()
+      .then((receivedCargos) => active && setCargos(receivedCargos))
+      .catch(() => active && setCargos([]))
+    return () => { active = false }
+  }, [])
+
   const openModal = (setOpened) => {
     setModalKey((key) => key + 1)
     setOpened(true)
@@ -94,27 +106,19 @@ function CategoriaDetail() {
     navigate('/padron/categorias')
   }
 
-  const handleAssignDocente = async (docente) => {
-    setAssigningDocenteId(docente.docente_id)
-    setDocentesError('')
-    try {
-      await postDocenteCategoria({ docente_id: docente.docente_id, categoria_id: categoria.categoria_id })
-      await reloadDocenteCategorias()
-    } catch (requestError) {
-      setDocentesError(getErrorMessage(requestError, 'No se pudo asignar el docente a la categoría.'))
-    } finally {
-      setAssigningDocenteId(null)
-    }
+  const openRemoval = (docenteCategoria) => {
+    setModalKey((key) => key + 1)
+    setRemoval({ opened: true, docenteCategoria })
   }
 
-  const handleRemoveDocente = async (docenteCategoriaId) => {
-    setDocentesError('')
-    try {
-      await deleteDocenteCategoria(docenteCategoriaId)
-      await reloadDocenteCategorias()
-    } catch (requestError) {
-      setDocentesError(getErrorMessage(requestError, 'No se pudo quitar el docente de la categoría.'))
-    }
+  const handleAssignDocente = async (docente, asignaciones) => {
+    await editarDocente(docente.docente_id, { asignaciones })
+    await reloadDocenteCategorias()
+  }
+
+  const handleRemoveDocente = async () => {
+    await deleteDocenteCategoria(removal.docenteCategoria.docente_categoria_id)
+    await Promise.all([reloadDocenteCategorias(), recargarDocentes()])
   }
 
   if (isLoading) return <LoadingFile text="Cargando detalle de la categoría..." />
@@ -164,11 +168,10 @@ function CategoriaDetail() {
               </PrimaryButton>
             )}
           />
-          {docentesError && <ErrorAlert message={docentesError} />}
           {docenteCategorias.length === 0 ? (
             <EmptyState icon="school" title="Sin docentes" description="Todavía no hay docentes asignados a esta categoría." />
           ) : (
-            <CategoriaDocenteTable docenteCategorias={docenteCategorias} onDelete={handleRemoveDocente} />
+            <CategoriaDocenteTable docenteCategorias={docenteCategorias} onRemove={openRemoval} />
           )}
         </div>
       ),
@@ -219,13 +222,25 @@ function CategoriaDetail() {
         categoria={categoria}
       />
 
-      <AsignarDocenteModal
+      <AssignDocenteModal
+        key={`assign-${modalKey}`}
         opened={isAssignOpen}
-        onClose={() => !assigningDocenteId && setIsAssignOpen(false)}
+        onClose={() => setIsAssignOpen(false)}
+        onSubmit={handleAssignDocente}
+        categoria={categoria}
         docentes={docentes}
-        docentesAsignados={docenteCategorias}
-        onAssign={handleAssignDocente}
-        loading={assigningDocenteId}
+        cargos={cargos}
+        categorias={categorias}
+        assignedDocenteIds={docenteCategorias.map((docenteCategoria) => docenteCategoria.docente?.docente_id)}
+      />
+
+      <ConfirmRemoveDocenteModal
+        key={`remove-${modalKey}`}
+        opened={removal.opened}
+        onClose={() => setRemoval((current) => ({ ...current, opened: false }))}
+        onConfirm={handleRemoveDocente}
+        docenteCategoria={removal.docenteCategoria}
+        categoria={categoria}
       />
     </div>
   )

@@ -95,15 +95,6 @@ function CategoriasTable({ data, isLoading, error, onEdit, onDelete }) {
                 <option key={option.value} value={option.value}>{option.label}</option>
               ))}
             </FilterSelect>
-            <button
-              type="button"
-              onClick={resetFilters}
-              title="Restablecer filtros"
-              aria-label="Restablecer filtros"
-              className="inline-flex items-center justify-center h-10 w-10 shrink-0 rounded border border-outline-variant/40 bg-surface-container-low text-outline hover:text-primary hover:bg-surface-container-high transition-colors cursor-pointer"
-            >
-              <span className="material-symbols-outlined text-[20px]" aria-hidden="true">refresh</span>
-            </button>
           </div>
         </div>
       </div>

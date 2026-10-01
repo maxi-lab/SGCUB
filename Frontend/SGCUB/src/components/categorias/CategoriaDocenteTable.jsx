@@ -1,58 +1,68 @@
-import { ActionIcon, Group, Table, Text, Tooltip } from '@mantine/core'
-import { IconTrash } from '@tabler/icons-react'
+import { useNavigate } from 'react-router-dom'
 
-function CategoriaDocenteTable({ docenteCategorias, onDelete }) {
-	if (docenteCategorias.length === 0) {
-		return (
-			<Text color="dimmed" size="sm" align="center" py="md">
-				No hay docentes asociados a esta categoría.
-			</Text>
-		)
-	}
+function CategoriaDocenteTable({ docenteCategorias, onRemove }) {
+  const navigate = useNavigate()
 
-	return (
-		<Table striped highlightOnHover withBorder withColumnBorders>
-			<thead>
-				<tr>
-					<th>Docente</th>
-					<th>Legajo</th>
-					<th>Contacto</th>
-					<th />
-				</tr>
-			</thead>
-			<tbody>
-				{docenteCategorias.map((docenteCategoria) => {
-					const docente = docenteCategoria.docente
-					const persona = docente?.persona_detalle
-
-					return (
-						<tr key={docenteCategoria.docente_categoria_id}>
-							<td>
-								<Text weight={500} size="sm">
-									{persona ? `${persona.nombre} ${persona.apellido}` : 'Docente sin nombre'}
-								</Text>
-							</td>
-							<td>{docente?.legajo || '-'}</td>
-							<td>{persona?.email || persona?.telefono || '-'}</td>
-							<td>
-								<Group position="right">
-									<Tooltip label="Eliminar asociación">
-										<ActionIcon
-											color="red"
-											variant="light"
-											onClick={() => onDelete(docenteCategoria.docente_categoria_id)}
-										>
-											<IconTrash size={16} />
-										</ActionIcon>
-									</Tooltip>
-								</Group>
-							</td>
-						</tr>
-					)
-				})}
-			</tbody>
-		</Table>
-	)
+  return (
+    <div className="overflow-x-auto border border-outline-variant/30 rounded-lg">
+      <table className="w-full text-left text-sm border-collapse">
+        <thead>
+          <tr className="bg-surface-container-low/60 border-b border-outline-variant/30 text-sm font-semibold text-on-surface-variant uppercase tracking-wider">
+            <th className="py-3 px-4 pl-6 w-28 whitespace-nowrap" scope="col">N° Legajo</th>
+            <th className="py-3 px-4" scope="col">Nombre y Apellido</th>
+            <th className="py-3 px-4" scope="col">Cargo</th>
+            <th className="py-3 px-4" scope="col">Contacto</th>
+            <th className="py-3 px-4 pr-6 text-right" scope="col">Acciones</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-outline-variant/20 font-body-sm text-on-surface">
+          {docenteCategorias.map((docenteCategoria) => {
+            const docente = docenteCategoria.docente
+            const persona = docente?.persona_detalle
+            const fullName = persona ? `${persona.nombre} ${persona.apellido}` : 'Docente sin nombre'
+            return (
+              <tr
+                key={docenteCategoria.docente_categoria_id}
+                onClick={() => navigate(`/padron/docentes/${docente.docente_id}`)}
+                className="hover:bg-surface-container-low/80 transition-colors cursor-pointer"
+              >
+                <td className="py-3 px-4 pl-6 font-bold text-primary text-base">
+                  {docente?.legajo ? `#${docente.legajo}` : '—'}
+                </td>
+                <td className="py-3 px-4 font-medium text-base">{fullName}</td>
+                <td className="py-3 px-4">
+                  {docenteCategoria.cargo?.nombre ? (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-semibold bg-primary-fixed/30 text-primary">
+                      {docenteCategoria.cargo.nombre}
+                    </span>
+                  ) : (
+                    <span className="text-on-surface-variant">Sin cargo</span>
+                  )}
+                </td>
+                <td className="py-3 px-4 text-on-surface-variant">{persona?.email || persona?.telefono || '—'}</td>
+                <td className="py-2 px-4 pr-6">
+                  <div className="flex items-center justify-end">
+                    <button
+                      type="button"
+                      className="inline-flex items-center justify-center p-2 rounded-lg text-on-surface-variant hover:text-error hover:bg-error-container/60 transition-colors cursor-pointer"
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        onRemove(docenteCategoria)
+                      }}
+                      title="Quitar de la categoría"
+                      aria-label={`Quitar a ${fullName} de la categoría`}
+                    >
+                      <span className="material-symbols-outlined text-[20px]" aria-hidden="true">person_remove</span>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
+  )
 }
 
 export default CategoriaDocenteTable
