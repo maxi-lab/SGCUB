@@ -10,6 +10,7 @@ from .models import (
     MovimientoCuenta,
     Pago,
     EstadoCuotaChoices,
+    MedioDePagoChoices,
 )
 
 
@@ -18,6 +19,34 @@ def monto_total_cuota(cuota):
         (-item.monto if item.es_descuento else item.monto)
         for item in cuota.items.all()
     )
+
+
+class MedioCorreccionPagoSerializer(serializers.Serializer):
+    medio_de_pago = serializers.ChoiceField(choices=MedioDePagoChoices.choices)
+    monto = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=0.01)
+
+
+class CorreccionPagoSerializer(serializers.Serializer):
+    motivo = serializers.CharField(max_length=150, allow_blank=False, trim_whitespace=True)
+    cuota_ids = serializers.ListField(
+        child=serializers.IntegerField(min_value=1),
+        allow_empty=False,
+    )
+    monto_total = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=0.01)
+    medios = MedioCorreccionPagoSerializer(many=True, allow_empty=False)
+
+    def validate_cuota_ids(self, value):
+        if len(value) != len(set(value)):
+            raise serializers.ValidationError("No se deben repetir cuotas.")
+        return value
+
+    def validate(self, attrs):
+        total_medios = sum((medio["monto"] for medio in attrs["medios"]), start=0)
+        if total_medios != attrs["monto_total"]:
+            raise serializers.ValidationError({
+                "medios": "La suma de los medios debe coincidir con el monto total."
+            })
+        return attrs
 
 
 

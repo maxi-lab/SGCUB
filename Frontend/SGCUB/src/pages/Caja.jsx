@@ -79,6 +79,17 @@ function Caja() {
         onClose={() => setPagoEnCorreccion(null)}
         onSuccess={async () => {
           await cargarComprobantes()
+          if (socioId) {
+            try {
+              const cuentaActualizada = await getEstadoCuenta(socioId)
+              setCarga((actual) => ({ ...actual, cuenta: cuentaActualizada }))
+            } catch {
+              setCarga((actual) => ({
+                ...actual,
+                error: 'La corrección se registró, pero no se pudo actualizar la cuenta corriente.',
+              }))
+            }
+          }
           setPagoEnCorreccion(null)
           setComprobanteSeleccionado(null)
         }}
