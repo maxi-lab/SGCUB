@@ -3,7 +3,7 @@ import FilterSelect from '../shared/FilterSelect'
 import SortableHeader from '../shared/SortableHeader'
 import TablePagination from '../shared/TablePagination'
 import useOrdenTabla from '../../hooks/useOrdenTabla'
-import { formatDni, getInitials, getRoleStyle } from './usuarioFormat'
+import { formatDni, getRoleStyle } from './usuarioFormat'
 
 const filterClass = 'bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-sm focus:outline-none focus:border-primary cursor-pointer'
 const iconButtonClass = 'inline-flex items-center justify-center p-2 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container-low transition-colors cursor-pointer'
@@ -145,12 +145,10 @@ function UsuariosTable({ data, roles, isLoading, error, currentUserId, canEdit, 
               const isSelf = usuario.id === currentUserId
               return (
                 <tr key={usuario.id} className="hover:bg-surface-container-low/80 transition-colors">
-                  <td className="py-3 px-4 pl-6 font-semibold text-on-surface text-base whitespace-nowrap">{formatDni(usuario.dni)}</td>
+                  <td className="py-3 px-12 pl-6 font-semibold text-on-surface text-base whitespace-nowrap">{formatDni(usuario.dni)}</td>
                   <td className="py-3 px-4">
                     <div className="flex items-center gap-2.5">
-                      <span className={`w-8 h-8 shrink-0 rounded-full flex items-center justify-center font-bold text-xs ${roleStyle.avatar}`} aria-hidden="true">
-                        {getInitials(usuario)}
-                      </span>
+                      
                       <span className="font-medium text-on-surface text-base whitespace-nowrap">
                         {usuario.full_name}
                         {isSelf && <span className="ml-2 text-sm font-normal text-on-surface-variant">(vos)</span>}
