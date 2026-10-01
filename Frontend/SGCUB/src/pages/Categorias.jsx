@@ -18,7 +18,7 @@ const mensajeError = (requestError, fallback) =>
     .join(' ') || fallback
 
 function Categorias() {
-  const { categorias, isLoading, error, crearCategoria, editarCategoria, eliminarCategoria } =
+  const { categorias, isLoading, error, createCategoria, updateCategoria, deleteCategoria } =
     useCategorias()
   const [modalAbierto, setModalAbierto] = useState(false)
   const [categoriaEnEdicion, setCategoriaEnEdicion] = useState(null)
@@ -64,9 +64,9 @@ function Categorias() {
     setErrorGuardado('')
     try {
       if (categoriaEnEdicion) {
-        await editarCategoria(categoriaEnEdicion.categoria_id, formulario)
+        await updateCategoria(categoriaEnEdicion.categoria_id, formulario)
       } else {
-        await crearCategoria(formulario)
+        await createCategoria(formulario)
       }
       setFormulario(formularioInicial())
       setCategoriaEnEdicion(null)
@@ -89,7 +89,7 @@ function Categorias() {
     setEliminando(true)
     setErrorEliminacion('')
     try {
-      await eliminarCategoria(categoriaAEliminar.categoria_id)
+      await deleteCategoria(categoriaAEliminar.categoria_id)
       setCategoriaAEliminar(null)
     } catch (requestError) {
       setErrorEliminacion(
