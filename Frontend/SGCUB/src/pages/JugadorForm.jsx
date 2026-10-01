@@ -1,14 +1,15 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { api } from '../api/conf'
 import { getJugador, patchJugador, postJugador } from '../api/jugadores'
 import { putSocio } from '../api/socios'
 import AddContactModal from '../components/jugadores/AddContactModal'
 import { RELATIONS } from '../components/jugadores/contacts'
+import { BotonCambiarPersona, ListaSugerenciasPersona } from '../components/shared/PersonaSearchDNI'
 import { formatDni, formatNumber, getErrorMessage } from '../components/personas/format'
 import PageHeader from '../components/shared/PageHeader'
 import { CAMPOS_OBLIGATORIOS, FORM_INICIAL, claseInput, enfocarCampo, socioAFormulario, validar } from '../components/socios/socioForm'
 import { Campo, InputConIcono, SeccionDatosPersonales, SeccionDomicilio, SeccionTitulo, SelectConFlecha } from '../components/socios/SocioFormFields'
+import usePersonaSearchDNI, { campoBloqueadoPorSocio } from '../hooks/usePersonaSearchDNI'
 import useCategorias from '../hooks/useCategorias'
 import useEstados from '../hooks/useEstados'
 import useGeneros from '../hooks/useGeneros'
@@ -16,11 +17,6 @@ import useLocalidades from '../hooks/useLocalidades'
 import useSocio from '../hooks/useSocio'
 
 const CAMPOS_CONTACTO = ['dni', 'nombre', 'apellido', 'telefono', 'relacion']
-
-const MIN_DIGITOS_BUSQUEDA = 5
-const DEMORA_BUSQUEDA_MS = 300
-
-const CAMPOS_EDITABLES_SOCIO = ['telefono', 'email']
 
 const DEPORTIVO_INICIAL = { categoria: '', categoria_secundaria: '', estado: '', obra_social: '', obra_social_otra: '', tallaIndumentaria: '' }
 
@@ -154,19 +150,6 @@ function errorVinculos(contactos, fechaNacimiento) {
   return null
 }
 
-function BotonCambiarPersona({ onClick }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded text-sm font-semibold text-primary hover:bg-primary/10 transition-colors cursor-pointer shrink-0"
-    >
-      <span className="material-symbols-outlined text-base">swap_horiz</span>
-      Cambiar
-    </button>
-  )
-}
-
 function FilaContacto({ fila, indice, errores, mostrarSinGuardar, resaltarResponsable, onChange, onRemove }) {
   const bind = (campo) => ({
     id: idCampoContacto(fila, campo),
@@ -264,13 +247,7 @@ function JugadorForm() {
   const [errorGuardado, setErrorGuardado] = useState('')
   const [agregandoContacto, setAgregandoContacto] = useState(false)
   const [personaEncontrada, setPersonaEncontrada] = useState(null)
-  const [buscandoPersona, setBuscandoPersona] = useState(false)
-  const [coincidencias, setCoincidencias] = useState([])
-  const [sugerenciasAbiertas, setSugerenciasAbiertas] = useState(false)
-  const temporizadorBusqueda = useRef(null)
-  const ultimaBusqueda = useRef(0)
-
-  useEffect(() => () => clearTimeout(temporizadorBusqueda.current), [])
+  const busqueda = usePersonaSearchDNI({ habilitada: !editando })
 
   useEffect(() => {
     if (!editando) return undefined
@@ -332,13 +309,8 @@ function JugadorForm() {
     () => (perfilesSeleccionados?.socio_id ? socioAFormulario(personaEncontrada) : null),
     [perfilesSeleccionados, personaEncontrada],
   )
-  // Un dato obligatorio que el socio no tiene cargado se deja completar.
-  const campoBloqueado = (campo) => Boolean(datosSocioVinculado)
-    && campo in datosSocioVinculado
-    && !CAMPOS_EDITABLES_SOCIO.includes(campo)
-    && String(datosSocioVinculado[campo]).trim() !== ''
   const dniSinSeleccionar = !editando && !personaEncontrada
-    ? coincidencias.find((persona) => String(persona.dni) === dniIngresado) ?? null
+    ? busqueda.coincidencias.find((persona) => String(persona.dni) === dniIngresado) ?? null
     : null
 
   const categoriasDisponibles = useMemo(() => {
@@ -369,28 +341,6 @@ function JugadorForm() {
     limpiarError(campo)
   }
 
-  const buscarCoincidencias = (dni) => {
-    clearTimeout(temporizadorBusqueda.current)
-    const busquedaId = ++ultimaBusqueda.current
-    if (editando || dni.length < MIN_DIGITOS_BUSQUEDA) {
-      setCoincidencias([])
-      setBuscandoPersona(false)
-      return
-    }
-    setBuscandoPersona(true)
-    temporizadorBusqueda.current = setTimeout(async () => {
-      try {
-        const response = await api.get(`padron/persona/?dni_prefix=${encodeURIComponent(dni)}`)
-        if (busquedaId === ultimaBusqueda.current) setCoincidencias(response.data ?? [])
-      } catch (requestError) {
-        console.error('Error al buscar persona:', requestError)
-        if (busquedaId === ultimaBusqueda.current) setCoincidencias([])
-      } finally {
-        if (busquedaId === ultimaBusqueda.current) setBuscandoPersona(false)
-      }
-    }, DEMORA_BUSQUEDA_MS)
-  }
-
   const cambiarDni = (event) => {
     const dni = event.target.value.replace(/\D/g, '').slice(0, 8)
     if (personaEncontrada) {
@@ -400,8 +350,7 @@ function JugadorForm() {
       actualizarCampo('dni', dni)
     }
     limpiarError('dni')
-    setSugerenciasAbiertas(true)
-    buscarCoincidencias(dni)
+    busqueda.buscar(dni)
   }
 
   const bindInput = (campo) => ({
@@ -409,7 +358,7 @@ function JugadorForm() {
     name: campo,
     value: formulario[campo],
     onChange: (event) => actualizarCampo(campo, event.target.value),
-    disabled: campoBloqueado(campo),
+    disabled: campoBloqueadoPorSocio(datosSocioVinculado, campo),
   })
 
   const limpiarErroresSocio = () => setErrores((actuales) => ({
@@ -419,7 +368,7 @@ function JugadorForm() {
 
   const quitarSeleccion = () => {
     setPersonaEncontrada(null)
-    setCoincidencias([])
+    busqueda.limpiar()
     setFormulario((actual) => ({ ...actual, ...FORM_INICIAL }))
     limpiarErroresSocio()
     limpiarError('dni')
@@ -430,7 +379,7 @@ function JugadorForm() {
   const seleccionarPersona = (persona) => {
     const socio = socios.find((s) => String(s.socio_id) === String(persona.perfiles?.socio_id))
     setPersonaEncontrada(persona)
-    setSugerenciasAbiertas(false)
+    busqueda.setAbiertas(false)
     setFormulario((actual) => ({
       ...actual,
       ...socioAFormulario({ ...persona, estado_administrativo: socio?.estado_administrativo }),
@@ -547,8 +496,8 @@ function JugadorForm() {
   const nombreJugador = editando ? `${jugador.socio?.nombre ?? ''} ${jugador.socio?.apellido ?? ''}`.trim() : ''
   const dniConError = Boolean(errores.dni) || Boolean(socioDuplicado) || Boolean(jugadorDelSocio)
   const dniReconocido = Boolean(personaEncontrada) || Boolean(socioVinculado)
-  const mostrarSugerencias = !editando && !personaEncontrada && sugerenciasAbiertas && coincidencias.length > 0
-  const iconoDni = buscandoPersona ? 'progress_activity' : dniConError ? 'warning' : dniReconocido ? 'check_circle' : 'fingerprint'
+  const mostrarSugerencias = !editando && !personaEncontrada && busqueda.abiertas && busqueda.coincidencias.length > 0
+  const iconoDni = busqueda.buscando ? 'progress_activity' : dniConError ? 'warning' : dniReconocido ? 'check_circle' : 'fingerprint'
   const colorIconoDni = dniConError ? 'text-error' : dniReconocido ? 'text-[#00875a]' : 'text-outline'
 
   return (
@@ -628,8 +577,8 @@ function JugadorForm() {
                     <input
                       {...bindInput('dni')}
                       onChange={cambiarDni}
-                      onFocus={() => setSugerenciasAbiertas(true)}
-                      onBlur={() => setSugerenciasAbiertas(false)}
+                      onFocus={() => busqueda.setAbiertas(true)}
+                      onBlur={() => busqueda.setAbiertas(false)}
                       type="text"
                       inputMode="numeric"
                       autoComplete="off"
@@ -640,43 +589,21 @@ function JugadorForm() {
                       aria-invalid={dniConError || undefined}
                       className={claseInput(dniConError, 'pr-10 font-mono font-medium')}
                     />
-                    <span className={`material-symbols-outlined absolute right-3 top-3 text-base pointer-events-none ${colorIconoDni} ${buscandoPersona ? 'animate-spin' : ''}`}>
+                    <span className={`material-symbols-outlined absolute right-3 top-3 text-base pointer-events-none ${colorIconoDni} ${busqueda.buscando ? 'animate-spin' : ''}`}>
                       {iconoDni}
                     </span>
 
                     {mostrarSugerencias && (
-                      <ul
+                      <ListaSugerenciasPersona
                         id="sugerencias-dni"
-                        role="listbox"
-                        className="absolute z-20 left-0 right-0 top-full mt-1 flex flex-col rounded-lg border border-outline-variant/40 bg-surface-container-lowest shadow-lg divide-y divide-outline-variant/30 overflow-hidden"
-                      >
-                        {coincidencias.map((persona) => (
-                          <li key={persona.dni} role="option" aria-selected={false}>
-                            <button
-                              type="button"
-                              // Evita que el blur del input cierre la lista antes del click.
-                              onMouseDown={(event) => event.preventDefault()}
-                              onClick={() => seleccionarPersona(persona)}
-                              className="w-full flex items-center justify-between gap-3 px-3 py-2 text-left hover:bg-surface-container-low transition-colors cursor-pointer"
-                            >
-                              <span className="flex flex-col">
-                                <span className="text-base text-on-surface font-medium">
-                                  {`${persona.nombre ?? ''} ${persona.apellido ?? ''}`.trim() || 'Sin nombre'}
-                                </span>
-                                <span className="text-sm text-on-surface-variant font-mono">DNI {formatDni(persona.dni)}</span>
-                              </span>
-                              <span className="flex items-center gap-2 shrink-0">
-                                {persona.perfiles?.jugador_id ? (
-                                  <span className="px-2 py-0.5 rounded-md bg-error/10 text-error text-sm font-medium">Ya es jugador</span>
-                                ) : persona.perfiles?.socio_id ? (
-                                  <span className="px-2 py-0.5 rounded-md bg-primary/10 text-primary text-sm font-medium">Socio</span>
-                                ) : null}
-                                <span className="material-symbols-outlined text-[20px] text-on-surface-variant">arrow_forward</span>
-                              </span>
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
+                        coincidencias={busqueda.coincidencias}
+                        onSelect={seleccionarPersona}
+                        etiquetaDe={(persona) => {
+                          if (persona.perfiles?.jugador_id) return { texto: 'Ya es jugador', tono: 'error' }
+                          if (persona.perfiles?.socio_id) return { texto: 'Socio', tono: 'info' }
+                          return null
+                        }}
+                      />
                     )}
                   </div>
                   {socioDuplicado && !errores.dni && (

@@ -1,49 +1,61 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { deactivateDocente, getDocente } from '../api/docentes'
-import { docenteCategoriaByDocente } from '../api/docenteCategoria'
+import { activateDocente, deactivateDocente, getCargosDocente, getDocente, patchDocente } from '../api/docentes'
+import ActivateDocenteModal from '../components/docentes/ActivateDocenteModal'
 import DeactivateDocenteModal from '../components/docentes/DeactivateDocenteModal'
-import PersonHeader, { EditButton, DeactivateButton } from '../components/personas/HeaderPersona'
+import PersonHeader, { EditButton, DeactivateButton, ActivateButton } from '../components/personas/HeaderPersona'
 import PersonTabs from '../components/personas/TabsNavPersonas'
 import PersonalDataTab from '../components/personas/tabs/PersonalDataTab'
 import CategoriesTab from '../components/personas/tabs/CategoriesTab'
 import { LoadingFile, ErrorFile } from '../components/personas/FileStatus'
-import { yearsSince, formatDni, formatDate, yearsText } from '../components/personas/format'
+import { yearsSince, formatDni, formatDate, yearsText, isActiveStatus, getErrorMessage } from '../components/personas/format'
+import useCategorias from '../hooks/useCategorias'
 import useLocalidades from '../hooks/useLocalidades'
 
 function DocenteDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { localidades } = useLocalidades()
+  const { categorias } = useCategorias()
+  const [cargos, setCargos] = useState([])
 
-  // Guarda el id cargado para derivar "cargando" sin setState síncrono en el effect.
-  const [carga, setCarga] = useState({ id: null, docente: null, categorias: [], error: null })
+  const [carga, setCarga] = useState({ id: null, docente: null, error: null })
   const loading = carga.id !== id
-  const { docente, categorias, error } = carga
+  const { docente, error } = carga
 
   const [modalBajaAbierto, setModalBajaAbierto] = useState(false)
   const [dandoDeBaja, setDandoDeBaja] = useState(false)
   const [errorBaja, setErrorBaja] = useState('')
+  const [modalAltaAbierto, setModalAltaAbierto] = useState(false)
+  const [dandoDeAlta, setDandoDeAlta] = useState(false)
+  const [errorAlta, setErrorAlta] = useState('')
 
-  const cargarDetalle = useCallback(async () => {
-    const [datosDocente, asignaciones] = await Promise.all([
-      getDocente(id),
-      docenteCategoriaByDocente(id).catch(() => []),
-    ])
-    return { datosDocente, asignaciones }
+  useEffect(() => {
+    let activo = true
+    getDocente(id)
+      .then((datosDocente) => activo && setCarga({ id, docente: datosDocente, error: null }))
+      .catch((requestError) => {
+        if (activo) setCarga({ id, docente: null, error: requestError.response?.data?.detail || 'No se pudo cargar la información del docente.' })
+      })
+    return () => { activo = false }
   }, [id])
 
   useEffect(() => {
     let activo = true
-    cargarDetalle()
-      .then(({ datosDocente, asignaciones }) => {
-        if (activo) setCarga({ id, docente: datosDocente, categorias: asignaciones, error: null })
-      })
-      .catch((requestError) => {
-        if (activo) setCarga({ id, docente: null, categorias: [], error: requestError.response?.data?.detail || 'No se pudo cargar la información del docente.' })
-      })
+    getCargosDocente()
+      .then((datos) => activo && setCargos(datos))
+      .catch((requestError) => console.error('Error al cargar cargos:', requestError))
     return () => { activo = false }
-  }, [cargarDetalle, id])
+  }, [])
+
+  const guardarAsignaciones = async (asignaciones) => {
+    try {
+      const actualizado = await patchDocente(docente.docente_id, { asignaciones })
+      setCarga((actual) => ({ ...actual, docente: actualizado }))
+    } catch (requestError) {
+      throw new Error(getErrorMessage(requestError, 'No se pudieron guardar los cargos del docente.'), { cause: requestError })
+    }
+  }
 
   const confirmarBaja = async () => {
     setDandoDeBaja(true)
@@ -59,6 +71,20 @@ function DocenteDetail() {
     }
   }
 
+  const confirmarAlta = async () => {
+    setDandoDeAlta(true)
+    setErrorAlta('')
+    try {
+      const actualizado = await activateDocente(docente.docente_id)
+      setCarga((actual) => ({ ...actual, docente: actualizado }))
+      setModalAltaAbierto(false)
+    } catch (requestError) {
+      setErrorAlta(getErrorMessage(requestError, 'No se pudo dar de alta el docente.'))
+    } finally {
+      setDandoDeAlta(false)
+    }
+  }
+
   if (loading) return <LoadingFile text="Cargando detalle del docente..." />
   if (error || !docente) {
     return (
@@ -71,7 +97,8 @@ function DocenteDetail() {
   }
 
   const persona = docente.persona_detalle ?? {}
-  const nombresCategorias = categorias.map((c) => c.categoria?.nombre).filter(Boolean).join(', ')
+  const nombresCargos = (docente.asignaciones ?? []).map((asignacion) => asignacion.cargo_nombre).filter(Boolean).join(', ')
+  const activo = isActiveStatus(docente.estado_nombre)
 
   const tabs = [
     {
@@ -84,7 +111,15 @@ function DocenteDetail() {
       id: 'categorias',
       label: 'Categorías',
       icon: 'groups',
-      content: <CategoriesTab assignments={categorias} />,
+      content: (
+        <CategoriesTab
+          asignaciones={docente.asignaciones ?? []}
+          cargos={cargos}
+          categorias={categorias}
+          editable={activo}
+          onSave={guardarAsignaciones}
+        />
+      ),
     },
   ]
 
@@ -98,14 +133,15 @@ function DocenteDetail() {
         ]}
         name={persona.nombre}
         surname={persona.apellido}
+        status={docente.estado_nombre ? { label: docente.estado_nombre, isActive: activo } : null}
         metadata={[
           { label: 'DNI', value: formatDni(persona.dni) },
           { label: 'Legajo', value: `#${docente.legajo}`, highlighted: true },
           { label: 'Fecha de ingreso', value: formatDate(docente.fecha_ingreso) },
           { label: 'Antigüedad', value: yearsText(yearsSince(docente.fecha_ingreso)) },
-          ...(nombresCategorias ? [{ label: 'Categorías', value: nombresCategorias }] : []),
+          ...(nombresCargos ? [{ label: 'Cargos', value: nombresCargos }] : []),
         ]}
-        actions={(
+        actions={activo ? (
           <>
             <EditButton onClick={() => navigate(`/padron/docentes/${docente.docente_id}/editar`)} />
             <DeactivateButton
@@ -115,10 +151,26 @@ function DocenteDetail() {
               }}
             />
           </>
+        ) : (
+          <ActivateButton
+            onClick={() => {
+              setErrorAlta('')
+              setModalAltaAbierto(true)
+            }}
+          />
         )}
       />
 
       <PersonTabs tabs={tabs} />
+
+      <ActivateDocenteModal
+        opened={modalAltaAbierto}
+        onClose={() => !dandoDeAlta && setModalAltaAbierto(false)}
+        onConfirm={confirmarAlta}
+        docente={docente}
+        loading={dandoDeAlta}
+        error={errorAlta}
+      />
 
       <DeactivateDocenteModal
         opened={modalBajaAbierto}

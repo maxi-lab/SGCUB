@@ -1,5 +1,8 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import FilterSelect from '../shared/FilterSelect'
+import SortableHeader from '../shared/SortableHeader'
+import useOrdenTabla from '../../hooks/useOrdenTabla'
 
 
 const formatearFecha = (fecha) => {
@@ -45,7 +48,6 @@ const exportarCSV = (socios) => {
     .join('\n')
 
   const enlace = document.createElement('a')
-  // BOM inicial para que Excel abra el CSV en UTF-8.
   const contenido = '﻿' + csv
   enlace.href = URL.createObjectURL(new Blob([contenido], { type: 'text/csv;charset=utf-8;' }))
   enlace.download = `padron-socios-${new Date().toISOString().slice(0, 10)}.csv`
@@ -53,10 +55,20 @@ const exportarCSV = (socios) => {
   URL.revokeObjectURL(enlace.href)
 }
 
+// Valor por el que se ordena cada columna. Estado: activos primero en orden ascendente.
+const VALORES_ORDEN = {
+  numero: (socio) => (socio.numero_socio ? Number(socio.numero_socio) : null),
+  nombre: (socio) => `${socio.nombre ?? ''} ${socio.apellido ?? ''}`.trim(),
+  fechaAlta: (socio) => socio.fecha_alta,
+  estado: (socio) => (esActivo(socio) ? 0 : 1),
+}
+// Al cargar: los más recientes primero.
+const ORDEN_INICIAL = { columna: 'numero', direccion: 'desc' }
+
 function SociosTable({ data, isLoading, error }) {
   const navigate = useNavigate()
   const [busqueda, setBusqueda] = useState('')
-  const [estado, setEstado] = useState('todos')
+  const [estado, setEstado] = useState('activo')
   const [tipo, setTipo] = useState('todos')
   const [filasPorPagina, setFilasPorPagina] = useState(25)
   const [pagina, setPagina] = useState(1)
@@ -80,18 +92,22 @@ function SociosTable({ data, isLoading, error }) {
     })
   }, [socios, busqueda, estado, tipo])
 
-  const totalPaginas = Math.max(1, Math.ceil(filtrados.length / filasPorPagina))
-  // Si el filtro dejó menos páginas que la actual, mostramos la última disponible.
+  const { ordenadas, orden, ordenarPor } = useOrdenTabla(filtrados, VALORES_ORDEN, ORDEN_INICIAL)
+  const ordenar = (columna) => {
+    ordenarPor(columna)
+    setPagina(1)
+  }
+
+  const totalPaginas = Math.max(1, Math.ceil(ordenadas.length / filasPorPagina))
   const paginaActual = Math.min(pagina, totalPaginas)
   const desde = (paginaActual - 1) * filasPorPagina
-  const visibles = filtrados.slice(desde, desde + filasPorPagina)
+  const visibles = ordenadas.slice(desde, desde + filasPorPagina)
 
   return (
-    <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-lg shadow-sm">
-      {/* Barra de filtros */}
-      <div className="p-4 border-b border-outline-variant/20 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
-        <div className="flex flex-1 flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
-          <div className="relative flex-1 max-w-md">
+    <div className="min-w-0 bg-surface-container-lowest border border-outline-variant/30 rounded-lg shadow-sm">
+      <div className="p-4 border-b border-outline-variant/20 flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-3">
+        <div className="flex flex-1 min-w-0 flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-2.5">
+          <div className="relative w-full sm:w-auto sm:flex-1 sm:min-w-[16rem] sm:max-w-md">
             <span className="material-symbols-outlined absolute left-4 top-1.5 text-outline text-[18px]" aria-hidden="true">
               search
             </span>
@@ -107,9 +123,9 @@ function SociosTable({ data, isLoading, error }) {
               aria-label="Filtrar socios"
             />
           </div>
-          <div className="flex items-center gap-2">
-            <select
-              className="h-10 px-3 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-sm focus:outline-none focus:border-primary cursor-pointer"
+          <div className="flex items-center gap-2 w-full sm:w-auto min-w-0">
+            <FilterSelect
+              className="bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-sm focus:outline-none focus:border-primary cursor-pointer"
               value={estado}
               onChange={(event) => {
                 setEstado(event.target.value)
@@ -117,24 +133,19 @@ function SociosTable({ data, isLoading, error }) {
               }}
               aria-label="Filtrar por estado"
             >
+              <option value="activo">Estado: Activo</option>
               <option value="todos">Estado: Todos</option>
-              <option value="activo">Activo</option>
-              <option value="inactivo">Inactivo / De baja</option>
-            </select>
+              <option value="baja">De baja / Inactivo</option>
+            </FilterSelect>
             
           </div>
         </div>
-        <div className="flex items-center justify-between sm:justify-end gap-3 pt-2 lg:pt-0">
-          <span className="text-base text-on-surface-variant whitespace-nowrap">
-            {filtrados.length === 0
-              ? 'Sin resultados'
-              : `Mostrando ${desde + 1}-${desde + visibles.length} de ${filtrados.length.toLocaleString('es-AR')} socios`}
-          </span>
+        <div className="flex items-center justify-end xl:shrink-0">
           <button
             type="button"
             onClick={() => exportarCSV(filtrados)}
             disabled={filtrados.length === 0}
-            className="inline-flex items-center gap-1.5 h-10 px-3 bg-surface-container-low hover:bg-surface-container-high border border-outline-variant/40 text-on-surface rounded text-base font-medium transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+            className="inline-flex items-center justify-center gap-1.5 h-10 px-3 w-full sm:w-auto shrink-0 bg-surface-container-low hover:bg-surface-container-high border border-outline-variant/40 text-on-surface rounded text-base font-medium transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <span className="material-symbols-outlined text-[16px]" aria-hidden="true">file_download</span>
             <span>Exportar padrón (CSV / Excel)</span>
@@ -147,12 +158,12 @@ function SociosTable({ data, isLoading, error }) {
         <table className="w-full text-left text-sm border-collapse">
           <thead>
             <tr className="bg-surface-container-low/60 border-b border-outline-variant/30 text-sm font-semibold text-on-surface-variant uppercase tracking-wider">
-              <th className="py-3 px-4 w-28 whitespace-nowrap" scope="col">N° Socio</th>
-              <th className="py-3 px-4" scope="col">Nombre y Apellido</th>
+              <SortableHeader className="py-3 px-4 w-28 whitespace-nowrap" etiqueta="N° Socio" columna="numero" orden={orden} onOrdenar={ordenar} />
+              <SortableHeader className="py-3 px-4" etiqueta="Nombre y Apellido" columna="nombre" orden={orden} onOrdenar={ordenar} />
               <th className="py-3 px-4 pl-5" scope="col">DNI</th>
               <th className="py-3 px-4" scope="col">Teléfono</th>
-              <th className="py-3 px-4" scope="col">Fecha de Alta</th>
-              <th className="py-3 px-4" scope="col">Estado</th>
+              <SortableHeader className="py-3 px-4" etiqueta="Fecha de Alta" columna="fechaAlta" orden={orden} onOrdenar={ordenar} />
+              <SortableHeader className="py-3 px-4" etiqueta="Estado" columna="estado" orden={orden} onOrdenar={ordenar} />
             </tr>
           </thead>
           <tbody className="divide-y divide-outline-variant/20 font-body-sm text- text-on-surface">
@@ -250,7 +261,7 @@ function SociosTable({ data, isLoading, error }) {
                 onClick={() => setPagina(item)}
                 aria-current={item === paginaActual ? 'page' : undefined}
                 className={item === paginaActual
-                  ? 'w-8 h-8 flex items-center justify-center rounded bg-primary text-on-primary font-semibold font-label-md transition-colors'
+                  ? 'w-8 h-8 flex items-center justify-center rounded border border-outline-variant/30 text-on-surface-variant bg-surface-container-low transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer'
                   : 'w-8 h-8 flex items-center justify-center rounded border border-outline-variant/30 text-on-surface hover:bg-surface-container-low font-label-md transition-colors cursor-pointer'}
               >
                 {item}
