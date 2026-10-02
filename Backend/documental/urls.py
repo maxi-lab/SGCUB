@@ -1,14 +1,10 @@
 from django.urls import path
-from .views import (
-    documento_list_create,
-    documento_detail,
-    tipo_documento_list,
-    estado_documento_list
-)
+from . import views
 
 urlpatterns = [
-    path('documentos/', documento_list_create, name='documento-list'),
-    path('documentos/<int:pk>/', documento_detail, name='documento-detail'),
-    path('tipos/', tipo_documento_list, name='tipo-documento-list'),
-    path('estados/', estado_documento_list, name='estado-documento-list'),
+    path('documentos/', views.documento_list_create, name='documento_list_create'),
+    path('documentos/<int:pk>/', views.documento_detail, name='documento_detail'),
+    path('tipos/', views.tipo_documento_list, name='tipo_documento_list'),
+    path('estados/', views.estado_documento_list, name='estado_documento_list'),
+    path('alertas/', views.alertas_count, name='alertas_count'),
 ]

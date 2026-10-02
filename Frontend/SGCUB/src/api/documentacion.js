@@ -34,3 +34,8 @@ export const updateDocumento = async (id, documentData) => {
   })
   return data
 }
+
+export const getAlertasCount = async () => {
+  const { data } = await api.get('documental/alertas/')
+  return data
+}

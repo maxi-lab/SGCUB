@@ -56,3 +56,33 @@ def estado_documento_list(request):
     estados = EstadoDocumento.objects.all()
     serializer = EstadoDocumentoSerializer(estados, many=True)
     return Response(serializer.data)
+
+from django.utils import timezone
+from datetime import timedelta
+
+@extend_schema(tags=["Documental / Alertas"])
+@api_view(["GET"])
+def alertas_count(request):
+    hoy = timezone.now().date()
+    limite = hoy + timedelta(days=30)
+    
+    # Exclude those without vencimiento or already delivered
+    # Assuming 'Vigente', 'Vencido', 'Pendiente', 'Entregado'
+    # Actually just check dates on any document that has a date.
+    documentos = Documento.objects.exclude(fecha_vencimiento__isnull=True)
+    
+    vencidos = 0
+    proximos = 0
+    
+    for doc in documentos:
+        vencimiento = doc.fecha_vencimiento.date()
+        dias = (vencimiento - hoy).days
+        if dias < 0:
+            vencidos += 1
+        elif dias <= 30:
+            proximos += 1
+
+    return Response({
+        "vencidos": vencidos,
+        "proximos": proximos
+    })
