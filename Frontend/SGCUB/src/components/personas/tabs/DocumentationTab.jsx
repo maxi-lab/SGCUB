@@ -237,7 +237,7 @@ export default function DocumentationTab({ personaId, personaType, personaInfo }
         <EmptyState
           icono="folder_off"
           titulo="Sin documentos cargados"
-          descripcion="La carga de documentación (aptos médicos, fichas federativas, autorizaciones) todavía no está disponible en el sistema."
+          descripcion="Todavía no hay documentación cargada para esta persona."
         />
       ) : (
         <div className="bg-surface-container-lowest rounded-xl shadow-sm overflow-hidden">

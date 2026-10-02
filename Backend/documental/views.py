@@ -14,10 +14,17 @@ def documento_list_create(request):
     actualizar_estados_vencidos()
     if request.method == "GET":
         persona_id = request.query_params.get('persona_id')
+        documentos = Documento.objects.select_related(
+            'persona',
+            'persona__socio__jugador__estado',
+            'persona__socio__jugador__categoria',
+            'persona__socio__estado_administrativo',
+            'persona__docente__estado',
+        )
         if persona_id:
-            documentos = Documento.objects.filter(persona_id=persona_id)
+            documentos = documentos.filter(persona_id=persona_id)
         else:
-            documentos = Documento.objects.all()
+            documentos = documentos.all()
         serializer = DocumentoSerializer(documentos, many=True)
         return Response(serializer.data)
     elif request.method == "POST":
@@ -69,10 +76,15 @@ def alertas_count(request):
     hoy = timezone.now().date()
     limite = hoy + timedelta(days=30)
     
-    # Exclude those without vencimiento or already delivered
-    # Assuming 'Vigente', 'Vencido', 'Pendiente', 'Entregado'
-    # Actually just check dates on any document that has a date.
-    documentos = Documento.objects.exclude(fecha_vencimiento__isnull=True).select_related(
+    # Subquery to get the latest document per persona+tipo
+    latest_docs = Documento.objects.filter(
+        persona=OuterRef('persona'),
+        tipo_documento=OuterRef('tipo_documento')
+    ).order_by(F('fecha_vencimiento').desc(nulls_last=True), '-id_documento')
+
+    documentos = Documento.objects.filter(
+        id_documento=Subquery(latest_docs.values('id_documento')[:1])
+    ).exclude(fecha_vencimiento__isnull=True).select_related(
         'persona', 
         'persona__socio', 
         'persona__socio__jugador', 
@@ -128,13 +140,18 @@ def download_zip(request, persona_id):
         return Response({'detail': 'No hay documentos con archivos adjuntos.'}, status=404)
         
     zip_buffer = io.BytesIO()
+    files_added = 0
     with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
         for doc in documentos:
             if doc.archivoUrl and doc.archivoUrl.storage.exists(doc.archivoUrl.name):
                 file_path = doc.archivoUrl.path
                 file_name = os.path.basename(file_path)
                 zip_file.write(file_path, arcname=file_name)
+                files_added += 1
                 
+    if files_added == 0:
+        return Response({'detail': 'No hay documentos físicos válidos para descargar.'}, status=404)
+        
     response = HttpResponse(zip_buffer.getvalue(), content_type='application/zip')
     response['Content-Disposition'] = f'attachment; filename="documentos_persona_{persona_id}.zip"'
     return response
