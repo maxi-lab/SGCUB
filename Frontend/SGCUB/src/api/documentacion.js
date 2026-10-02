@@ -6,7 +6,10 @@ export const getDocumentos = async (personaId) => {
 }
 
 export const createDocumento = async (documentData) => {
-  const { data } = await api.post('documental/documentos/', documentData)
+  const isFormData = documentData instanceof FormData
+  const { data } = await api.post('documental/documentos/', documentData, {
+    headers: isFormData ? { 'Content-Type': 'multipart/form-data' } : {}
+  })
   return data
 }
 
@@ -21,5 +24,13 @@ export const getTiposDocumento = async () => {
 
 export const getEstadosDocumento = async () => {
   const { data } = await api.get('documental/estados/')
+  return data
+}
+
+export const updateDocumento = async (id, documentData) => {
+  const isFormData = documentData instanceof FormData
+  const { data } = await api.patch(`documental/documentos/${id}/`, documentData, {
+    headers: isFormData ? { 'Content-Type': 'multipart/form-data' } : {}
+  })
   return data
 }

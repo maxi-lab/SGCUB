@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { getDocumentos, createDocumento, deleteDocumento, getTiposDocumento, getEstadosDocumento } from '../api/documentacion'
+import { getDocumentos, createDocumento, deleteDocumento, getTiposDocumento, getEstadosDocumento, updateDocumento } from '../api/documentacion'
 
 export default function useDocumentacion(personaId = null) {
   const [documentos, setDocumentos] = useState([])
@@ -42,6 +42,16 @@ export default function useDocumentacion(personaId = null) {
     }
   }
 
+  const actualizarDocumento = async (id, documentData) => {
+    try {
+      await updateDocumento(id, documentData)
+      await cargarDatos()
+    } catch (err) {
+      console.error('Error actualizando documento:', err)
+      throw err
+    }
+  }
+
   const borrarDocumento = async (id) => {
     try {
       await deleteDocumento(id)
@@ -71,6 +81,7 @@ export default function useDocumentacion(personaId = null) {
     error,
     cargarDatos,
     subirDocumento,
+    actualizarDocumento,
     borrarDocumento,
     getNombreTipo,
     getNombreEstado
