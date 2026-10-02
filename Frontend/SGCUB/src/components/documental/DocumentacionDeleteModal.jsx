@@ -6,6 +6,13 @@ export default function DocumentacionDeleteModal({
   onConfirm, 
   document 
 }) {
+  useEffect(() => {
+    if (isOpen) {
+      window.document.body.style.overflow = 'hidden'
+      return () => { window.document.body.style.overflow = 'auto' }
+    }
+  }, [isOpen])
+
   if (!isOpen || !document) return null;
 
   const handleBackdropClick = (e) => {
@@ -13,11 +20,6 @@ export default function DocumentacionDeleteModal({
       onClose();
     }
   }
-
-  useEffect(() => {
-    window.document.body.style.overflow = 'hidden'
-    return () => { window.document.body.style.overflow = 'auto' }
-  }, [isOpen])
 
   return (
     <div 

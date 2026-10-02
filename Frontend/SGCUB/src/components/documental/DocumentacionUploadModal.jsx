@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 
 export default function DocumentacionUploadModal({ 
   isOpen, 
@@ -10,6 +10,22 @@ export default function DocumentacionUploadModal({
   estados,
   isEditing
 }) {
+  const fileInputRef = useRef(null)
+
+  const handleClearFile = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+    onChange({ target: { name: 'archivo', type: 'file', files: [] } })
+  }
+
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden'
+      return () => { document.body.style.overflow = 'auto' }
+    }
+  }, [isOpen])
+
   if (!isOpen) return null;
 
   const handleBackdropClick = (e) => {
@@ -17,11 +33,6 @@ export default function DocumentacionUploadModal({
       onClose();
     }
   }
-
-  useEffect(() => {
-    document.body.style.overflow = 'hidden'
-    return () => { document.body.style.overflow = 'auto' }
-  }, [isOpen])
 
   return (
     <div 
@@ -65,14 +76,25 @@ export default function DocumentacionUploadModal({
           </div>
           <div>
             <label className="block text-label-sm text-outline uppercase mb-1">Archivo PDF (Opcional)</label>
-            <div className="relative w-full">
+            <div className="relative w-full flex items-center gap-2">
               <input 
                 type="file" 
                 name="archivo" 
                 accept=".pdf"
                 onChange={onChange}
+                ref={fileInputRef}
                 className="block w-full text-sm text-on-surface-variant file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary-container file:text-on-primary-container hover:file:bg-primary hover:file:text-on-primary file:cursor-pointer file:transition-colors cursor-pointer bg-surface-container-low rounded-lg p-2"
               />
+              {form.archivo && (
+                <button 
+                  type="button" 
+                  onClick={handleClearFile}
+                  className="w-10 h-10 shrink-0 rounded-lg bg-surface-container-high hover:bg-error-container text-on-surface-variant hover:text-error flex items-center justify-center transition-colors cursor-pointer"
+                  title="Quitar archivo seleccionado"
+                >
+                  <span className="material-symbols-outlined text-[20px]">close</span>
+                </button>
+              )}
             </div>
             {isEditing && form.archivoUrl_existing && !form.archivo && (
               <label className="flex items-center gap-2 mt-2 text-label-md cursor-pointer">

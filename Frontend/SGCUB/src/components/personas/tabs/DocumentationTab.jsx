@@ -120,7 +120,7 @@ export default function DocumentationTab({ personaId, personaType }) {
   const handleUploadChange = (e) => {
     const { name, value, type, files, checked } = e.target
     if (type === 'file') {
-      setUploadForm(prev => ({ ...prev, archivo: files[0] }))
+      setUploadForm(prev => ({ ...prev, archivo: files.length > 0 ? files[0] : null }))
     } else if (type === 'checkbox') {
       setUploadForm(prev => ({ ...prev, [name]: checked }))
     } else {
