@@ -10,7 +10,7 @@ const DIAS_AVISO_VENCIMIENTO = 30
 
 const getDocumentStatus = (vencimiento) => {
   if (!vencimiento) return 'vigente'
-  const dias = (new Date(`${vencimiento}T00:00:00`) - new Date()) / 86400000
+  const dias = (new Date(`${vencimiento}T23:59:59`) - new Date()) / 86400000
   if (dias < 0) return 'vencido'
   return dias <= DIAS_AVISO_VENCIMIENTO ? 'por_vencer' : 'vigente'
 }

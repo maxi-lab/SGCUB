@@ -4,6 +4,7 @@ from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from drf_spectacular.utils import extend_schema
+from django.db.models import OuterRef, Subquery, F
 
 from .models import Documento, TipoDocumento, EstadoDocumento
 from .serializers import DocumentoSerializer, TipoDocumentoSerializer, EstadoDocumentoSerializer

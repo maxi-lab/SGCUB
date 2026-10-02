@@ -15,7 +15,7 @@ export default function useDocumentacion(personaId = null, fetchAll = false) {
     const docsWithStatus = documentos.map(d => {
       let status = 'vigente';
       if (d.fecha_vencimiento) {
-        const dias = (new Date(`${d.fecha_vencimiento.split('T')[0]}T00:00:00`) - new Date()) / 86400000;
+        const dias = (new Date(`${d.fecha_vencimiento.split('T')[0]}T23:59:59`) - new Date()) / 86400000;
         if (dias < 0) status = 'vencido';
         else if (dias <= DIAS_AVISO) status = 'por_vencer';
       }
