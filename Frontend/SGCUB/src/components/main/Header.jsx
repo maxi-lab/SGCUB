@@ -1,4 +1,5 @@
 import { useAuth } from "../../auth/useAuth";
+import HeaderSearch from "./HeaderSearch";
 import "./header.css";
 
 const getRoleLabel = (user) => {
@@ -13,14 +14,7 @@ export default function Header({ collapsed = false }) {
     <header className={`app-header fixed top-0 right-0 bg-surface-container-lowest border-b border-outline-variant/30 z-40 flex flex-row flex-nowrap items-center px-6 ${collapsed ? 'app-header--collapsed' : ''}`}>
       
       <div className="app-header-search min-w-0 flex-1">
-        <div className="relative flex items-center">
-          <span className="material-symbols-outlined absolute left-3 text-outline text-[20px]">search</span>
-          <input 
-            className="w-full h-10 pl-10 pr-20 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface placeholder:text-outline text-base focus:outline-none focus:border-primary focus:bg-surface-container-lowest transition-colors"
-            placeholder="Buscar por DNI, Nombre, Apellido o N° de Socio..." 
-            type="text" 
-          />
-        </div>
+        <HeaderSearch />
       </div>
 
       <div className="app-header-actions ml-auto flex shrink-0 items-center gap-4">

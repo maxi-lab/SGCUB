@@ -13,7 +13,7 @@ export const toSearchResults = (personas) => personas.flatMap((persona) => {
   const base = { personaId: persona.persona_id, name: fullName(persona), dni: persona.dni }
   const results = []
 
-  if (socio_id) {
+  if (socio_id && !jugador_id) {
     results.push({ ...base, key: `socio-${socio_id}`, profile: 'socio', label: 'Socio', path: `/padron/socios/${socio_id}` })
   }
   if (jugador_id) {
