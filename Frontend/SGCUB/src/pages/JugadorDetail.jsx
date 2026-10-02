@@ -1,6 +1,6 @@
 import React from 'react'
 import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { activateJugador, deactivateJugador, getJugador, patchJugador } from '../api/jugadores'
 import ActivateJugadorModal from '../components/jugadores/ActivateJugadorModal'
 import DeactivateJugadorModal from '../components/jugadores/DeactivateJugadorModal'
@@ -31,6 +31,8 @@ const getContacts = (player) => (player.vinculos_familiares ?? []).map((c) => ({
 
 function JugadorDetail() {
   const { id } = useParams()
+  const [searchParams] = useSearchParams()
+  const requestedTab = searchParams.get('tab') ?? undefined
   const navigate = useNavigate()
 
   const [carga, setCarga] = useState({ id: null, datos: null, error: null })
@@ -251,7 +253,7 @@ function JugadorDetail() {
         )}
       />
 
-      <PersonTabs tabs={tabs} />
+      <PersonTabs key={`${id}-${requestedTab}`} tabs={tabs} defaultTab={requestedTab} />
 
       <ActivateJugadorModal
         opened={modalAltaAbierto}

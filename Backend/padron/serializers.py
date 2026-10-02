@@ -142,6 +142,14 @@ class PersonaSerializer(serializers.ModelSerializer):
     def get_perfiles(self, person):
         profiles = get_persona_profiles(person)
         profiles.pop("persona_id")
+        profiles["vinculos"] = [
+            {
+                "jugador_id": link.jugador_id,
+                "jugador_nombre": str(link.jugador.socio.persona),
+                "relacion": link.relacion,
+            }
+            for link in person.vinculos_familiares.all()
+        ]
         return profiles
 
     @transaction.atomic

@@ -28,6 +28,8 @@ from .serializers import (
     player_contacts_error,
 )
 
+PERSONA_SEARCH_LIMIT = 10
+
 
 @extend_schema(tags=["Padron / Genero"], request=GeneroSerializer, responses=GeneroSerializer)
 @api_view(["GET"])
@@ -65,7 +67,7 @@ def persona_list_create(request):
     if request.method == "GET":
         people = Persona.objects.select_related(
             "genero", "domicilio__localidad", "socio__jugador", "docente"
-        )
+        ).prefetch_related("vinculos_familiares__jugador__socio__persona")
         dni = request.query_params.get("dni")
         dni_prefix = request.query_params.get("dni_prefix")
         search = request.query_params.get("q", "").strip()
@@ -75,10 +77,11 @@ def persona_list_create(request):
             people = people.filter(dni__startswith=dni_prefix).order_by("dni")[:5]
         elif search:
             for term in search.split():
-                people = people.filter(
-                    Q(dni__startswith=term) | Q(nombre__icontains=term) | Q(apellido__icontains=term)
-                )
-            people = people.order_by("apellido", "nombre")
+                term_filter = Q(dni__startswith=term) | Q(nombre__icontains=term) | Q(apellido__icontains=term)
+                if term.isdigit():
+                    term_filter |= Q(socio__numero_socio=int(term))
+                people = people.filter(term_filter)
+            people = people.order_by("apellido", "nombre")[:PERSONA_SEARCH_LIMIT]
         serializer = PersonaSerializer(people, many=True)
         return Response(serializer.data)
 
