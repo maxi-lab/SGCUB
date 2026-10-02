@@ -134,45 +134,40 @@ function CategoriaDetail() {
 
   const tabs = [
     {
-      id: 'jugadores',
-      label: 'Jugadores',
+      id: 'integrantes',
+      label: 'Integrantes',
       icon: 'groups',
-      badge: jugadores ? { label: jugadores.length, tono: 'neutro' } : null,
+      badge: { label: (jugadores?.length ?? 0) + docenteCategorias.length, tono: 'neutro' },
       content: (
-        <div className="flex flex-col gap-4">
-          <TabHeader
-            title="Jugadores"
-            description="Jugadores con esta categoría como principal o secundaria."
-          />
-          {!jugadores && <ErrorAlert message="No se pudieron cargar los jugadores de la categoría." />}
-          {jugadores?.length === 0 && (
-            <EmptyState icon="groups" title="Sin jugadores" description="Todavía no hay jugadores en esta categoría." />
-          )}
-          {jugadores?.length > 0 && <CategoriaJugadoresTable jugadores={jugadores} categoriaId={categoria.categoria_id} />}
-        </div>
-      ),
-    },
-    {
-      id: 'docentes',
-      label: 'Docentes',
-      icon: 'school',
-      badge: { label: docenteCategorias.length, tono: 'neutro' },
-      content: (
-        <div className="flex flex-col gap-4">
-          <TabHeader
-            title="Docentes"
-            description="Cuerpo técnico asignado a esta categoría."
-            actions={(
-              <PrimaryButton icon="person_add" onClick={() => openModal(setIsAssignOpen)}>
-                Asignar docente
-              </PrimaryButton>
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
+          <section className="flex flex-col gap-4 min-w-0">
+            <TabHeader
+              title="Jugadores"
+              description={`Total asignado a esta categoría: ${jugadores?.length ?? 0}`}
+            />
+            {!jugadores && <ErrorAlert message="No se pudieron cargar los jugadores de la categoría." />}
+            {jugadores?.length === 0 && (
+              <EmptyState icon="groups" title="Sin jugadores" description="Todavía no hay jugadores en esta categoría." />
             )}
-          />
-          {docenteCategorias.length === 0 ? (
-            <EmptyState icon="school" title="Sin docentes" description="Todavía no hay docentes asignados a esta categoría." />
-          ) : (
-            <CategoriaDocenteTable docenteCategorias={docenteCategorias} onRemove={openRemoval} />
-          )}
+            {jugadores?.length > 0 && <CategoriaJugadoresTable jugadores={jugadores} categoriaId={categoria.categoria_id} />}
+          </section>
+
+          <section className="flex flex-col gap-4 min-w-0">
+            <TabHeader
+              title="Docentes"
+              description={`Total asignado a esta categoría: ${docenteCategorias.length}`}
+              actions={(
+                <PrimaryButton icon="person_add" onClick={() => openModal(setIsAssignOpen)}>
+                  Asignar docente
+                </PrimaryButton>
+              )}
+            />
+            {docenteCategorias.length === 0 ? (
+              <EmptyState icon="school" title="Sin docentes" description="Todavía no hay docentes asignados a esta categoría." />
+            ) : (
+              <CategoriaDocenteTable docenteCategorias={docenteCategorias} onRemove={openRemoval} />
+            )}
+          </section>
         </div>
       ),
     },

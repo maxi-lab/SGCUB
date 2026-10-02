@@ -11,7 +11,6 @@ function CategoriaDocenteTable({ docenteCategorias, onRemove }) {
             <th className="py-3 px-4 pl-6 w-28 whitespace-nowrap" scope="col">N° Legajo</th>
             <th className="py-3 px-4" scope="col">Nombre y Apellido</th>
             <th className="py-3 px-4" scope="col">Cargo</th>
-            <th className="py-3 px-4" scope="col">Contacto</th>
             <th className="py-3 px-4 pr-6 text-right" scope="col">Acciones</th>
           </tr>
         </thead>
@@ -39,7 +38,6 @@ function CategoriaDocenteTable({ docenteCategorias, onRemove }) {
                     <span className="text-on-surface-variant">Sin cargo</span>
                   )}
                 </td>
-                <td className="py-3 px-4 text-on-surface-variant">{persona?.email || persona?.telefono || '—'}</td>
                 <td className="py-2 px-4 pr-6">
                   <div className="flex items-center justify-end">
                     <button
