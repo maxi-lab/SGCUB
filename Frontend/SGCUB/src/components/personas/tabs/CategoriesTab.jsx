@@ -1,51 +1,13 @@
 import { useState } from 'react'
 import { Button, Group, Modal, Text } from '@mantine/core'
-import { esCategoriaAsignable, etiquetaCategoria } from '../../docentes/docentesUtils'
-import { SelectSimple } from '../../shared/DropDownMenu'
+import CargoFields from '../../docentes/CargoFields'
+import { etiquetaCategoria, idsCategorias, validateCargo } from '../../docentes/docentesUtils'
 import { TabHeader, EmptyState, PrimaryButton } from './parts'
 
 const aPayload = (asignaciones) => asignaciones.map((asignacion) => ({
   cargo: Number(asignacion.cargo),
   categorias: asignacion.categorias.map((categoria) => Number(categoria.categoria_id ?? categoria)),
 }))
-
-const idsCategorias = (asignacion) => asignacion.categorias.map((categoria) => String(categoria.categoria_id))
-
-const GENEROS_CATEGORIA = [
-  { genero: 'M', titulo: 'Masculino' },
-  { genero: 'F', titulo: 'Femenino' },
-]
-
-function GrupoCategorias({ titulo, categorias, seleccionadas, cargoDeCategoria, deshabilitado, onToggle }) {
-  return (
-    <div className="flex flex-col gap-1 min-w-0">
-      <p className="px-2 pb-1 text-sm font-semibold uppercase tracking-wider text-on-surface-variant border-b border-outline-variant/30">
-        {titulo}
-      </p>
-      {categorias.length === 0 && <p className="px-2 py-1.5 text-sm text-outline">Sin categorías.</p>}
-      {categorias.map((c) => {
-        const categoriaId = String(c.categoria_id)
-        const ocupadaPor = cargoDeCategoria[categoriaId]
-        return (
-          <label
-            key={categoriaId}
-            className={`flex items-center gap-2 px-2 py-1.5 rounded text-base ${ocupadaPor ? 'text-outline cursor-not-allowed' : 'text-on-surface hover:bg-surface-container-low cursor-pointer'}`}
-            title={ocupadaPor ? `Asignada como ${ocupadaPor}` : undefined}
-          >
-            <input
-              type="checkbox"
-              className="w-4 h-4 accent-primary cursor-pointer disabled:cursor-not-allowed shrink-0"
-              checked={seleccionadas.includes(categoriaId)}
-              disabled={Boolean(ocupadaPor) || deshabilitado}
-              onChange={() => onToggle(categoriaId)}
-            />
-            <span className="truncate">{c.nombre}</span>
-          </label>
-        )
-      })}
-    </div>
-  )
-}
 
 function CargoModal({ asignacion, asignaciones, cargos, categorias, onClose, onSave }) {
   const editando = Boolean(asignacion)
@@ -54,38 +16,9 @@ function CargoModal({ asignacion, asignaciones, cargos, categorias, onClose, onS
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState('')
 
-  const otras = asignaciones.filter((a) => a !== asignacion)
-  const cargosUsados = new Set(otras.map((a) => String(a.cargo)))
-  // Una categoría no puede estar en dos cargos del mismo docente.
-  const cargoDeCategoria = Object.fromEntries(
-    otras.flatMap((a) => idsCategorias(a).map((categoriaId) => [categoriaId, a.cargo_nombre])),
-  )
-
-  const alternar = (categoriaId) => setSeleccionadas((actuales) => (
-    actuales.includes(categoriaId) ? actuales.filter((id) => id !== categoriaId) : [...actuales, categoriaId]
-  ))
-
-  const asignables = categorias
-    .filter(esCategoriaAsignable)
-    // Más grandes primero; a igual edad máxima, en el orden en que fueron cargadas.
-    .sort((a, b) => (b.edad_maxima ?? 0) - (a.edad_maxima ?? 0) || a.categoria_id - b.categoria_id)
-  const gruposPorGenero = [
-    ...GENEROS_CATEGORIA.map(({ genero, titulo }) => ({
-      genero,
-      titulo,
-      categorias: asignables.filter((c) => c.genero === genero),
-    })),
-    {
-      genero: null,
-      titulo: 'Otras',
-      categorias: asignables.filter((c) => !GENEROS_CATEGORIA.some(({ genero }) => genero === c.genero)),
-    },
-  ]
-  const propsGrupo = { seleccionadas, cargoDeCategoria, deshabilitado: guardando, onToggle: alternar }
-
   const guardar = async () => {
-    if (!cargo) return setError('Seleccione un cargo.')
-    if (seleccionadas.length === 0) return setError('Seleccione al menos una categoría.')
+    const validationError = validateCargo(cargo, seleccionadas)
+    if (validationError) return setError(validationError)
     setGuardando(true)
     setError('')
     const nueva = { cargo, categorias: seleccionadas }
@@ -110,38 +43,16 @@ function CargoModal({ asignacion, asignaciones, cargos, categorias, onClose, onS
       title={<Text fw={700} size="xl">{editando ? 'Editar cargo' : 'Agregar cargo'}</Text>}
     >
       <div className="flex flex-col gap-4">
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="modal-cargo" className="text-base font-semibold text-on-surface">Cargo <span className="text-error">*</span></label>
-          <SelectSimple
-            id="modal-cargo"
-            opciones={cargos.map((c) => ({
-              valor: String(c.cargo_id),
-              etiqueta: c.nombre,
-              deshabilitadaPor: cargosUsados.has(String(c.cargo_id)) ? 'Ya asignado' : undefined,
-            }))}
-            valor={cargo}
-            onChange={setCargo}
-            conError={false}
-            placeholder="Seleccione cargo..."
-          />
-        </div>
-
-        <fieldset className="flex flex-col gap-1.5">
-          <legend className="text-base font-semibold text-on-surface mb-1.5">
-            Categorías <span className="text-error">*</span>
-            <span className="text-sm font-normal text-on-surface-variant ml-1">(una o varias)</span>
-          </legend>
-          <div className="max-h-80 overflow-y-auto border border-outline-variant/40 rounded-lg p-2 flex flex-col gap-3">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
-              {gruposPorGenero.filter((grupo) => grupo.genero !== null).map((grupo) => (
-                <GrupoCategorias key={grupo.genero} titulo={grupo.titulo} categorias={grupo.categorias} {...propsGrupo} />
-              ))}
-            </div>
-            {gruposPorGenero.filter((grupo) => grupo.genero === null && grupo.categorias.length > 0).map((grupo) => (
-              <GrupoCategorias key="otras" titulo={grupo.titulo} categorias={grupo.categorias} {...propsGrupo} />
-            ))}
-          </div>
-        </fieldset>
+        <CargoFields
+          cargo={cargo}
+          onCargoChange={setCargo}
+          seleccionadas={seleccionadas}
+          onSeleccionadasChange={setSeleccionadas}
+          cargos={cargos}
+          categorias={categorias}
+          otherAssignments={asignaciones.filter((a) => a !== asignacion)}
+          disabled={guardando}
+        />
 
         {error && <Text color="red" size="base">{error}</Text>}
 
@@ -161,16 +72,79 @@ function BotonEditar({ label, onClick }) {
       onClick={onClick}
       title={label}
       aria-label={label}
-      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded text-sm font-semibold text-on-surface-variant hover:bg-surface-container-high hover:text-primary transition-colors cursor-pointer"
+      className="inline-flex items-center justify-center p-2 rounded-lg text-primary hover:bg-primary-fixed/30 transition-colors cursor-pointer"
     >
-      <span className="material-symbols-outlined text-[20px]">edit</span>
-      Editar
+      <span className="material-symbols-outlined text-[20px]" aria-hidden="true">edit</span>
     </button>
   )
 }
 
-export default function CategoriesTab({ asignaciones = [], cargos = [], categorias = [], editable = false, onSave }) {
+function RemoveButton({ label, disabledReason, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={Boolean(disabledReason)}
+      title={disabledReason ?? label}
+      aria-label={label}
+      className="inline-flex items-center justify-center p-2 rounded-lg text-error hover:bg-error-container/60 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+    >
+      <span className="material-symbols-outlined text-[20px]" aria-hidden="true">delete</span>
+    </button>
+  )
+}
+
+function ConfirmRemoveCargoModal({ asignacion, onClose, onConfirm }) {
+  const [error, setError] = useState('')
+  const [isRemoving, setIsRemoving] = useState(false)
+
+  const handleConfirm = async () => {
+    setIsRemoving(true)
+    setError('')
+    try {
+      await onConfirm()
+      onClose()
+    } catch (removeError) {
+      setError(removeError.message)
+      setIsRemoving(false)
+    }
+  }
+
+  return (
+    <Modal
+      opened
+      onClose={() => !isRemoving && onClose()}
+      centered
+      title={<Text fw={700} size="xl">¿Eliminar este cargo?</Text>}
+    >
+      <div className="p-3 bg-surface-container-low rounded-lg space-y-2">
+        <p className="text-base font-semibold text-on-surface">{asignacion.cargo_nombre ?? 'Cargo sin nombre'}</p>
+        <ul className="flex flex-wrap gap-1.5">
+          {asignacion.categorias.map((categoria) => (
+            <li key={categoria.categoria_id} className="px-2.5 py-0.5 rounded-md bg-surface-container-high text-on-surface text-sm font-medium">
+              {etiquetaCategoria(categoria)}
+            </li>
+          ))}
+        </ul>
+      </div>
+      <Text size="md" mt="md">
+        El docente dejará de tener este cargo en todas las categorías asociadas.
+      </Text>
+      {error && <Text color="red" size="sm" mt="md">{error}</Text>}
+      <Group position="right" mt="xl">
+        <Button variant="default" onClick={onClose} disabled={isRemoving}>Cancelar</Button>
+        <Button color="red" onClick={handleConfirm} loading={isRemoving}>Eliminar cargo</Button>
+      </Group>
+    </Modal>
+  )
+}
+
+export default function CategoriesTab({ asignaciones = [], cargos = [], categorias = [], editable = false, isActive = true, onSave }) {
   const [modalCargo, setModalCargo] = useState(null)
+  const [cargoToRemove, setCargoToRemove] = useState(null)
+  const removeDisabledReason = isActive && asignaciones.length === 1
+    ? 'Un docente activo debe tener al menos un cargo'
+    : undefined
 
   const guardar = (nuevas) => onSave(aPayload(nuevas))
 
@@ -218,10 +192,15 @@ export default function CategoriesTab({ asignaciones = [], cargos = [], categori
                   </td>
                   {editable && (
                     <td className="py-2 px-4">
-                      <div className="flex items-center justify-end">
+                      <div className="flex items-center justify-end gap-1">
                         <BotonEditar
                           label={`Editar cargo ${asignacion.cargo_nombre ?? ''}`.trim()}
                           onClick={() => setModalCargo({ asignacion })}
+                        />
+                        <RemoveButton
+                          label={`Eliminar cargo ${asignacion.cargo_nombre ?? ''}`.trim()}
+                          disabledReason={removeDisabledReason}
+                          onClick={() => setCargoToRemove(asignacion)}
                         />
                       </div>
                     </td>
@@ -241,6 +220,14 @@ export default function CategoriesTab({ asignaciones = [], cargos = [], categori
           categorias={categorias}
           onClose={() => setModalCargo(null)}
           onSave={guardar}
+        />
+      )}
+
+      {cargoToRemove && (
+        <ConfirmRemoveCargoModal
+          asignacion={cargoToRemove}
+          onClose={() => setCargoToRemove(null)}
+          onConfirm={() => guardar(asignaciones.filter((asignacion) => asignacion !== cargoToRemove))}
         />
       )}
     </div>

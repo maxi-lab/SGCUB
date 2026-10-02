@@ -1,145 +1,84 @@
-import { useState } from 'react'
-import AddCategoriaModal from '../components/categorias/AddCategoriaModal'
-import DeleteCategoriaModal from '../components/categorias/DeleteCategoriaModal'
+import { useMemo, useState } from 'react'
+import CategoriaFormModal from '../components/categorias/CategoriaFormModal'
 import CategoriasTable from '../components/categorias/CategoriasTable'
+import PageHeader from '../components/shared/PageHeader'
+import StatCard from '../components/shared/StatCard'
 import useCategorias from '../hooks/useCategorias'
 
-const formularioInicial = () => ({
-  nombre: '',
-  anio_vigente: new Date().getFullYear(),
-  edad_minima: '',
-  edad_maxima: '',
-  genero: null,
-})
-
-const mensajeError = (requestError, fallback) =>
-  Object.values(requestError.response?.data || {})
-    .flat()
-    .join(' ') || fallback
+const format = (value) => value.toLocaleString('es-AR')
 
 function Categorias() {
-  const { categorias, isLoading, error, crearCategoria, editarCategoria, eliminarCategoria } =
-    useCategorias()
-  const [modalAbierto, setModalAbierto] = useState(false)
-  const [categoriaEnEdicion, setCategoriaEnEdicion] = useState(null)
-  const [formulario, setFormulario] = useState(formularioInicial)
-  const [guardando, setGuardando] = useState(false)
-  const [errorGuardado, setErrorGuardado] = useState('')
-  const [categoriaAEliminar, setCategoriaAEliminar] = useState(null)
-  const [eliminando, setEliminando] = useState(false)
-  const [errorEliminacion, setErrorEliminacion] = useState('')
+  const { categorias, isLoading, error, createCategoria } = useCategorias()
 
-  const actualizarCampo = (campo, valor) =>
-    setFormulario((actual) => ({ ...actual, [campo]: valor }))
+  const [modalKey, setModalKey] = useState(0)
+  const [isFormOpen, setIsFormOpen] = useState(false)
+  const [notice, setNotice] = useState('')
 
-  const abrirModal = () => {
-    setErrorGuardado('')
-    setCategoriaEnEdicion(null)
-    setFormulario(formularioInicial())
-    setModalAbierto(true)
+  const totals = useMemo(() => ({
+    total: format(categorias.length),
+    male: format(categorias.filter((categoria) => categoria.genero === 'M').length),
+    female: format(categorias.filter((categoria) => categoria.genero === 'F').length),
+  }), [categorias])
+
+  const openForm = () => {
+    setModalKey((key) => key + 1)
+    setIsFormOpen(true)
   }
 
-  const abrirEdicion = (categoria) => {
-    setErrorGuardado('')
-    setCategoriaEnEdicion(categoria)
-    setFormulario({
-      nombre: categoria.nombre ?? '',
-      anio_vigente: categoria.anio_vigente ?? new Date().getFullYear(),
-      edad_minima: categoria.edad_minima ?? '',
-      edad_maxima: categoria.edad_maxima ?? '',
-      genero: categoria.genero ?? null,
-    })
-    setModalAbierto(true)
-  }
-
-  const cerrarModal = () => {
-    if (!guardando) {
-      setModalAbierto(false)
-    }
-  }
-
-  const guardarCategoria = async (event) => {
-    event.preventDefault()
-    setGuardando(true)
-    setErrorGuardado('')
-    try {
-      if (categoriaEnEdicion) {
-        await editarCategoria(categoriaEnEdicion.categoria_id, formulario)
-      } else {
-        await crearCategoria(formulario)
-      }
-      setFormulario(formularioInicial())
-      setCategoriaEnEdicion(null)
-      setModalAbierto(false)
-    } catch (requestError) {
-      setErrorGuardado(
-        mensajeError(
-          requestError,
-          categoriaEnEdicion
-            ? 'No se pudo modificar la categoría.'
-            : 'No se pudo agregar la categoría.',
-        ),
-      )
-    } finally {
-      setGuardando(false)
-    }
-  }
-
-  const confirmarEliminacion = async () => {
-    setEliminando(true)
-    setErrorEliminacion('')
-    try {
-      await eliminarCategoria(categoriaAEliminar.categoria_id)
-      setCategoriaAEliminar(null)
-    } catch (requestError) {
-      setErrorEliminacion(
-        requestError.response?.data?.detail || 'No se pudo eliminar la categoría.',
-      )
-    } finally {
-      setEliminando(false)
-    }
+  const handleSubmitForm = async (data) => {
+    await createCategoria(data)
+    setNotice(`Se creó la categoría ${data.nombre}.`)
   }
 
   return (
-    <>
-      <section className="padron-table-section" aria-label="Categorías">
-        <CategoriasTable
-          data={categorias}
-          isLoading={isLoading}
-          error={error}
-          onAdd={abrirModal}
-          onEdit={abrirEdicion}
-          onDelete={(categoria) => {
-            setErrorEliminacion('')
-            setCategoriaAEliminar(categoria)
-          }}
-        />
+    <div className="w-full flex flex-col gap-5">
+      <PageHeader
+        breadcrumb={[{ label: 'Categorías' }]}
+        title="Categorías"
+        actions={(
+          <button
+            type="button"
+            onClick={openForm}
+            className="inline-flex items-center gap-2 bg-primary text-on-primary hover:bg-primary/90 px-4 py-2 rounded shadow-sm font-label-lg text-base font-medium transition-colors cursor-pointer"
+          >
+            <span className="material-symbols-outlined text-[18px]" aria-hidden="true">add</span>
+            <span className="text-xl"> Nueva categoría</span>
+          </button>
+        )}
+      />
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 xl:gap-10">
+        <StatCard label="Total categorías" value={totals.total} icon="sports_soccer" tone="neutral" />
+        <StatCard label="Masculinas" value={totals.male} icon="man" tone="neutral" />
+        <StatCard label="Femeninas" value={totals.female} icon="woman" tone="neutral" />
+      </div>
+
+      {notice && (
+        <div className="bg-emerald-50 text-emerald-800 border border-emerald-200 px-4 py-3 rounded-lg flex items-center gap-2.5" role="status">
+          <span className="material-symbols-outlined text-emerald-700" aria-hidden="true">check_circle</span>
+          <p className="text-base font-medium flex-1">{notice}</p>
+          <button
+            type="button"
+            onClick={() => setNotice('')}
+            className="p-1 rounded text-emerald-700 hover:bg-emerald-100 transition-colors cursor-pointer"
+            aria-label="Cerrar aviso"
+          >
+            <span className="material-symbols-outlined text-[20px]" aria-hidden="true">close</span>
+          </button>
+        </div>
+      )}
+
+      <section aria-label="Categorías">
+        <CategoriasTable data={categorias} isLoading={isLoading} error={error} />
       </section>
 
-      <AddCategoriaModal
-        opened={modalAbierto}
-        onClose={cerrarModal}
-        onSubmit={guardarCategoria}
-        formulario={formulario}
-        onChange={actualizarCampo}
-        loading={guardando}
-        error={errorGuardado}
-        editing={Boolean(categoriaEnEdicion)}
+      <CategoriaFormModal
+        key={`form-${modalKey}`}
+        opened={isFormOpen}
+        onClose={() => setIsFormOpen(false)}
+        onSubmit={handleSubmitForm}
       />
-
-      <DeleteCategoriaModal
-        opened={Boolean(categoriaAEliminar)}
-        onClose={() => {
-          if (!eliminando) {
-            setCategoriaAEliminar(null)
-          }
-        }}
-        onConfirm={confirmarEliminacion}
-        categoria={categoriaAEliminar}
-        loading={eliminando}
-        error={errorEliminacion}
-      />
-    </>
+    </div>
   )
 }
 

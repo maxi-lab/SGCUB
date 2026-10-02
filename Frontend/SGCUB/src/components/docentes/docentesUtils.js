@@ -40,3 +40,11 @@ export const exportarNominaCSV = (docentes, categoriasPorDocente = {}) => {
   enlace.click()
   URL.revokeObjectURL(enlace.href)
 }
+
+export const idsCategorias = (asignacion) => asignacion.categorias.map((categoria) => String(categoria.categoria_id))
+
+export const validateCargo = (cargo, seleccionadas) => {
+  if (!cargo) return 'Seleccione un cargo.'
+  if (seleccionadas.length === 0) return 'Seleccione al menos una categoría.'
+  return ''
+}

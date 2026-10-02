@@ -10,10 +10,7 @@ export const getDocenteCategoria = async (docenteCategoriaId) => {
   const response = await api.get(`${docenteCategoriaEndpoint}${docenteCategoriaId}/`)
   return response.data
 }
-export const postDocenteCategoria = async (docenteCategoria) => {
-  const response = await api.post(docenteCategoriaEndpoint, docenteCategoria)
-  return response.data
-}
+
 export const deleteDocenteCategoria = async (docenteCategoriaId) => {
   await api.delete(`${docenteCategoriaEndpoint}${docenteCategoriaId}/`)
 }

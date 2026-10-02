@@ -26,10 +26,10 @@ export const deactivateDocente = async (docenteId) => {
   await api.delete(`${docentesEndpoint}${docenteId}/`)
 }
 
-export const activateDocente = async (docenteId) => {
+export const activateDocente = async (docenteId, asignaciones) => {
   const { data: estados } = await api.get('padron/estado-socio/')
   const activo = estados.find((estado) => estado.nombre === 'Activo')
-  return patchDocente(docenteId, { estado: activo?.estado_id })
+  return patchDocente(docenteId, { estado: activo?.estado_id, ...(asignaciones && { asignaciones }) })
 }
 
 export const getCargosDocente = async () => {

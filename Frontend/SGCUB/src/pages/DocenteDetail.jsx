@@ -27,6 +27,7 @@ function DocenteDetail() {
   const [dandoDeBaja, setDandoDeBaja] = useState(false)
   const [errorBaja, setErrorBaja] = useState('')
   const [modalAltaAbierto, setModalAltaAbierto] = useState(false)
+  const [modalAltaKey, setModalAltaKey] = useState(0)
   const [dandoDeAlta, setDandoDeAlta] = useState(false)
   const [errorAlta, setErrorAlta] = useState('')
 
@@ -71,11 +72,11 @@ function DocenteDetail() {
     }
   }
 
-  const confirmarAlta = async () => {
+  const confirmarAlta = async (asignaciones) => {
     setDandoDeAlta(true)
     setErrorAlta('')
     try {
-      const actualizado = await activateDocente(docente.docente_id)
+      const actualizado = await activateDocente(docente.docente_id, asignaciones)
       setCarga((actual) => ({ ...actual, docente: actualizado }))
       setModalAltaAbierto(false)
     } catch (requestError) {
@@ -116,7 +117,8 @@ function DocenteDetail() {
           asignaciones={docente.asignaciones ?? []}
           cargos={cargos}
           categorias={categorias}
-          editable={activo}
+          editable
+          isActive={activo}
           onSave={guardarAsignaciones}
         />
       ),
@@ -155,6 +157,7 @@ function DocenteDetail() {
           <ActivateButton
             onClick={() => {
               setErrorAlta('')
+              setModalAltaKey((key) => key + 1)
               setModalAltaAbierto(true)
             }}
           />
@@ -164,10 +167,13 @@ function DocenteDetail() {
       <PersonTabs tabs={tabs} />
 
       <ActivateDocenteModal
+        key={modalAltaKey}
         opened={modalAltaAbierto}
         onClose={() => !dandoDeAlta && setModalAltaAbierto(false)}
         onConfirm={confirmarAlta}
         docente={docente}
+        cargos={cargos}
+        categorias={categorias}
         loading={dandoDeAlta}
         error={errorAlta}
       />

@@ -1,147 +1,51 @@
-import { useMemo } from 'react'
-import { ActionIcon, Button, Group, Text } from '@mantine/core'
-import { IconEdit, IconPlus, IconTrash } from '@tabler/icons-react'
-import { MantineReactTable, useMantineReactTable } from 'mantine-react-table'
-import '../shared/quiet-table.css'
-import { useNavigate } from 'react-router-dom'
+import { useMemo, useState } from 'react'
+import CategoriasGeneroTable from './CategoriasGeneroTable'
+import { GENERO_OPTIONS } from './categoriaFormat'
 
-const GENERO_LABEL = {
-  M: 'Masculino',
-  F: 'Femenino',
-}
+function CategoriasTable({ data, isLoading, error }) {
+  const [search, setSearch] = useState('')
 
-function CategoriasTable({ data, isLoading, error, onAdd, onEdit, onDelete }) {
-  const navigate = useNavigate()
-  const columns = useMemo(
-    () => [
-      {
-        accessorKey: 'nombre',
-        header: 'Nombre',
-        size: 180,
-        minSize: 140,
-      },
-      {
-        accessorKey: 'anio_vigente',
-        header: 'Año vigente',
-        size: 110,
-        minSize: 90,
-      },
-      
-      {
-        accessorKey: 'edad_maxima',
-        header: 'Edad máxima',
-        size: 110,
-        minSize: 90,
-      },
-      {
-        id: 'genero',
-        accessorFn: (row) => GENERO_LABEL[row.genero] ?? row.genero ?? '',
-        header: 'Género',
-        size: 120,
-        minSize: 90,
-      },
-    ],
-    [],
+  const byGenero = useMemo(() => {
+    const text = search.trim().toLowerCase()
+    const filtered = (data ?? []).filter((categoria) =>
+      !text || String(categoria.nombre ?? '').toLowerCase().includes(text))
+    return Object.fromEntries(GENERO_OPTIONS.map(({ value }) => [
+      value,
+      filtered.filter((categoria) => categoria.genero === value),
+    ]))
+  }, [data, search])
+
+  return (
+    <div className="min-w-0 flex flex-col gap-4">
+      <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-lg shadow-sm p-4">
+        <div className="relative w-full sm:max-w-md">
+          <span className="material-symbols-outlined absolute left-4 top-1.5 text-outline text-[18px]" aria-hidden="true">
+            search
+          </span>
+          <input
+            className="w-full h-10 pl-11 pr-4 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface placeholder:text-outline font-body-sm text-sm focus:outline-none focus:border-primary focus:bg-surface-container-lowest transition-colors"
+            placeholder="Filtrar por nombre..."
+            type="text"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            aria-label="Filtrar categorías"
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+        {['M', 'F'].map((genero) => (
+          <CategoriasGeneroTable
+            key={genero}
+            genero={genero}
+            categorias={byGenero[genero]}
+            isLoading={isLoading}
+            error={error}
+          />
+        ))}
+      </div>
+    </div>
   )
-
-  const table = useMantineReactTable({
-    columns,
-    data: data ?? [],
-    state: { isLoading },
-    enableColumnActions: true,
-    enableColumnFilters: false,
-    enableDensityToggle: false,
-    enableFullScreenToggle: false,
-    enableHiding: true,
-    enablePagination: true,
-    enableSorting: true,
-    enableColumnResizing: true,
-    columnResizeMode: 'onChange',
-    enableRowActions: true,
-    positionActionsColumn: 'last',
-    displayColumnDefOptions: {
-      'mrt-row-actions': {
-        header: 'Acciones',
-        size: 70,
-        minSize: 60,
-      },
-    },
-    initialState: {
-      density: 'compact',
-    },
-    mantineTableBodyRowProps: ({ row }) => ({
-      onClick: () => {
-        navigate(`/padron/categorias/${row.original.categoria_id}`)
-      },
-      sx: {
-        cursor: 'pointer',
-      },
-    }),
-    renderTopToolbarCustomActions: () => (
-      <Button leftIcon={<IconPlus size={16} />} onClick={onAdd}>
-        Agregar
-      </Button>
-    ),
-    renderRowActions: ({ row }) => (
-      <Group spacing="xs" noWrap>
-        <ActionIcon
-          color="teal"
-          variant="subtle"
-          aria-label={`Editar categoría ${row.original.nombre}`}
-          onClick={(event) => {
-            event.stopPropagation()
-            onEdit?.(row.original)
-          }}
-        >
-          <IconEdit size={18} />
-        </ActionIcon>
-        <ActionIcon
-          color="red"
-          variant="subtle"
-          aria-label={`Eliminar categoría ${row.original.nombre}`}
-          onClick={(event) => {
-            event.stopPropagation()
-            onDelete?.(row.original)
-          }}
-        >
-          <IconTrash size={18} />
-        </ActionIcon>
-      </Group>
-    ),
-    mantineTableProps: {
-      className: 'quiet-table',
-      striped: true,
-      highlightOnHover: true,
-      withBorder: true,
-      withColumnBorders: true,
-    },
-    mantineTableHeadCellProps: {
-      style: {
-        fontSize: '10px',
-        padding: '6px 8px',
-        whiteSpace: 'normal',
-        lineHeight: 1.15,
-      },
-    },
-    mantineTableBodyCellProps: {
-      style: {
-        fontSize: '12px',
-        padding: '6px 8px',
-        whiteSpace: 'normal',
-        wordBreak: 'break-word',
-        lineHeight: 1.2,
-      },
-    },
-    renderEmptyRowsFallback: () => (
-      <Text align="center" py="xl">
-        {error
-          ? 'No se pudieron cargar las categorías.'
-          : 'No hay categorías cargadas.'}
-      </Text>
-    ),
-  })
-
-  return <MantineReactTable table={table} />
 }
 
 export default CategoriasTable
