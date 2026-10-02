@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     'django_q',
     'drf_spectacular',
     'usuarios',
+    'django_cleanup.apps.CleanupConfig',
 ]
 Q_CLUSTER = {
     'name': 'django_q_cluster',
