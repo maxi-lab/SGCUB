@@ -292,6 +292,28 @@ class PadronViewTests(APITestCase):
         self.assertEqual(["40111222"], buscar("4011"))
         self.assertEqual(["50111222"], buscar("juana gomez"))
 
+    def test_persona_busqueda_por_numero_socio(self):
+        socio = self.crear_socio_orm(persona=self.crear_persona_orm(dni="30111222"))
+        self.crear_persona_orm(dni="40111222")
+        response = self.client.get("/api/padron/persona/", {"q": str(socio.numero_socio)})
+        self.assertEqual(["30111222"], [p["dni"] for p in response.data])
+
+    def test_persona_busqueda_limita_resultados(self):
+        for index in range(12):
+            self.crear_persona_orm(apellido="Gomez", dni=f"301112{index:02d}")
+        response = self.client.get("/api/padron/persona/", {"q": "gomez"})
+        self.assertEqual(10, len(response.data))
+
+    def test_persona_perfiles_incluye_vinculos_familiares(self):
+        jugador = self.crear_jugador_orm()
+        vinculo = jugador.vinculos_familiares.get()
+        response = self.client.get(f"/api/padron/persona/{vinculo.persona_id}/")
+        self.assertEqual([{
+            "jugador_id": jugador.pk,
+            "jugador_nombre": str(jugador.socio.persona),
+            "relacion": "Madre",
+        }], response.data["perfiles"]["vinculos"])
+
     def test_vinculo_familiar_no_exige_datos_de_alta(self):
         socio = self.crear_socio_orm()
         jugador = Jugador.objects.create(socio=socio)
