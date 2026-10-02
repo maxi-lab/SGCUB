@@ -23,15 +23,22 @@ def documento_list_create(request):
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
+        print("SERIALIZER ERRORS:", serializer.errors)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 @extend_schema(tags=["Documental / Documentos"], responses=DocumentoSerializer)
-@api_view(["GET", "DELETE"])
+@api_view(["GET", "PUT", "PATCH", "DELETE"])
 def documento_detail(request, pk):
     documento = get_object_or_404(Documento, pk=pk)
     if request.method == "GET":
         serializer = DocumentoSerializer(documento)
         return Response(serializer.data)
+    elif request.method in ["PUT", "PATCH"]:
+        serializer = DocumentoSerializer(documento, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     elif request.method == "DELETE":
         documento.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
