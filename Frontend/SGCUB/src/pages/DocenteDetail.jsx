@@ -26,42 +26,7 @@ function DocenteDetail() {
   const loading = carga.id !== id
   const { docente, error } = carga
 
-  const { documentos } = useDocumentacion(docente?.persona)
-  const { activos } = React.useMemo(() => {
-    const DIAS_AVISO = 30;
-    const docsWithStatus = (documentos || []).map(d => {
-      let status = 'vigente';
-      if (d.fecha_vencimiento) {
-        const dias = (new Date(`${d.fecha_vencimiento.split('T')[0]}T00:00:00`) - new Date()) / 86400000;
-        if (dias < 0) status = 'vencido';
-        else if (dias <= DIAS_AVISO) status = 'por_vencer';
-      }
-      return { ...d, status };
-    });
-
-    const docsPorTipo = {};
-    docsWithStatus.forEach(d => {
-      if (!docsPorTipo[d.tipo_documento]) docsPorTipo[d.tipo_documento] = [];
-      docsPorTipo[d.tipo_documento].push(d);
-    });
-
-    const activos = [];
-    Object.values(docsPorTipo).forEach(grupo => {
-      if (grupo.length === 1) {
-        activos.push(grupo[0]);
-      } else {
-        const hayVigentes = grupo.some(d => d.status !== 'vencido');
-        if (hayVigentes) {
-          grupo.forEach(d => { if (d.status !== 'vencido') activos.push(d); });
-        } else {
-          const sorted = [...grupo].sort((a,b) => new Date(b.fecha_vencimiento) - new Date(a.fecha_vencimiento));
-          activos.push(sorted[0]);
-        }
-      }
-    });
-    return { activos };
-  }, [documentos]);
-
+  const { documentosActivos: activos } = useDocumentacion(docente?.persona)
   const badgeConfig = React.useMemo(() => {
     const vencidos = activos.filter(d => d.status === 'vencido').length;
     if (vencidos > 0) return { label: vencidos, tono: 'error', hideDot: true };

@@ -38,7 +38,9 @@ export default function DocumentationTab({ personaId, personaType, personaInfo }
     subirDocumento,
     actualizarDocumento,
     borrarDocumento,
-    getNombreTipo
+    getNombreTipo,
+    documentosActivos,
+    documentosHistoricos
   } = useDocumentacion(personaId)
 
 
@@ -167,52 +169,23 @@ export default function DocumentationTab({ personaId, personaType, personaInfo }
     }
   }
 
-  const { activos, historicos } = React.useMemo(() => {
-    const docsWithStatus = documents.map((document) => ({ 
-      ...document, 
-      status: getDocumentStatus(document.fecha_vencimiento?.split('T')[0]) 
-    })).sort((a, b) => {
+  const activos = React.useMemo(() => {
+    return [...documentosActivos].sort((a, b) => {
       if (!a.fecha_vencimiento && !b.fecha_vencimiento) return 0;
       if (!a.fecha_vencimiento) return 1;
       if (!b.fecha_vencimiento) return -1;
       return new Date(a.fecha_vencimiento) - new Date(b.fecha_vencimiento);
     });
+  }, [documentosActivos]);
 
-    const docsPorTipo = {};
-    docsWithStatus.forEach(d => {
-      if (!docsPorTipo[d.tipo_documento]) docsPorTipo[d.tipo_documento] = [];
-      docsPorTipo[d.tipo_documento].push(d);
+  const historicos = React.useMemo(() => {
+    return [...documentosHistoricos].sort((a, b) => {
+      if (!a.fecha_vencimiento && !b.fecha_vencimiento) return 0;
+      if (!a.fecha_vencimiento) return 1;
+      if (!b.fecha_vencimiento) return -1;
+      return new Date(b.fecha_vencimiento) - new Date(a.fecha_vencimiento);
     });
-
-    const listActivos = [];
-    const listHistoricos = [];
-
-    Object.values(docsPorTipo).forEach(grupo => {
-      if (grupo.length === 1) {
-        listActivos.push(grupo[0]);
-      } else {
-        const hayVigentes = grupo.some(d => d.status !== 'vencido');
-        if (hayVigentes) {
-          grupo.forEach(d => {
-            if (d.status === 'vencido') listHistoricos.push(d);
-            else listActivos.push(d);
-          });
-        } else {
-          // Son todos vencidos
-          // sort desc inside here just to get the newest, but wait, the whole array is already sorted asc by vencimiento!
-          // So newest is the LAST element in the group.
-          const newest = grupo[grupo.length - 1];
-          listActivos.push(newest);
-          grupo.slice(0, grupo.length - 1).forEach(d => listHistoricos.push(d));
-        }
-      }
-    });
-    
-    // Sort historicos descending (newest historical first)
-    listHistoricos.sort((a,b) => new Date(b.fecha_vencimiento) - new Date(a.fecha_vencimiento));
-    
-    return { activos: listActivos, historicos: listHistoricos };
-  }, [documents]);
+  }, [documentosHistoricos]);
 
   if (loading) return <div>Cargando documentación...</div>
 
