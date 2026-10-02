@@ -49,3 +49,14 @@ class DocumentoSerializer(serializers.ModelSerializer):
         if hasattr(persona, 'docente'):
             return 'Docente'
         return 'Socio'
+
+    url_perfil = serializers.SerializerMethodField()
+
+    def get_url_perfil(self, obj):
+        persona = obj.persona
+        if hasattr(persona, 'socio') and hasattr(persona.socio, 'jugador'):
+            return f"/padron/jugadores/{persona.socio.jugador.jugador_id}"
+        if hasattr(persona, 'docente'):
+            return f"/padron/docentes/{persona.docente.docente_id}"
+        return "#"
+

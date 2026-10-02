@@ -43,7 +43,7 @@ export default function PersonTabs({ tabs = [], defaultTab }) {
               <span>{tab.label}</span>
               {tab.badge && (
                 <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-semibold ${TONOS_BADGE[tab.badge.tono] ?? TONOS_BADGE.neutro}`}>
-                  {PUNTO_BADGE[tab.badge.tono] && <span className={`w-1.5 h-1.5 rounded-full ${PUNTO_BADGE[tab.badge.tono]}`} />}
+                  {!tab.badge.hideDot && PUNTO_BADGE[tab.badge.tono] && <span className={`w-1.5 h-1.5 rounded-full ${PUNTO_BADGE[tab.badge.tono]}`} />}
                   {tab.badge.label}
                 </span>
               )}

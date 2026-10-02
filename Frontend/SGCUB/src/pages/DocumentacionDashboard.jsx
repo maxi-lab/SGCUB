@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import useDocumentacion from '../hooks/useDocumentacion'
 
 export default function DocumentacionDashboard() {
+  const navigate = useNavigate()
   const { documentos, isLoading, getNombreTipo } = useDocumentacion()
 
   const [searchProximos, setSearchProximos] = useState('')
@@ -173,7 +175,7 @@ export default function DocumentacionDashboard() {
               </thead>
               <tbody className="font-body-sm text-body-sm text-on-surface">
                 {paginatedProximos.map(doc => (
-                  <tr key={doc.id_documento} className="hover:bg-surface-container-low transition-colors cursor-pointer group">
+                  <tr key={doc.id_documento} onClick={() => navigate(doc.url_perfil)} className="hover:bg-surface-container-low transition-colors cursor-pointer group">
                     <td className="py-space-md px-space-md">
                       <div className="flex flex-col min-w-0">
                         <span className="font-label-lg text-label-lg font-semibold text-on-surface truncate group-hover:text-primary transition-colors">{doc.persona_nombre_completo || 'Desconocido'}</span>
@@ -248,7 +250,7 @@ export default function DocumentacionDashboard() {
               </thead>
               <tbody className="font-body-sm text-body-sm text-on-surface">
                 {paginatedVencidos.map(doc => (
-                  <tr key={doc.id_documento} className="hover:bg-error-container/20 transition-colors cursor-pointer group">
+                  <tr key={doc.id_documento} onClick={() => navigate(doc.url_perfil)} className="hover:bg-error-container/20 transition-colors cursor-pointer group">
                     <td className="py-space-md px-space-md">
                       <div className="flex flex-col min-w-0">
                         <span className="font-label-lg text-label-lg font-semibold text-on-surface truncate group-hover:text-error transition-colors">{doc.persona_nombre_completo || 'Desconocido'}</span>

@@ -13,6 +13,7 @@ import { LoadingFile, ErrorFile } from '../components/personas/FileStatus'
 import { isActiveStatus, formatDni, formatDate, formatNumber, getErrorMessage } from '../components/personas/format'
 import useFinancialStatus from '../hooks/useEstadoFinanciero'
 import useLocalidades from '../hooks/useLocalidades'
+import useDocumentacion from "../hooks/useDocumentacion"
 
 const getContacts = (player) => (player.vinculos_familiares ?? []).map((c) => ({
   vinculo_familiar_id: c.vinculo_familiar_id,
@@ -39,6 +40,13 @@ function JugadorDetail() {
 
   const { localidades } = useLocalidades()
   const financiero = useFinancialStatus(jugador?.socio?.socio_id)
+  const { documentos } = useDocumentacion(jugador?.socio?.persona)
+  const vigentesCount = documentos.filter(d => {
+    if (!d.fecha_vencimiento) return true;
+    const dias = (new Date(`${d.fecha_vencimiento.split('T')[0]}T00:00:00`) - new Date()) / 86400000;
+    return dias > 30;
+  }).length;
+
 
   const [modalBajaAbierto, setModalBajaAbierto] = useState(false)
   const [dandoDeBaja, setDandoDeBaja] = useState(false)
@@ -154,7 +162,8 @@ function JugadorDetail() {
       id: 'documentacion',
       label: 'Documentación',
       icon: 'folder_shared',
-      content: <DocumentationTab personaId={socio?.persona} personaType="jugador" />,
+      badge: vigentesCount > 0 ? { label: vigentesCount, tono: 'ok', hideDot: true } : undefined,
+      content: <DocumentationTab personaId={socio?.persona?.persona_id || socio?.persona} personaInfo={jugador?.socio?.persona} personaType="jugador" />,
     },
     {
       id: 'financiero',

@@ -7,4 +7,5 @@ urlpatterns = [
     path('tipos/', views.tipo_documento_list, name='tipo_documento_list'),
     path('estados/', views.estado_documento_list, name='estado_documento_list'),
     path('alertas/', views.alertas_count, name='alertas_count'),
+    path('zip/<int:persona_id>/', views.download_zip, name='download_zip'),
 ]

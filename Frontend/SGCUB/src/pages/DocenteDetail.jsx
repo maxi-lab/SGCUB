@@ -13,11 +13,19 @@ import { yearsSince, formatDni, formatDate, yearsText, isActiveStatus, getErrorM
 import useCategorias from '../hooks/useCategorias'
 import useLocalidades from '../hooks/useLocalidades'
 
+import useDocumentacion from "../hooks/useDocumentacion"
 function DocenteDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { localidades } = useLocalidades()
   const { categorias } = useCategorias()
+  const { documentos } = useDocumentacion(docente?.persona)
+  const vigentesCount = documentos.filter(d => {
+    if (!d.fecha_vencimiento) return true;
+    const dias = (new Date(`${d.fecha_vencimiento.split('T')[0]}T00:00:00`) - new Date()) / 86400000;
+    return dias > 30;
+  }).length;
+
   const [cargos, setCargos] = useState([])
 
   const [carga, setCarga] = useState({ id: null, docente: null, error: null })
@@ -113,7 +121,8 @@ function DocenteDetail() {
       id: 'documentacion',
       label: 'Documentación',
       icon: 'folder_shared',
-      content: <DocumentationTab personaId={docente?.persona} personaType="docente" />,
+      badge: vigentesCount > 0 ? { label: vigentesCount, tono: 'ok', hideDot: true } : undefined,
+      content: <DocumentationTab personaId={docente?.persona?.persona_id || docente?.persona} personaInfo={docente?.persona} personaType="docente" />,
     },
     {
       id: 'categorias',

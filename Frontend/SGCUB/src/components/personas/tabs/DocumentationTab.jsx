@@ -28,7 +28,7 @@ const getMediaUrl = (path) => {
   return `${serverUrl}${path}`;
 }
 
-export default function DocumentationTab({ personaId, personaType }) {
+export default function DocumentationTab({ personaId, personaType, personaInfo }) {
   const {
     documentos: documents,
     tipos,
@@ -39,6 +39,7 @@ export default function DocumentationTab({ personaId, personaType }) {
     borrarDocumento,
     getNombreTipo
   } = useDocumentacion(personaId)
+
 
   const [uploadModalOpen, setUploadModalOpen] = useState(false)
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
@@ -168,27 +169,57 @@ export default function DocumentationTab({ personaId, personaType }) {
   const documentsWithStatus = documents.map((document) => ({ 
     ...document, 
     status: getDocumentStatus(document.fecha_vencimiento?.split('T')[0]) 
-  }))
+  })).sort((a, b) => {
+    if (!a.fecha_vencimiento && !b.fecha_vencimiento) return 0;
+    if (!a.fecha_vencimiento) return 1;
+    if (!b.fecha_vencimiento) return -1;
+    return new Date(a.fecha_vencimiento) - new Date(b.fecha_vencimiento);
+  })
 
   if (loading) return <div>Cargando documentación...</div>
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-space-sm bg-surface-container-lowest p-space-lg rounded-xl shadow-sm">
-        <div>
-          <div className="flex items-center gap-2">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-space-md bg-surface-container-lowest p-space-lg rounded-xl shadow-sm">
+        <div className="w-full md:w-auto">
+          <div className="flex items-center flex-wrap gap-2">
             <span className="material-symbols-outlined text-primary text-[24px]">folder_shared</span>
             <h2 className="font-headline-md text-headline-md text-on-surface">Documentación Requerida</h2>
           </div>
           <p className="font-body-sm text-body-sm text-on-surface-variant mt-1">Control de habilitaciones institucionales, certificados médicos laborales y títulos habilitantes reglamentarios.</p>
         </div>
-        <button 
-          onClick={handleNewClick}
-          className="inline-flex items-center gap-space-xs px-space-md h-10 rounded-lg bg-primary text-on-primary hover:bg-primary/90 font-title-md text-title-md transition-colors shadow-sm shrink-0 cursor-pointer" 
-          type="button">
-          <span className="material-symbols-outlined text-[20px]">upload_file</span>
-          <span className="">+ Cargar nuevo documento</span>
-        </button>
+        <div className="flex flex-col sm:flex-row items-center gap-space-sm self-stretch md:self-auto md:w-auto">
+          <button 
+            onClick={async () => {
+              try {
+                const { downloadZip } = await import('../../../api/documentacion');
+                const blob = await downloadZip(personaId);
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = personaInfo ? `${personaInfo.dni}-${personaInfo.nombre}_${personaInfo.apellido}.zip`.replace(/\s+/g, '_') : `documentos_${personaId}.zip`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+              } catch (err) {
+                console.error("Error descargando ZIP:", err);
+                alert("Error al descargar el ZIP. Verifica que el usuario tenga documentos.");
+              }
+            }}
+            className="inline-flex items-center justify-center gap-space-xs px-space-md h-10 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface transition-colors shadow-sm font-label-lg font-semibold shrink-0 cursor-pointer w-full sm:w-max" 
+            type="button">
+            <span className="material-symbols-outlined text-[20px]">folder_zip</span>
+            <span className="">Descargar ZIP</span>
+          </button>
+          <button 
+            onClick={handleNewClick}
+            className="inline-flex items-center justify-center gap-space-xs px-space-md h-10 rounded-lg bg-primary text-on-primary hover:bg-primary/90 font-title-md text-title-md transition-colors shadow-sm shrink-0 cursor-pointer w-full sm:w-max" 
+            type="button">
+            <span className="material-symbols-outlined text-[20px]">upload_file</span>
+            <span className="">+ Cargar</span>
+          </button>
+        </div>
       </div>
 
       {documentsWithStatus.length === 0 ? (
@@ -243,10 +274,26 @@ export default function DocumentationTab({ personaId, personaType }) {
                       <td className="py-space-md px-space-lg text-right">
                         <div className="inline-flex items-center justify-end gap-space-xs">
                           {document.archivoUrl && (
-                            <a href={getMediaUrl(document.archivoUrl)} target="_blank" rel="noopener noreferrer" className="p-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-primary transition-colors inline-flex items-center gap-1 font-label-md text-label-md cursor-pointer" title="Descargar PDF">
+                            <button 
+                              onClick={async () => {
+                                const url = getMediaUrl(document.archivoUrl);
+                                try {
+                                  const response = await fetch(url, { method: 'HEAD' });
+                                  if (!response.ok) {
+                                    alert("El archivo físico ya no existe o fue eliminado del servidor.");
+                                  } else {
+                                    window.open(url, '_blank');
+                                  }
+                                } catch (err) {
+                                  alert("El archivo físico ya no existe o fue eliminado del servidor.");
+                                }
+                              }}
+                              className="p-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-primary transition-colors inline-flex items-center gap-1 font-label-md text-label-md cursor-pointer" 
+                              title="Descargar PDF" 
+                              type="button">
                               <span className="material-symbols-outlined text-[18px]">download</span>
                               <span className="hidden xl:inline">Descargar</span>
-                            </a>
+                            </button>
                           )}
                           <button onClick={() => handleEditClick(document)} className="p-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-primary transition-colors inline-flex items-center gap-1 font-label-md text-label-md cursor-pointer" title="Editar" type="button">
                             <span className="material-symbols-outlined text-[18px]">edit</span>

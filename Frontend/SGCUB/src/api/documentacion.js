@@ -39,3 +39,10 @@ export const getAlertasCount = async () => {
   const { data } = await api.get('documental/alertas/')
   return data
 }
+
+export const downloadZip = async (personaId) => {
+  const response = await api.get(`documental/zip/${personaId}/`, {
+    responseType: 'blob',
+  })
+  return response.data
+}

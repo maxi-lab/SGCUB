@@ -114,3 +114,27 @@ def alertas_count(request):
         "vencidos": vencidos,
         "proximos": proximos
     })
+
+import zipfile
+import io
+import os
+from django.http import HttpResponse
+
+@extend_schema(tags=["Documental / Exportar"])
+@api_view(["GET"])
+def download_zip(request, persona_id):
+    documentos = Documento.objects.filter(persona_id=persona_id).exclude(archivoUrl='')
+    if not documentos.exists():
+        return Response({'detail': 'No hay documentos con archivos adjuntos.'}, status=404)
+        
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+        for doc in documentos:
+            if doc.archivoUrl and doc.archivoUrl.storage.exists(doc.archivoUrl.name):
+                file_path = doc.archivoUrl.path
+                file_name = os.path.basename(file_path)
+                zip_file.write(file_path, arcname=file_name)
+                
+    response = HttpResponse(zip_buffer.getvalue(), content_type='application/zip')
+    response['Content-Disposition'] = f'attachment; filename="documentos_persona_{persona_id}.zip"'
+    return response
