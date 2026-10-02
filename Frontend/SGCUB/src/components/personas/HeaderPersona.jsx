@@ -12,7 +12,7 @@ export default function PersonHeader({ breadcrumb = [], name, surname, status, m
       <PageHeader breadcrumb={breadcrumb} />
 
       <div className="bg-surface-container-lowest rounded-xl shadow-sm p-6 mb-6 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-80 h-32 bg-gradient-to-l from-primary-fixed/25 to-transparent pointer-events-none" />
+        <div className="absolute inset-y-0 right-0 w-80 bg-gradient-to-l from-primary-fixed/25 to-transparent pointer-events-none" />
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
           <div className="flex items-start sm:items-center gap-4 flex-wrap sm:flex-nowrap">
             <div className="relative shrink-0">

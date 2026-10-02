@@ -72,10 +72,9 @@ function BotonEditar({ label, onClick }) {
       onClick={onClick}
       title={label}
       aria-label={label}
-      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded text-sm font-semibold text-on-surface-variant hover:bg-surface-container-high hover:text-primary transition-colors cursor-pointer"
+      className="inline-flex items-center justify-center p-2 rounded-lg text-primary hover:bg-primary-fixed/30 transition-colors cursor-pointer"
     >
-      <span className="material-symbols-outlined text-[20px]">edit</span>
-      Editar
+      <span className="material-symbols-outlined text-[20px]" aria-hidden="true">edit</span>
     </button>
   )
 }
@@ -88,10 +87,9 @@ function RemoveButton({ label, disabledReason, onClick }) {
       disabled={Boolean(disabledReason)}
       title={disabledReason ?? label}
       aria-label={label}
-      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded text-sm font-semibold text-on-surface-variant hover:bg-error-container/60 hover:text-error transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-on-surface-variant"
+      className="inline-flex items-center justify-center p-2 rounded-lg text-error hover:bg-error-container/60 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
     >
-      <span className="material-symbols-outlined text-[20px]">delete</span>
-      Eliminar
+      <span className="material-symbols-outlined text-[20px]" aria-hidden="true">delete</span>
     </button>
   )
 }
