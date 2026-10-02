@@ -2,7 +2,7 @@ import re
 
 from rest_framework import serializers
 from django.db import transaction
-from .models import CargoDocente, DocenteCategoria, Persona, Socio, Categoria, Jugador, Docente, EstadoDeportivo, VinculoFamiliar, EstadoAdministrativo, Genero, Localidad, Domicilio, EDAD_MAYORIA, SIZES_CHOICES, age_from
+from .models import CargoDocente, DocenteCategoria, Persona, Socio, Categoria, Jugador, Docente, EstadoDeportivo, VinculoFamiliar, EstadoAdministrativo, Genero, Localidad, Domicilio, EDAD_MAYORIA, ESTADO_ADMINISTRATIVO_INACTIVO, SIZES_CHOICES, age_from
 
 
 DNI_REGEX = re.compile(r"\d{7,8}")
@@ -330,6 +330,17 @@ class CategoriaSerializer(serializers.ModelSerializer):
         return attrs
 
 
+class CategoriaListSerializer(CategoriaSerializer):
+    cantidad_jugadores = serializers.SerializerMethodField()
+    cantidad_docentes = serializers.IntegerField(read_only=True)
+
+    class Meta(CategoriaSerializer.Meta):
+        fields = CategoriaSerializer.Meta.fields + ["cantidad_jugadores", "cantidad_docentes"]
+
+    def get_cantidad_jugadores(self, category):
+        return category.main_players_count + category.secondary_players_count
+
+
 class EstadoDeportivoSerializer(serializers.ModelSerializer):
     class Meta:
         model = EstadoDeportivo
@@ -635,17 +646,21 @@ class DocenteSerializer(serializers.ModelSerializer):
                 })
 
         assignments = attrs.get("asignaciones")
-        # Tanto en el alta como en una modificación el docente debe quedar con al menos un cargo con categoría
+        final_status = attrs.get("estado") or getattr(self.instance, "estado", None)
+        ends_inactive = not is_creation and final_status is not None and final_status.nombre == ESTADO_ADMINISTRATIVO_INACTIVO
         keeps_current_assignments = assignments is None and not is_creation and self.instance.has_assignments()
-        if not assignments and not keeps_current_assignments:
-            raise serializers.ValidationError({"asignaciones": ["Debe asignar al menos un cargo con sus categorías."]})
-        if assignments is not None:
+        if not assignments and not keeps_current_assignments and not ends_inactive:
+            message = (
+                "Para dar de alta al docente primero asignale al menos un cargo con sus categorías."
+                if not is_creation and self.instance.is_inactive
+                else "Debe asignar al menos un cargo con sus categorías."
+            )
+            raise serializers.ValidationError({"asignaciones": [message]})
+        if assignments:
             self._validate_assignments(assignments)
         return attrs
 
     def _validate_assignments(self, assignments):
-        if not assignments:
-            raise serializers.ValidationError({"asignaciones": ["El docente debe tener al menos un cargo."]})
         positions = [assignment["cargo"] for assignment in assignments]
         if len(positions) != len(set(positions)):
             raise serializers.ValidationError({"asignaciones": ["Cada cargo se puede agregar una sola vez."]})

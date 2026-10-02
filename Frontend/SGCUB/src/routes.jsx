@@ -1,6 +1,10 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom'
 import MainLayout from './layouts/MainLayout'
 import AdminLayout from './layouts/AdminLayout'
+import ProtectedRoute from './auth/ProtectedRoute'
+import RequirePermission from './auth/RequirePermission'
+import { PERMISSIONS } from './auth/permissions'
+import Login from './pages/Login'
 import Principal from './pages/Principal'
 import AdminPage from './pages/AdminPage'
 import Socios from './pages/Socios'
@@ -13,112 +17,145 @@ import DocenteForm from './pages/DocenteForm'
 import SocioForm from './pages/SocioForm'
 import Categorias from './pages/Categorias'
 import Docentes from './pages/Docentes'
-import CategoriaDetalle from './pages/CategoriaDetalle'
+import CategoriaDetail from './pages/CategoriaDetail'
 import EnDesarrollo from './pages/EnDesarrollo'
+import Usuarios from './pages/Usuarios'
+import ChangePassword from './pages/ChangePassword'
+import { CHANGE_PASSWORD_PATH } from './auth/paths'
 import DocumentacionDashboard from './pages/DocumentacionDashboard'
 
 export const router = createBrowserRouter([
   {
-    path: '/',
-    element: <MainLayout />,
+    path: '/login',
+    element: <Login />,
+  },
+  {
+    element: <ProtectedRoute />,
     children: [
       {
-        index: true,
-        element: <Principal />,
+        path: CHANGE_PASSWORD_PATH,
+        element: <ChangePassword />,
       },
       {
-        path: 'padron',
+        path: '/',
+        element: <MainLayout />,
         children: [
           {
             index: true,
-            element: <Navigate to="socios" replace />,
+            element: <Principal />,
           },
           {
-            path: 'socios',
-            element: <Socios />,
+            path: 'padron',
+            children: [
+              {
+                index: true,
+                element: <Navigate to="socios" replace />,
+              },
+              {
+                path: 'socios',
+                element: <Socios />,
+              },
+              {
+                path: 'socios/nuevo',
+                element: <SocioForm />,
+              },
+              {
+                path: 'socios/:id',
+                element: <SocioDetail />,
+              },
+              {
+                path: 'socios/:id/editar',
+                element: <SocioForm />,
+              },
+              {
+                path: 'jugadores',
+                element: <Jugadores />,
+              },
+              {
+                path: 'jugadores/nuevo',
+                element: <JugadorForm />,
+              },
+              {
+                path: 'jugadores/:id',
+                element: <JugadorDetail />,
+              },
+              {
+                path: 'jugadores/:id/editar',
+                element: <JugadorForm />,
+              },
+              {
+                path: 'categorias',
+                element: <Categorias />,
+              },
+              {
+                path: 'docentes',
+                element: <Docentes />,
+              },
+              {
+                path: 'docentes/nuevo',
+                element: <DocenteForm />,
+              },
+              {
+                path: 'docentes/:id',
+                element: <DocenteDetail />,
+              },
+              {
+                path: 'docentes/:id/editar',
+                element: <DocenteForm />,
+              },
+              {
+                path: 'categorias/:id',
+                element: <CategoriaDetail />,
+              },
+            ],
           },
           {
-            path: 'socios/nuevo',
-            element: <SocioForm />,
+            path: 'resumen-financiero',
+            element: <EnDesarrollo title="Resumen financiero" />,
           },
           {
-            path: 'socios/:id',
-            element: <SocioDetail />,
+            path: 'morosidad',
+            element: <EnDesarrollo title="Reporte de morosidad" />,
           },
           {
-            path: 'socios/:id/editar',
-            element: <SocioForm />,
+            path: 'caja',
+            element: <EnDesarrollo title="Caja y cobros" />,
           },
           {
-            path: 'jugadores',
-            element: <Jugadores />,
+            path: 'documental',
+            element: <DocumentacionDashboard />,
           },
           {
-            path: 'jugadores/nuevo',
-            element: <JugadorForm />,
+            path: 'comunicaciones',
+            element: <EnDesarrollo title="Comunicaciones" />,
           },
           {
-            path: 'jugadores/:id',
-            element: <JugadorDetail />,
+            path: 'reportes',
+            element: <EnDesarrollo title="Reportes y COMET" />,
           },
           {
-            path: 'jugadores/:id/editar',
-            element: <JugadorForm />,
+            path: 'administracion',
+            element: <EnDesarrollo title="Administración" />,
+          },
+          // Secciones del rol Administrador
+          {
+            element: <RequirePermission permission={PERMISSIONS.manageUsers} />,
+            children: [
+              {
+                path: 'usuarios',
+                element: <Usuarios />,
+              },
+            ],
           },
           {
-            path: 'categorias',
-            element: <Categorias />,
+            element: <RequirePermission permission={PERMISSIONS.manageAutomations} />,
+            children: [
+              {
+                path: 'automatizaciones',
+                element: <EnDesarrollo title="Automatizaciones" />,
+              },
+            ],
           },
-          {
-            path: 'docentes',
-            element: <Docentes />,
-          },
-          {
-            path: 'docentes/nuevo',
-            element: <DocenteForm />,
-          },
-          {
-            path: 'docentes/:id',
-            element: <DocenteDetail />,
-          },
-          {
-            path: 'docentes/:id/editar',
-            element: <DocenteForm />,
-          },
-          {
-            path: 'categorias/:id',
-            element: <CategoriaDetalle />,
-          },
-        ],
-      },
-      {
-        path: 'resumen-financiero',
-        element: <EnDesarrollo title="Resumen financiero" />,
-      },
-      {
-        path: 'morosidad',
-        element: <EnDesarrollo title="Reporte de morosidad" />,
-      },
-      {
-        path: 'caja',
-        element: <EnDesarrollo title="Caja y cobros" />,
-      },
-      {
-        path: 'documental',
-        element: <DocumentacionDashboard />,
-      },
-      {
-        path: 'comunicaciones',
-        element: <EnDesarrollo title="Comunicaciones" />,
-      },
-      {
-        path: 'reportes',
-        element: <EnDesarrollo title="Reportes y COMET" />,
-      },
-      {
-        path: 'administracion',
-        element: <EnDesarrollo title="Administración" />,
-      },
     ],
 
     label: 'Inicio',
@@ -135,6 +172,8 @@ export const router = createBrowserRouter([
     ],
     label: 'Admin',
     showInNavigation: true,
+  },
+    ],
   },
   {
     path: '*',

@@ -355,6 +355,10 @@ class Docente(SequentialNumberMixin, models.Model):
     class Meta:
         db_table = "docente"
 
+    @property
+    def is_inactive(self):
+        return self.estado.nombre == ESTADO_ADMINISTRATIVO_INACTIVO
+
     def has_assignments(self, exclude=None):
         assignments = self.categorias_docente.filter(cargo__isnull=False)
         if exclude:

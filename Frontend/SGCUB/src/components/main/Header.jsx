@@ -1,6 +1,14 @@
+import { useAuth } from "../../auth/useAuth";
 import "./header.css";
 
+const getRoleLabel = (user) => {
+  if (user.roles.length > 0) return user.roles.join(", ");
+  return user.is_superuser ? "Administrador" : "Sin rol";
+};
+
 export default function Header({ collapsed = false }) {
+  const { user, logout } = useAuth();
+
   return (
     <header className={`app-header fixed top-0 right-0 bg-surface-container-lowest border-b border-outline-variant/30 z-40 flex flex-row flex-nowrap items-center px-6 ${collapsed ? 'app-header--collapsed' : ''}`}>
       
@@ -31,14 +39,19 @@ export default function Header({ collapsed = false }) {
             <span className="material-symbols-outlined text-[20px]">person</span>
           </div>
           <div className="flex flex-col text-left">
-            <span className="text-base text-on-surface font-semibold leading-tight">Alvite Damián</span>
-            <span className="text-sm text-primary font-medium">Administrativo</span>
+            <span className="text-base text-on-surface font-semibold leading-tight">{user.full_name}</span>
+            <span className="text-sm text-primary font-medium">{getRoleLabel(user)}</span>
           </div>
         </div>
         
         <div className="h-6 w-px bg-outline-variant/30"></div>
         
-        <button className="flex items-center gap-1 p-2 rounded text-on-surface-variant hover:bg-error-container hover:text-on-error-container transition-colors" title="Cerrar sesión">
+        <button
+          type="button"
+          onClick={logout}
+          className="flex items-center gap-1 p-2 rounded text-on-surface-variant hover:bg-error-container hover:text-on-error-container transition-colors"
+          title="Cerrar sesión"
+        >
           <span className="material-symbols-outlined text-[20px]">logout</span>
           <span className="text-sm">Salir</span>
         </button>

@@ -70,8 +70,15 @@ DB_USER=sgcub_user
 DB_PASSWORD=tu_contraseña_segura_aqui
 DB_HOST=db
 DB_PORT=5432
+DEBUG=True
+SECRET_KEY=cambiar_por_una_clave_larga_y_aleatoria
+CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+ADMIN_DNI=12345678
+ADMIN_PASSWORD=admin
 ```
 > ⚠️ **Importante:** La variable `DB_PASSWORD` es obligatoria para Docker Compose.
+
+> 🔑 **Administrador inicial:** al levantar el backend se crea automáticamente un usuario con rol **Administrador** usando `ADMIN_DNI` y `ADMIN_PASSWORD`, solo si todavía no existe. Se ingresa con ese DNI y esa contraseña, y en el primer ingreso el sistema pide cambiarla. Desde la sección **Usuarios** se crean el resto de los usuarios.
 
 ---
 ## 🐳 Despliegue con Docker Compose (Recomendado)
@@ -87,24 +94,20 @@ docker compose up --build
 
 *(Para ejecutarlo en segundo plano, añade el flag `-d`: `docker compose up --build -d`)*
 
-### 2. Aplicar migraciones en el contenedor
-Una vez que los contenedores estén corriendo y el servicio de base de datos esté listo (*healthy*):
+### 2. Migraciones y administrador inicial (automático)
+Al arrancar, el backend aplica las migraciones pendientes y crea el administrador inicial definido en el `.env`. No hace falta correr `migrate` a mano.
 
-```bash
-docker compose exec backend python manage.py migrate
-```
-
-### 3. Crear superusuario (opcional)
+Si `ADMIN_DNI` / `ADMIN_PASSWORD` no están definidos, o se perdió el acceso, se puede crear un superusuario a mano (el **Username** debe ser un DNI sin puntos, porque es lo que pide el login):
 ```bash
 docker compose exec backend python manage.py createsuperuser
 ```
 
-### 4. Acceso a los servicios
-* **Frontend (React):** http://localhost:5173
+### 3. Acceso a los servicios
+* **Frontend (React):** http://localhost:5173 — se ingresa con DNI y contraseña
 * **Backend API / Admin (Django):** http://localhost:8000
 * **PostgreSQL (Host):** `127.0.0.1:5433`
 
-### 5. Detener el entorno
+### 4. Detener el entorno
 ```bash
 # Detener contenedores conservando la base de datos
 docker compose down
@@ -135,9 +138,10 @@ docker compose down -v
    ```bash
    pip install -r requirements.txt
    ```
-4. Aplicar migraciones:
+4. Aplicar migraciones y crear el administrador inicial (lee `ADMIN_DNI` y `ADMIN_PASSWORD` de las variables de entorno):
    ```bash
    python manage.py migrate
+   python manage.py create_initial_admin
    ```
 5. Levantar el servidor local:
    ```bash

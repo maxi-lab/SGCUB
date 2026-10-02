@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import FilterSelect from '../shared/FilterSelect'
 import SortableHeader from '../shared/SortableHeader'
+import TablePagination from '../shared/TablePagination'
 import useOrdenTabla from '../../hooks/useOrdenTabla'
 
 
@@ -19,18 +20,6 @@ const telefonoDe = (socio) => socio.telefono ?? socio.persona?.telefono ?? ''
 
 const esActivo = (socio) => (socio.estado_administrativo_nombre ?? '').toLowerCase().includes('activo')
   && !(socio.estado_administrativo_nombre ?? '').toLowerCase().includes('inactivo')
-
-const paginasVisibles = (paginaActual, totalPaginas) => {
-  if (totalPaginas <= 5) return Array.from({ length: totalPaginas }, (_, i) => i + 1)
-  const paginas = new Set([1, totalPaginas, paginaActual, paginaActual - 1, paginaActual + 1])
-  const ordenadas = [...paginas].filter((p) => p >= 1 && p <= totalPaginas).sort((a, b) => a - b)
-  const resultado = []
-  ordenadas.forEach((pagina, indice) => {
-    if (indice > 0 && pagina - ordenadas[indice - 1] > 1) resultado.push('...')
-    resultado.push(pagina)
-  })
-  return resultado
-}
 
 const exportarCSV = (socios) => {
   const encabezados = ['N° Socio', 'Nombre', 'Apellido', 'DNI', 'Teléfono', 'Fecha de alta', 'Estado']
@@ -70,8 +59,8 @@ function SociosTable({ data, isLoading, error }) {
   const [busqueda, setBusqueda] = useState('')
   const [estado, setEstado] = useState('activo')
   const [tipo, setTipo] = useState('todos')
-  const [filasPorPagina, setFilasPorPagina] = useState(25)
-  const [pagina, setPagina] = useState(1)
+  const [rowsPerPage, setRowsPerPage] = useState(25)
+  const [page, setPage] = useState(1)
 
   const socios = useMemo(() => data ?? [], [data])
 
@@ -95,13 +84,13 @@ function SociosTable({ data, isLoading, error }) {
   const { ordenadas, orden, ordenarPor } = useOrdenTabla(filtrados, VALORES_ORDEN, ORDEN_INICIAL)
   const ordenar = (columna) => {
     ordenarPor(columna)
-    setPagina(1)
+    setPage(1)
   }
 
-  const totalPaginas = Math.max(1, Math.ceil(ordenadas.length / filasPorPagina))
-  const paginaActual = Math.min(pagina, totalPaginas)
-  const desde = (paginaActual - 1) * filasPorPagina
-  const visibles = ordenadas.slice(desde, desde + filasPorPagina)
+  const totalPages = Math.max(1, Math.ceil(ordenadas.length / rowsPerPage))
+  const currentPage = Math.min(page, totalPages)
+  const start = (currentPage - 1) * rowsPerPage
+  const visible = ordenadas.slice(start, start + rowsPerPage)
 
   return (
     <div className="min-w-0 bg-surface-container-lowest border border-outline-variant/30 rounded-lg shadow-sm">
@@ -118,7 +107,7 @@ function SociosTable({ data, isLoading, error }) {
               value={busqueda}
               onChange={(event) => {
                 setBusqueda(event.target.value)
-                setPagina(1)
+                setPage(1)
               }}
               aria-label="Filtrar socios"
             />
@@ -129,7 +118,7 @@ function SociosTable({ data, isLoading, error }) {
               value={estado}
               onChange={(event) => {
                 setEstado(event.target.value)
-                setPagina(1)
+                setPage(1)
               }}
               aria-label="Filtrar por estado"
             >
@@ -175,7 +164,7 @@ function SociosTable({ data, isLoading, error }) {
               </tr>
             )}
 
-            {!isLoading && visibles.length === 0 && (
+            {!isLoading && visible.length === 0 && (
               <tr>
                 <td className="py-10 px-4 text-center text-on-surface-variant" colSpan={6}>
                   {error ? 'No se pudieron cargar los socios.' : 'No hay socios que coincidan con el filtro.'}
@@ -183,7 +172,7 @@ function SociosTable({ data, isLoading, error }) {
               </tr>
             )}
 
-            {!isLoading && visibles.map((socio, indice) => (
+            {!isLoading && visible.map((socio, indice) => (
               <tr
                 key={socio.socio_id}
                 onClick={() => navigate(`/padron/socios/${socio.socio_id}`)}
@@ -221,66 +210,17 @@ function SociosTable({ data, isLoading, error }) {
         </table>
       </div>
 
-      <div className="p-4 border-t border-outline-variant/20 flex flex-col sm:flex-row items-center justify-between gap-3 text-base text-on-surface-variant">
-        <div className="flex items-center gap-2">
-          <label className="font-label-md" htmlFor="rows-per-page">Filas por página:</label>
-          <select
-            className="h-8 px-2 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-base focus:outline-none focus:border-primary cursor-pointer"
-            id="rows-per-page"
-            value={filasPorPagina}
-            onChange={(event) => {
-              setFilasPorPagina(Number(event.target.value))
-              setPagina(1)
-            }}
-          >
-            <option value={25}>25</option>
-            <option value={50}>50</option>
-            <option value={100}>100</option>
-          </select>
-          <span className="ml-2">Página {paginaActual} de {totalPaginas}</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            title="Página anterior"
-            aria-label="Página anterior"
-            disabled={paginaActual === 1}
-            onClick={() => setPagina(Math.max(1, paginaActual - 1))}
-            className="w-8 h-8 flex items-center justify-center rounded border border-outline-variant/30 text-on-surface-variant hover:bg-surface-container-low transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-          >
-            <span className="material-symbols-outlined text-[18px]" aria-hidden="true">chevron_left</span>
-          </button>
-
-          {paginasVisibles(paginaActual, totalPaginas).map((item, indice) =>
-            item === '...' ? (
-              <span key={`sep-${indice}`} className="px-1 text-outline">...</span>
-            ) : (
-              <button
-                key={item}
-                type="button"
-                onClick={() => setPagina(item)}
-                aria-current={item === paginaActual ? 'page' : undefined}
-                className={item === paginaActual
-                  ? 'w-8 h-8 flex items-center justify-center rounded border border-outline-variant/30 text-on-surface-variant bg-surface-container-low transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer'
-                  : 'w-8 h-8 flex items-center justify-center rounded border border-outline-variant/30 text-on-surface hover:bg-surface-container-low font-label-md transition-colors cursor-pointer'}
-              >
-                {item}
-              </button>
-            ),
-          )}
-
-          <button
-            type="button"
-            title="Página siguiente"
-            aria-label="Página siguiente"
-            disabled={paginaActual === totalPaginas}
-            onClick={() => setPagina(Math.min(totalPaginas, paginaActual + 1))}
-            className="w-8 h-8 flex items-center justify-center rounded border border-outline-variant/30 text-on-surface-variant hover:bg-surface-container-low transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-          >
-            <span className="material-symbols-outlined text-[18px]" aria-hidden="true">chevron_right</span>
-          </button>
-        </div>
-      </div>
+      <TablePagination
+        id="socios-rows-per-page"
+        page={currentPage}
+        totalPages={totalPages}
+        rowsPerPage={rowsPerPage}
+        onPageChange={setPage}
+        onRowsPerPageChange={(value) => {
+          setRowsPerPage(value)
+          setPage(1)
+        }}
+      />
     </div>
   )
 }
