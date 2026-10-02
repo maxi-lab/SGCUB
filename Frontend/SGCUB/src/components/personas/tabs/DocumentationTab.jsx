@@ -1,3 +1,4 @@
+import React from 'react'
 import { useState, useEffect } from 'react'
 import { formatDate } from '../format'
 import { PrimaryButton, SecondaryButton, TabHeader, EmptyState, KPI } from './parts'
@@ -166,15 +167,52 @@ export default function DocumentationTab({ personaId, personaType, personaInfo }
     }
   }
 
-  const documentsWithStatus = documents.map((document) => ({ 
-    ...document, 
-    status: getDocumentStatus(document.fecha_vencimiento?.split('T')[0]) 
-  })).sort((a, b) => {
-    if (!a.fecha_vencimiento && !b.fecha_vencimiento) return 0;
-    if (!a.fecha_vencimiento) return 1;
-    if (!b.fecha_vencimiento) return -1;
-    return new Date(a.fecha_vencimiento) - new Date(b.fecha_vencimiento);
-  })
+  const { activos, historicos } = React.useMemo(() => {
+    const docsWithStatus = documents.map((document) => ({ 
+      ...document, 
+      status: getDocumentStatus(document.fecha_vencimiento?.split('T')[0]) 
+    })).sort((a, b) => {
+      if (!a.fecha_vencimiento && !b.fecha_vencimiento) return 0;
+      if (!a.fecha_vencimiento) return 1;
+      if (!b.fecha_vencimiento) return -1;
+      return new Date(a.fecha_vencimiento) - new Date(b.fecha_vencimiento);
+    });
+
+    const docsPorTipo = {};
+    docsWithStatus.forEach(d => {
+      if (!docsPorTipo[d.tipo_documento]) docsPorTipo[d.tipo_documento] = [];
+      docsPorTipo[d.tipo_documento].push(d);
+    });
+
+    const listActivos = [];
+    const listHistoricos = [];
+
+    Object.values(docsPorTipo).forEach(grupo => {
+      if (grupo.length === 1) {
+        listActivos.push(grupo[0]);
+      } else {
+        const hayVigentes = grupo.some(d => d.status !== 'vencido');
+        if (hayVigentes) {
+          grupo.forEach(d => {
+            if (d.status === 'vencido') listHistoricos.push(d);
+            else listActivos.push(d);
+          });
+        } else {
+          // Son todos vencidos
+          // sort desc inside here just to get the newest, but wait, the whole array is already sorted asc by vencimiento!
+          // So newest is the LAST element in the group.
+          const newest = grupo[grupo.length - 1];
+          listActivos.push(newest);
+          grupo.slice(0, grupo.length - 1).forEach(d => listHistoricos.push(d));
+        }
+      }
+    });
+    
+    // Sort historicos descending (newest historical first)
+    listHistoricos.sort((a,b) => new Date(b.fecha_vencimiento) - new Date(a.fecha_vencimiento));
+    
+    return { activos: listActivos, historicos: listHistoricos };
+  }, [documents]);
 
   if (loading) return <div>Cargando documentación...</div>
 
@@ -198,7 +236,7 @@ export default function DocumentationTab({ personaId, personaType, personaInfo }
                 const a = document.createElement('a');
                 a.style.display = 'none';
                 a.href = url;
-                a.download = personaInfo ? `${personaInfo.dni}-${personaInfo.nombre}_${personaInfo.apellido}.zip`.replace(/\s+/g, '_') : `documentos_${personaId}.zip`;
+                a.download = personaInfo?.dni ? `${personaInfo.dni}-${personaInfo.nombre}_${personaInfo.apellido}.zip`.replace(/\s+/g, '_') : `documentos_${personaId}.zip`;
                 document.body.appendChild(a);
                 a.click();
                 window.URL.revokeObjectURL(url);
@@ -222,7 +260,7 @@ export default function DocumentationTab({ personaId, personaType, personaInfo }
         </div>
       </div>
 
-      {documentsWithStatus.length === 0 ? (
+      {activos.length === 0 ? (
         <EmptyState
           icono="folder_off"
           titulo="Sin documentos cargados"
@@ -242,7 +280,7 @@ export default function DocumentationTab({ personaId, personaType, personaInfo }
                 </tr>
               </thead>
               <tbody className="divide-y divide-surface-container">
-                {documentsWithStatus.map((document, index) => {
+                {activos.map((document, index) => {
                   const tipoNombre = getNombreTipo(document.tipo_documento)
                   return (
                     <tr key={document.id_documento ?? index} className="hover:bg-surface-bright transition-colors">
@@ -308,6 +346,79 @@ export default function DocumentationTab({ personaId, personaType, personaInfo }
                     </tr>
                   )
                 })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {historicos.length > 0 && (
+        <div className="mt-8 bg-surface-container-lowest rounded-xl shadow-sm border border-surface-container overflow-hidden">
+          <div className="bg-surface-container-low px-space-lg py-space-md border-b border-surface-container">
+            <h3 className="font-title-md text-title-md text-on-surface flex items-center gap-2">
+              <span className="material-symbols-outlined text-[20px] text-on-surface-variant">history</span>
+              Historial de Documentación Vencida
+            </h3>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-surface-container-low text-on-surface-variant font-label-sm text-label-sm uppercase tracking-wider">
+                  <th className="py-space-sm px-space-lg font-semibold w-1/3">Tipo de Documento</th>
+                  <th className="py-space-sm px-space-lg font-semibold w-1/4">Fechas</th>
+                  <th className="py-space-sm px-space-lg font-semibold text-center w-1/4">Estado</th>
+                  <th className="py-space-sm px-space-lg font-semibold text-right">Acciones</th>
+                </tr>
+              </thead>
+              <tbody className="font-body-sm text-body-sm text-on-surface divide-y divide-surface-container">
+                {historicos.map((document) => (
+                  <tr key={document.id_documento} className="hover:bg-surface-container-low/50 transition-colors opacity-75">
+                    <td className="py-space-md px-space-lg">
+                      <div className="font-medium text-on-surface">{document.nombre}</div>
+                      <div className="font-label-sm text-label-sm text-outline mt-0.5">{getNombreTipo(document.tipo_documento)}</div>
+                    </td>
+                    <td className="py-space-md px-space-lg">
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-1.5 text-on-surface-variant">
+                          <span>{formatDate(document.fecha_emision)} - {formatDate(document.fecha_vencimiento)}</span>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="py-space-md px-space-lg text-center">
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-semibold bg-surface-container-high text-on-surface-variant">
+                        Histórico
+                      </span>
+                    </td>
+                    <td className="py-space-md px-space-lg text-right">
+                      <div className="inline-flex items-center justify-end gap-space-xs">
+                        {document.archivoUrl && (
+                          <button 
+                            onClick={async () => {
+                              const url = getMediaUrl(document.archivoUrl);
+                              try {
+                                const response = await fetch(url, { method: 'HEAD' });
+                                if (!response.ok) {
+                                  alert("El archivo físico ya no existe o fue eliminado del servidor.");
+                                } else {
+                                  window.open(url, '_blank');
+                                }
+                              } catch (err) {
+                                alert("El archivo físico ya no existe o fue eliminado del servidor.");
+                              }
+                            }}
+                            className="p-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-primary transition-colors inline-flex items-center gap-1 font-label-md text-label-md cursor-pointer" 
+                            title="Descargar PDF" 
+                            type="button">
+                            <span className="material-symbols-outlined text-[18px]">download</span>
+                          </button>
+                        )}
+                        <button onClick={() => handleDeleteClick(document)} className="p-2 rounded-lg text-on-surface-variant hover:bg-error-container hover:text-error transition-colors inline-flex items-center gap-1 font-label-md text-label-md cursor-pointer" title="Eliminar" type="button">
+                          <span className="material-symbols-outlined text-[18px]">delete</span>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>

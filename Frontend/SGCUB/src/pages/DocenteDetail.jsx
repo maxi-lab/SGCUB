@@ -1,3 +1,4 @@
+import React from 'react'
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { activateDocente, deactivateDocente, getCargosDocente, getDocente, patchDocente } from '../api/docentes'
@@ -19,18 +20,57 @@ function DocenteDetail() {
   const navigate = useNavigate()
   const { localidades } = useLocalidades()
   const { categorias } = useCategorias()
-  const { documentos } = useDocumentacion(docente?.persona)
-  const vigentesCount = documentos.filter(d => {
-    if (!d.fecha_vencimiento) return true;
-    const dias = (new Date(`${d.fecha_vencimiento.split('T')[0]}T00:00:00`) - new Date()) / 86400000;
-    return dias > 30;
-  }).length;
-
   const [cargos, setCargos] = useState([])
 
   const [carga, setCarga] = useState({ id: null, docente: null, error: null })
   const loading = carga.id !== id
   const { docente, error } = carga
+
+  const { documentos } = useDocumentacion(docente?.persona)
+  const { activos } = React.useMemo(() => {
+    const DIAS_AVISO = 30;
+    const docsWithStatus = (documentos || []).map(d => {
+      let status = 'vigente';
+      if (d.fecha_vencimiento) {
+        const dias = (new Date(`${d.fecha_vencimiento.split('T')[0]}T00:00:00`) - new Date()) / 86400000;
+        if (dias < 0) status = 'vencido';
+        else if (dias <= DIAS_AVISO) status = 'por_vencer';
+      }
+      return { ...d, status };
+    });
+
+    const docsPorTipo = {};
+    docsWithStatus.forEach(d => {
+      if (!docsPorTipo[d.tipo_documento]) docsPorTipo[d.tipo_documento] = [];
+      docsPorTipo[d.tipo_documento].push(d);
+    });
+
+    const activos = [];
+    Object.values(docsPorTipo).forEach(grupo => {
+      if (grupo.length === 1) {
+        activos.push(grupo[0]);
+      } else {
+        const hayVigentes = grupo.some(d => d.status !== 'vencido');
+        if (hayVigentes) {
+          grupo.forEach(d => { if (d.status !== 'vencido') activos.push(d); });
+        } else {
+          const sorted = [...grupo].sort((a,b) => new Date(b.fecha_vencimiento) - new Date(a.fecha_vencimiento));
+          activos.push(sorted[0]);
+        }
+      }
+    });
+    return { activos };
+  }, [documentos]);
+
+  const badgeConfig = React.useMemo(() => {
+    const vencidos = activos.filter(d => d.status === 'vencido').length;
+    if (vencidos > 0) return { label: vencidos, tono: 'error', hideDot: true };
+    const porVencer = activos.filter(d => d.status === 'por_vencer').length;
+    if (porVencer > 0) return { label: porVencer, tono: 'alerta', hideDot: true };
+    const vigentes = activos.filter(d => d.status === 'vigente').length;
+    if (vigentes > 0) return { label: vigentes, tono: 'ok', hideDot: true };
+    return undefined;
+  }, [activos]);
 
   const [modalBajaAbierto, setModalBajaAbierto] = useState(false)
   const [dandoDeBaja, setDandoDeBaja] = useState(false)
@@ -121,8 +161,8 @@ function DocenteDetail() {
       id: 'documentacion',
       label: 'Documentación',
       icon: 'folder_shared',
-      badge: vigentesCount > 0 ? { label: vigentesCount, tono: 'ok', hideDot: true } : undefined,
-      content: <DocumentationTab personaId={docente?.persona?.persona_id || docente?.persona} personaInfo={docente?.persona} personaType="docente" />,
+      badge: badgeConfig,
+      content: <DocumentationTab personaId={docente?.persona?.persona_id || docente?.persona} personaInfo={persona} personaType="docente" />,
     },
     {
       id: 'categorias',

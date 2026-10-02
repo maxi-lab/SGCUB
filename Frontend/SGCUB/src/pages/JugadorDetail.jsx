@@ -1,3 +1,4 @@
+import React from 'react'
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { activateJugador, deactivateJugador, getJugador, patchJugador } from '../api/jugadores'
@@ -41,11 +42,50 @@ function JugadorDetail() {
   const { localidades } = useLocalidades()
   const financiero = useFinancialStatus(jugador?.socio?.socio_id)
   const { documentos } = useDocumentacion(jugador?.socio?.persona)
-  const vigentesCount = documentos.filter(d => {
-    if (!d.fecha_vencimiento) return true;
-    const dias = (new Date(`${d.fecha_vencimiento.split('T')[0]}T00:00:00`) - new Date()) / 86400000;
-    return dias > 30;
-  }).length;
+  const { activos } = React.useMemo(() => {
+    const DIAS_AVISO = 30;
+    const docsWithStatus = (documentos || []).map(d => {
+      let status = 'vigente';
+      if (d.fecha_vencimiento) {
+        const dias = (new Date(`${d.fecha_vencimiento.split('T')[0]}T00:00:00`) - new Date()) / 86400000;
+        if (dias < 0) status = 'vencido';
+        else if (dias <= DIAS_AVISO) status = 'por_vencer';
+      }
+      return { ...d, status };
+    });
+
+    const docsPorTipo = {};
+    docsWithStatus.forEach(d => {
+      if (!docsPorTipo[d.tipo_documento]) docsPorTipo[d.tipo_documento] = [];
+      docsPorTipo[d.tipo_documento].push(d);
+    });
+
+    const activos = [];
+    Object.values(docsPorTipo).forEach(grupo => {
+      if (grupo.length === 1) {
+        activos.push(grupo[0]);
+      } else {
+        const hayVigentes = grupo.some(d => d.status !== 'vencido');
+        if (hayVigentes) {
+          grupo.forEach(d => { if (d.status !== 'vencido') activos.push(d); });
+        } else {
+          const sorted = [...grupo].sort((a,b) => new Date(b.fecha_vencimiento) - new Date(a.fecha_vencimiento));
+          activos.push(sorted[0]);
+        }
+      }
+    });
+    return { activos };
+  }, [documentos]);
+
+  const badgeConfig = React.useMemo(() => {
+    const vencidos = activos.filter(d => d.status === 'vencido').length;
+    if (vencidos > 0) return { label: vencidos, tono: 'error', hideDot: true };
+    const porVencer = activos.filter(d => d.status === 'por_vencer').length;
+    if (porVencer > 0) return { label: porVencer, tono: 'alerta', hideDot: true };
+    const vigentes = activos.filter(d => d.status === 'vigente').length;
+    if (vigentes > 0) return { label: vigentes, tono: 'ok', hideDot: true };
+    return undefined;
+  }, [activos]);
 
 
   const [modalBajaAbierto, setModalBajaAbierto] = useState(false)
@@ -162,8 +202,8 @@ function JugadorDetail() {
       id: 'documentacion',
       label: 'Documentación',
       icon: 'folder_shared',
-      badge: vigentesCount > 0 ? { label: vigentesCount, tono: 'ok', hideDot: true } : undefined,
-      content: <DocumentationTab personaId={socio?.persona?.persona_id || socio?.persona} personaInfo={jugador?.socio?.persona} personaType="jugador" />,
+      badge: badgeConfig,
+      content: <DocumentationTab personaId={socio?.persona?.persona_id || socio?.persona} personaInfo={socio} personaType="jugador" />,
     },
     {
       id: 'financiero',
