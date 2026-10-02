@@ -175,7 +175,7 @@ export default function DocumentacionDashboard() {
               </thead>
               <tbody className="font-body-sm text-body-sm text-on-surface">
                 {paginatedProximos.map(doc => (
-                  <tr key={doc.id_documento} onClick={() => navigate(doc.url_perfil)} className="hover:bg-surface-container-low transition-colors cursor-pointer group">
+                  <tr key={doc.id_documento} onClick={() => navigate(`${doc.url_perfil}?tab=documentacion`)} className="hover:bg-surface-container-low transition-colors cursor-pointer group">
                     <td className="py-space-md px-space-md">
                       <div className="flex flex-col min-w-0">
                         <span className="font-label-lg text-label-lg font-semibold text-on-surface truncate group-hover:text-primary transition-colors">{doc.persona_nombre_completo || 'Desconocido'}</span>
@@ -250,7 +250,7 @@ export default function DocumentacionDashboard() {
               </thead>
               <tbody className="font-body-sm text-body-sm text-on-surface">
                 {paginatedVencidos.map(doc => (
-                  <tr key={doc.id_documento} onClick={() => navigate(doc.url_perfil)} className="hover:bg-error-container/20 transition-colors cursor-pointer group">
+                  <tr key={doc.id_documento} onClick={() => navigate(`${doc.url_perfil}?tab=documentacion`)} className="hover:bg-error-container/20 transition-colors cursor-pointer group">
                     <td className="py-space-md px-space-md">
                       <div className="flex flex-col min-w-0">
                         <span className="font-label-lg text-label-lg font-semibold text-on-surface truncate group-hover:text-error transition-colors">{doc.persona_nombre_completo || 'Desconocido'}</span>

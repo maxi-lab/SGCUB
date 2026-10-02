@@ -1,6 +1,6 @@
 import React from 'react'
 import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { activateDocente, deactivateDocente, getCargosDocente, getDocente, patchDocente } from '../api/docentes'
 import ActivateDocenteModal from '../components/docentes/ActivateDocenteModal'
 import DeactivateDocenteModal from '../components/docentes/DeactivateDocenteModal'
@@ -18,6 +18,8 @@ import useDocumentacion from "../hooks/useDocumentacion"
 function DocenteDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const requestedTab = searchParams.get("tab") ?? undefined
   const { localidades } = useLocalidades()
   const { categorias } = useCategorias()
   const [cargos, setCargos] = useState([])
@@ -185,7 +187,7 @@ function DocenteDetail() {
         )}
       />
 
-      <PersonTabs tabs={tabs} />
+      <PersonTabs key={`${id}-${requestedTab}`} tabs={tabs} defaultTab={requestedTab} />
 
       <ActivateDocenteModal
         key={modalAltaKey}
