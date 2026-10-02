@@ -576,6 +576,24 @@ class PadronViewTests(APITestCase):
         response = self.client.delete("/api/padron/categoria/9999/", format="json")
         self.assertEqual(status.HTTP_404_NOT_FOUND, response.status_code)
 
+    def test_categoria_no_se_puede_borrar_si_tiene_jugadores(self):
+        jugador = self.crear_jugador_orm()
+        response = self.client.delete(f"/api/padron/categoria/{jugador.categoria_id}/")
+        self.assertEqual(status.HTTP_400_BAD_REQUEST, response.status_code)
+        self.assertIn("1 jugador asignado", response.data["detail"])
+        self.assertIn(str(jugador.socio.persona), response.data["detail"])
+        self.assertTrue(Categoria.objects.filter(pk=jugador.categoria_id).exists())
+
+    def test_categoria_no_se_puede_borrar_si_es_secundaria_de_un_jugador(self):
+        jugador = self.crear_jugador_orm()
+        secundaria = self.crear_categoria_orm(nombre="Secundaria")
+        jugador.categoria_secundaria = secundaria
+        jugador.save()
+        response = self.client.delete(f"/api/padron/categoria/{secundaria.pk}/")
+        self.assertEqual(status.HTTP_400_BAD_REQUEST, response.status_code)
+        self.assertIn("1 jugador asignado", response.data["detail"])
+        self.assertTrue(Categoria.objects.filter(pk=secundaria.pk).exists())
+
     # ==================================================================
     # JUGADOR
     # ==================================================================
