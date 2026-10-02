@@ -4,7 +4,7 @@ import useDocumentacion from '../hooks/useDocumentacion'
 
 export default function DocumentacionDashboard() {
   const navigate = useNavigate()
-  const { documentos, isLoading, getNombreTipo } = useDocumentacion()
+  const { documentos, isLoading, getNombreTipo } = useDocumentacion(null, true)
 
   const [searchProximos, setSearchProximos] = useState('')
   const [searchVencidos, setSearchVencidos] = useState('')

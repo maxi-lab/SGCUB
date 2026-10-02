@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { getDocumentos, createDocumento, deleteDocumento, getTiposDocumento, getEstadosDocumento, updateDocumento } from '../api/documentacion'
 
-export default function useDocumentacion(personaId = null) {
+export default function useDocumentacion(personaId = null, fetchAll = false) {
   const [documentos, setDocumentos] = useState([])
   const [tipos, setTipos] = useState([])
   const [estados, setEstados] = useState([])
@@ -9,11 +9,16 @@ export default function useDocumentacion(personaId = null) {
   const [error, setError] = useState(null)
 
   const cargarDatos = useCallback(async () => {
+    if (!fetchAll && !personaId) {
+      setIsLoading(true);
+      return;
+    }
+
     setIsLoading(true)
     setError(null)
     try {
       const [docsData, tiposData, estadosData] = await Promise.all([
-        getDocumentos(personaId || ''),
+        getDocumentos(fetchAll ? '' : personaId),
         getTiposDocumento(),
         getEstadosDocumento()
       ])

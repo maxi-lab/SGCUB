@@ -188,6 +188,7 @@ class PersonaContactoSerializer(PersonaSerializer):
         return attrs
 
 class SocioSerializer(serializers.ModelSerializer):
+    persona = serializers.PrimaryKeyRelatedField(read_only=True)
     nombre = serializers.CharField(source="persona.nombre")
     apellido = serializers.CharField(source="persona.apellido")
     dni = serializers.CharField(source="persona.dni", max_length=8, validators=[validate_dni])

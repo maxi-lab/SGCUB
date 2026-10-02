@@ -1,4 +1,5 @@
 from django.db import models
+from django.core.validators import FileExtensionValidator
 from padron.models import Persona
 
 class TipoDocumento(models.Model):
@@ -39,7 +40,7 @@ class Documento(models.Model):
     tipo_documento = models.ForeignKey(TipoDocumento, on_delete=models.PROTECT, related_name='documentos')
     estado_documento = models.ForeignKey(EstadoDocumento, on_delete=models.PROTECT, related_name='documentos')
     persona = models.ForeignKey(Persona, on_delete=models.CASCADE, related_name='documentos')
-    archivoUrl = models.FileField(upload_to=get_upload_path, max_length=200, blank=True, null=True)
+    archivoUrl = models.FileField(upload_to=get_upload_path, max_length=200, blank=True, null=True, validators=[FileExtensionValidator(['pdf'])])
     nombre = models.CharField(max_length=50)
     fecha_emision = models.DateTimeField(blank=True, null=True)
     fecha_recepcion = models.DateTimeField(blank=True, null=True)
