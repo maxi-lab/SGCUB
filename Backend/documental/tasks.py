@@ -15,3 +15,13 @@ def actualizar_estados_vencidos():
     for doc in documentos_vencidos:
         doc.estado_documento = estado_vencido
         doc.save(update_fields=['estado_documento'])
+
+    estado_vigente = EstadoDocumento.objects.filter(nombre='Vigente').first()
+    if estado_vigente:
+        documentos_revividos = Documento.objects.filter(
+            fecha_vencimiento__date__gte=hoy,
+            estado_documento=estado_vencido
+        )
+        for doc in documentos_revividos:
+            doc.estado_documento = estado_vigente
+            doc.save(update_fields=['estado_documento'])

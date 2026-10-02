@@ -24,7 +24,11 @@ export default function Sidebar({ collapsed, onToggle }) {
         console.error('Error fetching alertas count:', err);
       }
     };
+    
     fetchAlertas();
+
+    window.addEventListener('documentacionCambiada', fetchAlertas);
+    return () => window.removeEventListener('documentacionCambiada', fetchAlertas);
   }, []);
 
   const [contrayendo, setContrayendo] = useState(false);

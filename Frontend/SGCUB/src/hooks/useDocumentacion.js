@@ -32,10 +32,15 @@ export default function useDocumentacion(personaId = null) {
     cargarDatos()
   }, [cargarDatos])
 
+  const notifyChange = () => {
+    window.dispatchEvent(new CustomEvent('documentacionCambiada'))
+  }
+
   const subirDocumento = async (documentData) => {
     try {
       await createDocumento(documentData)
       await cargarDatos()
+      notifyChange()
     } catch (err) {
       console.error('Error subiendo documento:', err)
       throw err
@@ -46,6 +51,7 @@ export default function useDocumentacion(personaId = null) {
     try {
       await updateDocumento(id, documentData)
       await cargarDatos()
+      notifyChange()
     } catch (err) {
       console.error('Error actualizando documento:', err)
       throw err
@@ -56,6 +62,7 @@ export default function useDocumentacion(personaId = null) {
     try {
       await deleteDocumento(id)
       await cargarDatos()
+      notifyChange()
     } catch (err) {
       console.error('Error eliminando documento:', err)
       throw err

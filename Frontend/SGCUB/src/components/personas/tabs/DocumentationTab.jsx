@@ -138,10 +138,10 @@ export default function DocumentationTab({ personaId, personaType }) {
       formData.append('estado_documento', uploadForm.estado_documento);
       
       if (uploadForm.fecha_emision) {
-        formData.append('fecha_emision', new Date(uploadForm.fecha_emision).toISOString());
+        formData.append('fecha_emision', `${uploadForm.fecha_emision}T00:00:00`);
       }
       if (uploadForm.fecha_vencimiento) {
-        formData.append('fecha_vencimiento', new Date(uploadForm.fecha_vencimiento).toISOString());
+        formData.append('fecha_vencimiento', `${uploadForm.fecha_vencimiento}T00:00:00`);
       }
       if (uploadForm.archivo) {
         formData.append('archivoUrl', uploadForm.archivo);
