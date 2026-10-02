@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react'
 import CategoriaFormModal from '../components/categorias/CategoriaFormModal'
 import CategoriasTable from '../components/categorias/CategoriasTable'
-import ConfirmCategoriaModal from '../components/categorias/ConfirmCategoriaModal'
 import PageHeader from '../components/shared/PageHeader'
 import StatCard from '../components/shared/StatCard'
 import useCategorias from '../hooks/useCategorias'
@@ -9,11 +8,10 @@ import useCategorias from '../hooks/useCategorias'
 const format = (value) => value.toLocaleString('es-AR')
 
 function Categorias() {
-  const { categorias, isLoading, error, createCategoria, updateCategoria, deleteCategoria } = useCategorias()
+  const { categorias, isLoading, error, createCategoria } = useCategorias()
 
   const [modalKey, setModalKey] = useState(0)
-  const [form, setForm] = useState({ opened: false, categoria: null })
-  const [deletion, setDeletion] = useState({ opened: false, categoria: null })
+  const [isFormOpen, setIsFormOpen] = useState(false)
   const [notice, setNotice] = useState('')
 
   const totals = useMemo(() => ({
@@ -22,29 +20,14 @@ function Categorias() {
     female: format(categorias.filter((categoria) => categoria.genero === 'F').length),
   }), [categorias])
 
-  const openForm = (categoria = null) => {
+  const openForm = () => {
     setModalKey((key) => key + 1)
-    setForm({ opened: true, categoria })
-  }
-
-  const openDeletion = (categoria) => {
-    setModalKey((key) => key + 1)
-    setDeletion({ opened: true, categoria })
+    setIsFormOpen(true)
   }
 
   const handleSubmitForm = async (data) => {
-    if (form.categoria) {
-      await updateCategoria(form.categoria.categoria_id, data)
-      setNotice(`Se actualizó la categoría ${data.nombre}.`)
-      return
-    }
     await createCategoria(data)
     setNotice(`Se creó la categoría ${data.nombre}.`)
-  }
-
-  const handleDelete = async () => {
-    await deleteCategoria(deletion.categoria.categoria_id)
-    setNotice(`Se eliminó la categoría ${deletion.categoria.nombre}.`)
   }
 
   return (
@@ -55,7 +38,7 @@ function Categorias() {
         actions={(
           <button
             type="button"
-            onClick={() => openForm()}
+            onClick={openForm}
             className="inline-flex items-center gap-2 bg-primary text-on-primary hover:bg-primary/90 px-4 py-2 rounded shadow-sm font-label-lg text-base font-medium transition-colors cursor-pointer"
           >
             <span className="material-symbols-outlined text-[18px]" aria-hidden="true">add</span>
@@ -86,29 +69,14 @@ function Categorias() {
       )}
 
       <section aria-label="Categorías">
-        <CategoriasTable
-          data={categorias}
-          isLoading={isLoading}
-          error={error}
-          onEdit={openForm}
-          onDelete={openDeletion}
-        />
+        <CategoriasTable data={categorias} isLoading={isLoading} error={error} />
       </section>
 
       <CategoriaFormModal
         key={`form-${modalKey}`}
-        opened={form.opened}
-        onClose={() => setForm((current) => ({ ...current, opened: false }))}
+        opened={isFormOpen}
+        onClose={() => setIsFormOpen(false)}
         onSubmit={handleSubmitForm}
-        categoria={form.categoria}
-      />
-
-      <ConfirmCategoriaModal
-        key={`delete-${modalKey}`}
-        opened={deletion.opened}
-        onClose={() => setDeletion((current) => ({ ...current, opened: false }))}
-        onConfirm={handleDelete}
-        categoria={deletion.categoria}
       />
     </div>
   )
