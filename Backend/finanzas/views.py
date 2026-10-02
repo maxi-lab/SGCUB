@@ -38,6 +38,7 @@ from .serializers import (
 	CuentaCorrienteEstadoSerializer,
 	ComprobanteDetalleSerializer,
 )
+from .services import generar_cuotas_mensuales
 
 
 def _list_create(request, model, serializer_class, queryset=None):
@@ -100,6 +101,12 @@ def cuota_list_create(request):
 		CuotaSerializer,
 		Cuota.objects.select_related("cuenta_corriente"),
 	)
+
+
+@extend_schema(tags=["Finanzas/Cuota"])
+@api_view(["POST"])
+def generar_cuotas_mensuales_manual(request):
+	return Response(generar_cuotas_mensuales(), status=status.HTTP_200_OK)
 
 
 @extend_schema(tags=["Finanzas/Cuota"], request=CuotaSerializer, responses=CuotaSerializer)

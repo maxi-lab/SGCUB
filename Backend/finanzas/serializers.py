@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from rest_framework import serializers
 
 from .models import (
@@ -23,7 +25,11 @@ def monto_total_cuota(cuota):
 
 class MedioCorreccionPagoSerializer(serializers.Serializer):
     medio_de_pago = serializers.ChoiceField(choices=MedioDePagoChoices.choices)
-    monto = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=0.01)
+    monto = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        min_value=Decimal("0.01"),
+    )
 
 
 class CorreccionPagoSerializer(serializers.Serializer):
@@ -32,7 +38,11 @@ class CorreccionPagoSerializer(serializers.Serializer):
         child=serializers.IntegerField(min_value=1),
         allow_empty=False,
     )
-    monto_total = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=0.01)
+    monto_total = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        min_value=Decimal("0.01"),
+    )
     medios = MedioCorreccionPagoSerializer(many=True, allow_empty=False)
 
     def validate_cuota_ids(self, value):

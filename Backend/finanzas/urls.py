@@ -9,6 +9,7 @@ from .views import (
     estado_cuenta_socio,
     cuota_detail,
     cuota_list_create,
+    generar_cuotas_mensuales_manual,
     imputacion_detail,
     imputacion_list_create,
     item_pago_detail,
@@ -24,6 +25,7 @@ from .views import (
 )
 
 urlpatterns = [
+    path("cuota/generar-mensual/", generar_cuotas_mensuales_manual, name="generar-cuotas-mensuales"),
     path("cuota/", cuota_list_create, name="cuota-list"),
     path("cuota/<int:pk>/", cuota_detail, name="cuota-detail"),
     path("item-cuota/", item_cuota_list_create, name="item-cuota-list"),
