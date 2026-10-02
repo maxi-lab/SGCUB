@@ -154,7 +154,7 @@ function JugadorDetail() {
       id: 'documentacion',
       label: 'Documentación',
       icon: 'folder_shared',
-      content: <DocumentationTab personaId={jugador?.socio?.persona_id || socio?.persona_id} />,
+      content: <DocumentationTab personaId={socio?.persona} personaType="jugador" />,
     },
     {
       id: 'financiero',

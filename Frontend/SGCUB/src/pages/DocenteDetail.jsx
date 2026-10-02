@@ -7,6 +7,7 @@ import PersonHeader, { EditButton, DeactivateButton, ActivateButton } from '../c
 import PersonTabs from '../components/personas/TabsNavPersonas'
 import PersonalDataTab from '../components/personas/tabs/PersonalDataTab'
 import CategoriesTab from '../components/personas/tabs/CategoriesTab'
+import DocumentationTab from '../components/personas/tabs/DocumentationTab'
 import { LoadingFile, ErrorFile } from '../components/personas/FileStatus'
 import { yearsSince, formatDni, formatDate, yearsText, isActiveStatus, getErrorMessage } from '../components/personas/format'
 import useCategorias from '../hooks/useCategorias'
@@ -107,6 +108,12 @@ function DocenteDetail() {
       label: 'Datos personales',
       icon: 'person',
       content: <PersonalDataTab persona={persona} localidades={localidades} />,
+    },
+    {
+      id: 'documentacion',
+      label: 'Documentación',
+      icon: 'folder_shared',
+      content: <DocumentationTab personaId={docente?.persona} personaType="docente" />,
     },
     {
       id: 'categorias',

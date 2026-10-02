@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { formatDate } from '../format'
 import { PrimaryButton, SecondaryButton, TabHeader, EmptyState, KPI } from './parts'
 import useDocumentacion from '../../../hooks/useDocumentacion'
+import DocumentacionUploadModal from '../../documental/DocumentacionUploadModal'
+import DocumentacionDeleteModal from '../../documental/DocumentacionDeleteModal'
 
 const DIAS_AVISO_VENCIMIENTO = 30
 
@@ -18,13 +20,22 @@ const ETIQUETA_ESTADO = {
   vencido: { label: 'Vencido', clase: 'bg-error-container text-error', dot: 'bg-error' },
 }
 
-export default function DocumentationTab({ personaId }) {
+const getMediaUrl = (path) => {
+  if (!path) return '';
+  if (path.startsWith('http')) return path;
+  const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/';
+  const serverUrl = baseUrl.replace(/\/api\/?$/, '');
+  return `${serverUrl}${path}`;
+}
+
+export default function DocumentationTab({ personaId, personaType }) {
   const {
     documentos: documents,
     tipos,
     estados,
     isLoading: loading,
     subirDocumento,
+    actualizarDocumento,
     borrarDocumento,
     getNombreTipo
   } = useDocumentacion(personaId)
@@ -33,31 +44,66 @@ export default function DocumentationTab({ personaId }) {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [docToDelete, setDocToDelete] = useState(null)
   
+  const [isEditing, setIsEditing] = useState(false)
+  const [docToEdit, setDocToEdit] = useState(null)
+
   // Upload form state
   const [uploadForm, setUploadForm] = useState({
     tipo_documento: '',
     estado_documento: '',
     nombre: '',
-    archivoUrl: '',
+    archivo: null,
+    archivoUrl_existing: null,
+    borrar_archivo: false,
     fecha_emision: '',
-    fecha_recepcion: '',
     fecha_vencimiento: '',
-    requiere_firma: false
   })
 
-  // Set default values when tipos/estados load
-  useEffect(() => {
-    if (tipos.length > 0 && !uploadForm.tipo_documento) {
-      setUploadForm(prev => ({ ...prev, tipo_documento: tipos[0].id_tipo_documento }))
+  // Filter tipos
+  const tiposFiltrados = tipos.filter(t => {
+    const isDocenteType = ['Antecedentes Penales', 'CV', 'DNI'].includes(t.nombre)
+    if (personaType === 'docente') {
+      return isDocenteType
     }
-    if (estados.length > 0 && !uploadForm.estado_documento) {
-      setUploadForm(prev => ({ ...prev, estado_documento: estados[0].id_estado_documento }))
-    }
-  }, [tipos, estados])
+    // Jugadores ven el resto
+    return !['Antecedentes Penales', 'CV'].includes(t.nombre)
+  })
 
   const handleDeleteClick = (doc) => {
     setDocToDelete(doc)
     setDeleteModalOpen(true)
+  }
+
+  const handleEditClick = (doc) => {
+    setIsEditing(true)
+    setDocToEdit(doc)
+    setUploadForm({
+      tipo_documento: doc.tipo_documento || '',
+      estado_documento: doc.estado_documento || '',
+      nombre: doc.nombre || '',
+      archivo: null,
+      archivoUrl_existing: doc.archivoUrl || null,
+      borrar_archivo: false,
+      fecha_emision: doc.fecha_emision ? doc.fecha_emision.split('T')[0] : '',
+      fecha_vencimiento: doc.fecha_vencimiento ? doc.fecha_vencimiento.split('T')[0] : '',
+    })
+    setUploadModalOpen(true)
+  }
+
+  const handleNewClick = () => {
+    setIsEditing(false)
+    setDocToEdit(null)
+    setUploadForm({
+      tipo_documento: '',
+      estado_documento: '',
+      nombre: '',
+      archivo: null,
+      archivoUrl_existing: null,
+      borrar_archivo: false,
+      fecha_emision: '',
+      fecha_vencimiento: '',
+    })
+    setUploadModalOpen(true)
   }
 
   const confirmDelete = async () => {
@@ -72,30 +118,48 @@ export default function DocumentationTab({ personaId }) {
   }
 
   const handleUploadChange = (e) => {
-    const { name, value, type, checked } = e.target
-    setUploadForm(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }))
+    const { name, value, type, files, checked } = e.target
+    if (type === 'file') {
+      setUploadForm(prev => ({ ...prev, archivo: files[0] }))
+    } else if (type === 'checkbox') {
+      setUploadForm(prev => ({ ...prev, [name]: checked }))
+    } else {
+      setUploadForm(prev => ({ ...prev, [name]: value }))
+    }
   }
 
   const handleUploadSubmit = async (e) => {
     e.preventDefault()
     try {
-      const payload = {
-        ...uploadForm,
-        persona: personaId,
-        archivoUrl: uploadForm.archivoUrl || 'http://dummy.url/doc.pdf',
-        fecha_emision: uploadForm.fecha_emision ? new Date(uploadForm.fecha_emision).toISOString() : null,
-        fecha_recepcion: uploadForm.fecha_recepcion ? new Date(uploadForm.fecha_recepcion).toISOString() : null,
-        fecha_vencimiento: uploadForm.fecha_vencimiento ? new Date(uploadForm.fecha_vencimiento).toISOString() : null,
+      const formData = new FormData();
+      formData.append('persona', personaId);
+      formData.append('nombre', uploadForm.nombre);
+      formData.append('tipo_documento', uploadForm.tipo_documento);
+      formData.append('estado_documento', uploadForm.estado_documento);
+      
+      if (uploadForm.fecha_emision) {
+        formData.append('fecha_emision', new Date(uploadForm.fecha_emision).toISOString());
       }
-      await subirDocumento(payload)
+      if (uploadForm.fecha_vencimiento) {
+        formData.append('fecha_vencimiento', new Date(uploadForm.fecha_vencimiento).toISOString());
+      }
+      if (uploadForm.archivo) {
+        formData.append('archivoUrl', uploadForm.archivo);
+      } else if (isEditing && uploadForm.borrar_archivo) {
+        formData.append('archivoUrl', '');
+      }
+      
+      if (isEditing) {
+        await actualizarDocumento(docToEdit.id_documento, formData)
+      } else {
+        await subirDocumento(formData)
+      }
       setUploadModalOpen(false)
-      // Reset form (keeping defaults if needed)
-      setUploadForm(prev => ({
-        ...prev, nombre: '', archivoUrl: '', fecha_emision: '', fecha_recepcion: '', fecha_vencimiento: '', requiere_firma: false
-      }))
+      setUploadForm({
+        tipo_documento: '', estado_documento: '', nombre: '', archivo: null, archivoUrl_existing: null, borrar_archivo: false, fecha_emision: '', fecha_vencimiento: ''
+      })
+      setIsEditing(false)
+      setDocToEdit(null)
     } catch (error) {
       console.error('Error uploading document:', error)
     }
@@ -119,11 +183,11 @@ export default function DocumentationTab({ personaId }) {
           <p className="font-body-sm text-body-sm text-on-surface-variant mt-1">Control de habilitaciones institucionales, certificados médicos laborales y títulos habilitantes reglamentarios.</p>
         </div>
         <button 
-          onClick={() => setUploadModalOpen(true)}
-          className="inline-flex items-center gap-space-xs px-space-md h-10 rounded-lg bg-primary text-on-primary hover:bg-primary/90 font-title-md text-title-md transition-colors shadow-sm shrink-0" 
+          onClick={handleNewClick}
+          className="inline-flex items-center gap-space-xs px-space-md h-10 rounded-lg bg-primary text-on-primary hover:bg-primary/90 font-title-md text-title-md transition-colors shadow-sm shrink-0 cursor-pointer" 
           type="button">
           <span className="material-symbols-outlined text-[20px]">upload_file</span>
-          <span className="">+ Subir nuevo documento</span>
+          <span className="">+ Cargar nuevo documento</span>
         </button>
       </div>
 
@@ -171,18 +235,24 @@ export default function DocumentationTab({ personaId }) {
                         </div>
                       </td>
                       <td className="py-space-md px-space-md text-center">
-                        <span className={`inline-flex items-center gap-1.5 px-space-sm py-0.5 rounded-full font-label-sm text-label-sm font-medium ${ETIQUETA_ESTADO[document.status].clase}`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${ETIQUETA_ESTADO[document.status].dot}`}></span>
-                          {ETIQUETA_ESTADO[document.status].label}
+                        <span className={`inline-flex items-center gap-1.5 px-space-sm py-0.5 rounded-full font-label-sm text-label-sm font-medium ${ETIQUETA_ESTADO[document.status]?.clase}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${ETIQUETA_ESTADO[document.status]?.dot}`}></span>
+                          {ETIQUETA_ESTADO[document.status]?.label || 'Desconocido'}
                         </span>
                       </td>
                       <td className="py-space-md px-space-lg text-right">
                         <div className="inline-flex items-center justify-end gap-space-xs">
-                          <button className="p-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-primary transition-colors inline-flex items-center gap-1 font-label-md text-label-md" title="Descargar PDF" type="button">
-                            <span className="material-symbols-outlined text-[18px]">download</span>
-                            <span className="hidden xl:inline">Descargar</span>
+                          {document.archivoUrl && (
+                            <a href={getMediaUrl(document.archivoUrl)} target="_blank" rel="noopener noreferrer" className="p-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-primary transition-colors inline-flex items-center gap-1 font-label-md text-label-md cursor-pointer" title="Descargar PDF">
+                              <span className="material-symbols-outlined text-[18px]">download</span>
+                              <span className="hidden xl:inline">Descargar</span>
+                            </a>
+                          )}
+                          <button onClick={() => handleEditClick(document)} className="p-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-primary transition-colors inline-flex items-center gap-1 font-label-md text-label-md cursor-pointer" title="Editar" type="button">
+                            <span className="material-symbols-outlined text-[18px]">edit</span>
+                            <span className="hidden xl:inline">Editar</span>
                           </button>
-                          <button onClick={() => handleDeleteClick(document)} className="p-2 rounded-lg text-on-surface-variant hover:bg-error-container hover:text-error transition-colors inline-flex items-center gap-1 font-label-md text-label-md" title="Eliminar archivo" type="button">
+                          <button onClick={() => handleDeleteClick(document)} className="p-2 rounded-lg text-on-surface-variant hover:bg-error-container hover:text-error transition-colors inline-flex items-center gap-1 font-label-md text-label-md cursor-pointer" title="Eliminar archivo" type="button">
                             <span className="material-symbols-outlined text-[18px]">delete</span>
                             <span className="hidden xl:inline">Eliminar</span>
                           </button>
@@ -197,81 +267,23 @@ export default function DocumentationTab({ personaId }) {
         </div>
       )}
 
-      {/* Upload Modal */}
-      {uploadModalOpen && (
-        <div className="fixed inset-0 z-50 bg-inverse-surface/40 backdrop-blur-xs flex items-center justify-center p-space-md">
-          <div className="bg-surface-container-lowest rounded-xl max-w-md w-full p-space-lg shadow-xl flex flex-col gap-space-md">
-            <h3 className="font-headline-sm text-headline-sm text-on-surface">Cargar nueva documentación</h3>
-            <form onSubmit={handleUploadSubmit} className="flex flex-col gap-4">
-              <div>
-                <label className="block text-label-sm text-outline uppercase mb-1">Nombre del Documento</label>
-                <input required type="text" name="nombre" value={uploadForm.nombre} onChange={handleUploadChange} className="w-full h-10 px-3 rounded-lg bg-surface-container-low border-none" />
-              </div>
-              <div>
-                <label className="block text-label-sm text-outline uppercase mb-1">Tipo de Documento</label>
-                <select required name="tipo_documento" value={uploadForm.tipo_documento} onChange={handleUploadChange} className="w-full h-10 px-3 rounded-lg bg-surface-container-low border-none">
-                  <option value="">Seleccione...</option>
-                  {tipos.map(t => (
-                    <option key={t.id_tipo_documento} value={t.id_tipo_documento}>{t.nombre}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-label-sm text-outline uppercase mb-1">Estado</label>
-                <select required name="estado_documento" value={uploadForm.estado_documento} onChange={handleUploadChange} className="w-full h-10 px-3 rounded-lg bg-surface-container-low border-none">
-                  <option value="">Seleccione...</option>
-                  {estados.map(e => (
-                    <option key={e.id_estado_documento} value={e.id_estado_documento}>{e.nombre}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-label-sm text-outline uppercase mb-1">Fecha Emisión</label>
-                  <input required type="date" name="fecha_emision" value={uploadForm.fecha_emision} onChange={handleUploadChange} className="w-full h-10 px-3 rounded-lg bg-surface-container-low border-none" />
-                </div>
-                <div>
-                  <label className="block text-label-sm text-outline uppercase mb-1">Fecha Vencimiento</label>
-                  <input required type="date" name="fecha_vencimiento" value={uploadForm.fecha_vencimiento} onChange={handleUploadChange} className="w-full h-10 px-3 rounded-lg bg-surface-container-low border-none" />
-                </div>
-              </div>
-              <div>
-                <label className="block text-label-sm text-outline uppercase mb-1">Archivo PDF</label>
-                <input type="file" accept=".pdf" className="w-full" />
-              </div>
-              <div className="flex items-center justify-end gap-space-sm mt-4">
-                <button type="button" onClick={() => setUploadModalOpen(false)} className="px-space-md h-10 rounded-lg bg-surface-container text-on-surface font-title-md hover:bg-surface-container-high transition-colors">Cancelar</button>
-                <button type="submit" className="px-space-md h-10 rounded-lg bg-primary text-on-primary font-title-md hover:bg-primary/90 transition-colors">Subir Archivo</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <DocumentacionUploadModal 
+        isOpen={uploadModalOpen} 
+        onClose={() => setUploadModalOpen(false)} 
+        onSubmit={handleUploadSubmit} 
+        form={uploadForm} 
+        onChange={handleUploadChange} 
+        tipos={tiposFiltrados} 
+        estados={estados} 
+        isEditing={isEditing}
+      />
 
-      {/* Delete Confirmation Modal */}
-      {deleteModalOpen && docToDelete && (
-        <div className="fixed inset-0 z-50 bg-inverse-surface/40 backdrop-blur-xs flex items-center justify-center p-space-md">
-          <div className="bg-surface-container-lowest rounded-xl max-w-md w-full p-space-lg shadow-xl flex flex-col gap-space-md">
-            <div className="w-12 h-12 rounded-full bg-error-container text-error flex items-center justify-center shrink-0">
-              <span className="material-symbols-outlined text-[28px]">warning</span>
-            </div>
-            <div>
-              <h3 className="font-headline-sm text-headline-sm text-on-surface">¿Eliminar {docToDelete.nombre}?</h3>
-              <p className="font-body-md text-body-md text-on-surface-variant mt-space-xs">
-                Esta acción dará de baja el documento del legajo digital y no se puede deshacer.
-              </p>
-            </div>
-            <div className="flex items-center justify-end gap-space-sm mt-space-xs">
-              <button onClick={() => setDeleteModalOpen(false)} className="px-space-md h-10 rounded-lg bg-surface-container text-on-surface font-title-md hover:bg-surface-container-high transition-colors" type="button">
-                Cancelar
-              </button>
-              <button onClick={confirmDelete} className="px-space-md h-10 rounded-lg bg-error text-on-error font-title-md hover:opacity-90 transition-opacity" type="button">
-                Confirmar baja
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <DocumentacionDeleteModal 
+        isOpen={deleteModalOpen} 
+        onClose={() => setDeleteModalOpen(false)} 
+        onConfirm={confirmDelete} 
+        document={docToDelete} 
+      />
     </div>
   )
 }
