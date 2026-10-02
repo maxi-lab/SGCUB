@@ -23,12 +23,23 @@ class EstadoDocumento(models.Model):
         return self.nombre
 
 
+def get_upload_path(instance, filename):
+    persona = instance.persona
+    dni = persona.dni
+    nombre = f"{persona.nombre}_{persona.apellido}".replace(" ", "_")
+    # Check if persona has docente relation
+    if hasattr(persona, 'docente'):
+        tipo = 'docentes'
+    else:
+        tipo = 'jugadores'
+    return f'{tipo}/{dni}-{nombre}/{filename}'
+
 class Documento(models.Model):
     id_documento = models.AutoField(primary_key=True)
     tipo_documento = models.ForeignKey(TipoDocumento, on_delete=models.PROTECT, related_name='documentos')
     estado_documento = models.ForeignKey(EstadoDocumento, on_delete=models.PROTECT, related_name='documentos')
     persona = models.ForeignKey(Persona, on_delete=models.CASCADE, related_name='documentos')
-    archivoUrl = models.CharField(max_length=200, blank=True, null=True)
+    archivoUrl = models.FileField(upload_to=get_upload_path, max_length=200, blank=True, null=True)
     nombre = models.CharField(max_length=50)
     fecha_emision = models.DateTimeField(blank=True, null=True)
     fecha_recepcion = models.DateTimeField(blank=True, null=True)
