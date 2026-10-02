@@ -215,11 +215,11 @@ def categoria_detail(request, pk):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Borrar la categoría elimina sus asignaciones docentes: no puede dejar a un docente sin cargos
         teachers_left_without_assignments = [
             str(assignment.docente.persona)
-            for assignment in category.docentes_categoria.select_related("docente__persona")
-            if not assignment.docente.has_assignments(exclude={"categoria": category})
+            for assignment in category.docentes_categoria.select_related("docente__persona", "docente__estado")
+            if not assignment.docente.is_inactive
+            and not assignment.docente.has_assignments(exclude={"categoria": category})
         ]
         if teachers_left_without_assignments:
             return Response(
@@ -501,7 +501,8 @@ def docente_categoria_detail(request, pk):
         pk=pk,
     )
     if request.method == "DELETE":
-        if not teacher_category.docente.has_assignments(exclude={"pk": teacher_category.pk}):
+        teacher = teacher_category.docente
+        if not teacher.is_inactive and not teacher.has_assignments(exclude={"pk": teacher_category.pk}):
             return Response(
                 {"detail": "Es la única categoría del docente: debe tener al menos un cargo con una categoría."},
                 status=status.HTTP_400_BAD_REQUEST,
