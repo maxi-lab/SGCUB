@@ -76,10 +76,8 @@ export default function DocumentAlertTable({ title, icon, tone = 'warning', docu
           <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${style.icon}`}>
             <span className="material-symbols-outlined text-[18px]">{icon}</span>
           </div>
-          <div className="flex items-center gap-2">
-            <h2 className="text-lg font-semibold text-on-surface">{title}</h2>
-            <span className={`text-sm px-2.5 py-0.5 rounded-full font-semibold ${style.count}`}>{rows.length}</span>
-          </div>
+          <h2 className="text-lg font-semibold text-on-surface">{title}</h2>
+          <span className={`ml-auto text-sm px-2.5 py-0.5 rounded-full font-semibold ${style.count}`}>{rows.length}</span>
         </div>
         <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2">
           <div className="relative w-full sm:flex-1 sm:min-w-[12rem]">

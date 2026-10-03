@@ -99,12 +99,12 @@ export default function DocumentationTab({ personaId, personaType, personaInfo }
       formData.append('persona', personaId);
       formData.append('tipo_documento', uploadForm.tipo_documento);
       
-      if (uploadForm.fecha_emision) {
-        formData.append('fecha_emision', `${uploadForm.fecha_emision}T00:00:00`);
+      const appendDate = (field) => {
+        if (uploadForm[field]) formData.append(field, `${uploadForm[field]}T00:00:00`);
+        else if (isEditing) formData.append(field, '');
       }
-      if (uploadForm.fecha_vencimiento) {
-        formData.append('fecha_vencimiento', `${uploadForm.fecha_vencimiento}T00:00:00`);
-      }
+      appendDate('fecha_emision');
+      appendDate('fecha_vencimiento');
       if (uploadForm.archivo) {
         formData.append('archivoUrl', uploadForm.archivo);
       } else if (isEditing && uploadForm.borrar_archivo) {
