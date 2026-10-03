@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api/conf'
 import { getSocio } from '../api/socios'
 import PageHeader from '../components/shared/PageHeader'
+
 import { BotonCambiarPersona, ListaSugerenciasPersona } from '../components/shared/PersonaSearchDNI'
 import usePersonaSearchDNI from '../hooks/usePersonaSearchDNI'
 import useSocio from '../hooks/useSocio'

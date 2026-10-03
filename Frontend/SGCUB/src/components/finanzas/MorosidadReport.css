@@ -1,0 +1,38 @@
+@page {
+  size: landscape;
+  margin: 12mm;
+}
+
+@media print {
+  body {
+    background: #fff !important;
+    color: #111 !important;
+  }
+
+  .morosidad-no-print,
+  .morosidad-detail {
+    display: none !important;
+  }
+
+  .morosidad-report {
+    gap: 12px !important;
+    color: #111 !important;
+  }
+
+  .morosidad-report table {
+    min-width: 0 !important;
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+
+  .morosidad-report th,
+  .morosidad-report td {
+    border: 1px solid #999 !important;
+    color: #111 !important;
+    padding: 8px !important;
+  }
+
+  .morosidad-report tr {
+    break-inside: avoid;
+  }
+}
