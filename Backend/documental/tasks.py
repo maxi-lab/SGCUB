@@ -1,27 +1,16 @@
 from django.utils import timezone
 from .models import Documento, EstadoDocumento
 
-def actualizar_estados_vencidos():
-    hoy = timezone.now().date()
-    estado_vencido = EstadoDocumento.objects.filter(nombre='Vencido').first()
-    
-    if not estado_vencido:
-        return
-        
-    documentos_vencidos = Documento.objects.filter(
-        fecha_vencimiento__date__lt=hoy
-    ).exclude(estado_documento=estado_vencido)
-    
-    for doc in documentos_vencidos:
-        doc.estado_documento = estado_vencido
-        doc.save(update_fields=['estado_documento'])
 
-    estado_vigente = EstadoDocumento.objects.filter(nombre='Vigente').first()
-    if estado_vigente:
-        documentos_revividos = Documento.objects.filter(
-            fecha_vencimiento__date__gte=hoy,
-            estado_documento=estado_vencido
-        )
-        for doc in documentos_revividos:
-            doc.estado_documento = estado_vigente
-            doc.save(update_fields=['estado_documento'])
+def refresh_document_states():
+    today = timezone.localdate()
+    estados = {estado.nombre: estado for estado in EstadoDocumento.objects.filter(nombre__in=['Vigente', 'Vencido'])}
+    if len(estados) < 2:
+        return
+
+    Documento.objects.filter(fecha_vencimiento__date__lt=today) \
+        .exclude(estado_documento=estados['Vencido']) \
+        .update(estado_documento=estados['Vencido'])
+    Documento.objects.exclude(fecha_vencimiento__date__lt=today) \
+        .exclude(estado_documento=estados['Vigente']) \
+        .update(estado_documento=estados['Vigente'])

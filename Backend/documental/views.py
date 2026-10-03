@@ -1,4 +1,4 @@
-from .tasks import actualizar_estados_vencidos
+from .tasks import refresh_document_states
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.decorators import api_view
@@ -12,7 +12,7 @@ from .serializers import DocumentoSerializer, TipoDocumentoSerializer, EstadoDoc
 @extend_schema(tags=["Documental / Documentos"], request=DocumentoSerializer, responses=DocumentoSerializer)
 @api_view(["GET", "POST"])
 def documento_list_create(request):
-    actualizar_estados_vencidos()
+    refresh_document_states()
     if request.method == "GET":
         persona_id = request.query_params.get('persona_id')
         documentos = Documento.objects.select_related(
@@ -73,7 +73,7 @@ from datetime import timedelta
 @extend_schema(tags=["Documental / Alertas"])
 @api_view(["GET"])
 def alertas_count(request):
-    actualizar_estados_vencidos()
+    refresh_document_states()
     hoy = timezone.now().date()
     limite = hoy + timedelta(days=30)
     

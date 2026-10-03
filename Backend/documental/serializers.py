@@ -19,6 +19,7 @@ class DocumentoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Documento
         fields = '__all__'
+        read_only_fields = ['nombre', 'estado_documento']
 
     def get_persona_nombre_completo(self, obj):
         return f"{obj.persona.nombre} {obj.persona.apellido}"
