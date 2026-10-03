@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useId } from 'react'
 import { getDocumentos, createDocumento, deleteDocumento, getTiposDocumento, getEstadosDocumento, updateDocumento } from '../api/documentacion'
 
 export default function useDocumentacion(personaId = null, fetchAll = false) {
@@ -64,14 +64,23 @@ export default function useDocumentacion(personaId = null, fetchAll = false) {
     } finally {
       setIsLoading(false)
     }
-  }, [personaId])
+  }, [personaId, fetchAll])
 
   useEffect(() => {
     cargarDatos()
   }, [cargarDatos])
 
+  const instanceId = useId()
+  useEffect(() => {
+    const handleChange = (event) => {
+      if (event.detail?.source !== instanceId) cargarDatos()
+    }
+    window.addEventListener('documentacionCambiada', handleChange)
+    return () => window.removeEventListener('documentacionCambiada', handleChange)
+  }, [cargarDatos, instanceId])
+
   const notifyChange = () => {
-    window.dispatchEvent(new CustomEvent('documentacionCambiada'))
+    window.dispatchEvent(new CustomEvent('documentacionCambiada', { detail: { source: instanceId } }))
   }
 
   const subirDocumento = async (documentData) => {

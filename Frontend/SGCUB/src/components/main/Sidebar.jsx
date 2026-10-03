@@ -3,6 +3,7 @@ import { Link, NavLink, useLocation } from 'react-router-dom';
 import PermissionGate from '../../auth/PermissionGate';
 import { PERMISSIONS } from '../../auth/permissions';
 import { useAuth } from '../../auth/useAuth';
+import StatusBadge from '../shared/StatusBadge';
 import './sidebar.css';
 
 const DURACION_CONTRAER = 220;
@@ -140,8 +141,13 @@ export default function Sidebar({ collapsed, onToggle }) {
               </div>
 
               {alertas && (alertas.vencidos > 0 || alertas.proximos > 0) && (
-                <span className={`${alertas.vencidos > 0 ? 'bg-error-container text-on-error-container' : 'bg-secondary-container text-on-secondary-container'} px-1.5 py-0.5 rounded-full font-label-sm text-label-sm font-semibold`}>
-                  {alertas.vencidos > 0 ? alertas.vencidos : alertas.proximos}
+                <span className="font-label-sm flex items-center gap-1">
+                  {alertas.vencidos > 0 && (
+                    <StatusBadge badge={{ label: alertas.vencidos, tono: 'error', icon: 'error', hideDot: true, title: 'Vencidos' }} />
+                  )}
+                  {alertas.proximos > 0 && (
+                    <StatusBadge badge={{ label: alertas.proximos, tono: 'alerta', icon: 'schedule', hideDot: true, title: 'Por vencer' }} />
+                  )}
                 </span>
               )}
             </NavLink>
