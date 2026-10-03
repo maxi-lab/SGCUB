@@ -14,6 +14,16 @@ const EMPTY_UPLOAD_FORM = {
   fecha_vencimiento: '',
 }
 
+const SAVE_ERROR_MESSAGE = 'No se pudo guardar el documento.'
+
+const getSaveErrorMessage = (requestError) => {
+  const data = requestError.response?.data
+  if (!data) return requestError.response ? SAVE_ERROR_MESSAGE : 'No se pudo conectar con el servidor.'
+  if (typeof data === 'string') return SAVE_ERROR_MESSAGE
+  if (data.detail) return data.detail
+  return Object.values(data).flat().join(' ') || SAVE_ERROR_MESSAGE
+}
+
 export default function DocumentationTab({ personaId, personaType, personaInfo }) {
   const {
     tipos,
@@ -35,6 +45,7 @@ export default function DocumentationTab({ personaId, personaType, personaInfo }
   const [docToEdit, setDocToEdit] = useState(null)
 
   const [uploadForm, setUploadForm] = useState(EMPTY_UPLOAD_FORM)
+  const [saveError, setSaveError] = useState(null)
 
   const tiposFiltrados = tipos.filter(t => {
     const isDocenteType = ['Antecedentes Penales', 'CV', 'DNI'].includes(t.nombre)
@@ -60,6 +71,7 @@ export default function DocumentationTab({ personaId, personaType, personaInfo }
       fecha_emision: doc.fecha_emision ? doc.fecha_emision.split('T')[0] : '',
       fecha_vencimiento: doc.fecha_vencimiento ? doc.fecha_vencimiento.split('T')[0] : '',
     })
+    setSaveError(null)
     setUploadModalOpen(true)
   }
 
@@ -67,6 +79,7 @@ export default function DocumentationTab({ personaId, personaType, personaInfo }
     setIsEditing(false)
     setDocToEdit(null)
     setUploadForm(EMPTY_UPLOAD_FORM)
+    setSaveError(null)
     setUploadModalOpen(true)
   }
 
@@ -94,6 +107,7 @@ export default function DocumentationTab({ personaId, personaType, personaInfo }
 
   const handleUploadSubmit = async (e) => {
     e.preventDefault()
+    setSaveError(null)
     try {
       const formData = new FormData();
       formData.append('persona', personaId);
@@ -122,6 +136,7 @@ export default function DocumentationTab({ personaId, personaType, personaInfo }
       setDocToEdit(null)
     } catch (error) {
       console.error('Error uploading document:', error)
+      setSaveError(getSaveErrorMessage(error))
     }
   }
 
@@ -191,6 +206,7 @@ export default function DocumentationTab({ personaId, personaType, personaInfo }
         onChange={handleUploadChange} 
         tipos={tiposFiltrados} 
         isEditing={isEditing}
+        error={saveError}
       />
 
       <DocumentacionDeleteModal 

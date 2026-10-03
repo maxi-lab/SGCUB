@@ -16,7 +16,8 @@ export default function DocumentacionUploadModal({
   form, 
   onChange, 
   tipos, 
-  isEditing
+  isEditing,
+  error
 }) {
   const fileInputRef = useRef(null)
 
@@ -109,6 +110,12 @@ export default function DocumentacionUploadModal({
               </label>
             )}
           </div>
+          {error && (
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-error-container text-error text-sm" role="alert">
+              <span className="material-symbols-outlined text-[20px]" aria-hidden="true">error</span>
+              <span>{error}</span>
+            </div>
+          )}
           <div className="flex items-center justify-end gap-space-sm mt-4">
             <button type="button" onClick={onClose} className="px-space-md h-10 rounded-lg bg-surface-container text-on-surface font-title-md hover:bg-surface-container-high transition-colors cursor-pointer">Cancelar</button>
             <button type="submit" className="px-space-md h-10 rounded-lg bg-primary text-on-primary font-title-md hover:bg-primary/90 transition-colors cursor-pointer">{isEditing ? 'Guardar Cambios' : 'Cargar Documento'}</button>
