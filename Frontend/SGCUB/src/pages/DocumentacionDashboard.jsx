@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import useDocumentacion from '../hooks/useDocumentacion'
+import { parseDueDate } from '../components/documental/dueDate'
 
 export default function DocumentacionDashboard() {
   const navigate = useNavigate()
@@ -11,53 +12,32 @@ export default function DocumentacionDashboard() {
   const [limitProximos, setLimitProximos] = useState(5)
   const [limitVencidos, setLimitVencidos] = useState(5)
 
-  const now = new Date()
-  const hoy = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  
-  const docsActivos = documentos.filter(doc => doc.persona_es_activo && doc.fecha_vencimiento)
-  
-  const vencidos = docsActivos
-    .filter(doc => {
-      const dateStr = doc.fecha_vencimiento.split('T')[0]
-      const [yyyy, mm, dd] = dateStr.split('-')
-      const v = new Date(yyyy, mm - 1, dd)
-      return v < hoy
-    })
-    .map(doc => {
-      const dateStr = doc.fecha_vencimiento.split('T')[0]
-      const [yyyy, mm, dd] = dateStr.split('-')
-      const v = new Date(yyyy, mm - 1, dd)
-      const diasMora = Math.floor((hoy - v) / (1000 * 60 * 60 * 24))
-      return { ...doc, diasMora, fechaStr: `${dd}/${mm}/${yyyy}` }
-    })
-    .sort((a, b) => b.diasMora - a.diasMora)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
 
-  const proximosAVencer = docsActivos
-    .filter(doc => {
-      const dateStr = doc.fecha_vencimiento.split('T')[0]
-      const [yyyy, mm, dd] = dateStr.split('-')
-      const v = new Date(yyyy, mm - 1, dd)
-      return v >= hoy && (v - hoy) / (1000 * 60 * 60 * 24) <= 30
-    })
-    .map(doc => {
-      const dateStr = doc.fecha_vencimiento.split('T')[0]
-      const [yyyy, mm, dd] = dateStr.split('-')
-      const v = new Date(yyyy, mm - 1, dd)
-      const diasVence = Math.ceil((v - hoy) / (1000 * 60 * 60 * 24))
-      return { ...doc, diasVence, fechaStr: `${dd}/${mm}/${yyyy}` }
-    })
-    .sort((a, b) => a.diasVence - b.diasVence)
+  const activeDocs = documentos
+    .filter(doc => doc.persona_es_activo && doc.fecha_vencimiento)
+    .map(doc => ({ ...doc, ...parseDueDate(doc, today) }))
 
-  const totalActivos = docsActivos.length
-  const vigentes = totalActivos - vencidos.length
+  const expiredDocs = activeDocs
+    .filter(doc => doc.daysFromToday < 0)
+    .map(doc => ({ ...doc, overdueDays: Math.floor(-doc.daysFromToday) }))
+    .sort((a, b) => b.overdueDays - a.overdueDays)
 
-  const filteredProximos = proximosAVencer.filter(doc => 
+  const upcomingDocs = activeDocs
+    .filter(doc => doc.daysFromToday >= 0 && doc.daysFromToday <= 30)
+    .map(doc => ({ ...doc, daysLeft: Math.ceil(doc.daysFromToday) }))
+    .sort((a, b) => a.daysLeft - b.daysLeft)
+
+  const validCount = activeDocs.length - expiredDocs.length
+
+  const filteredProximos = upcomingDocs.filter(doc => 
     (doc.persona_nombre_completo || '').toLowerCase().includes(searchProximos.toLowerCase()) ||
     (doc.nombre || '').toLowerCase().includes(searchProximos.toLowerCase())
   )
   const paginatedProximos = filteredProximos.slice(0, limitProximos)
 
-  const filteredVencidos = vencidos.filter(doc => 
+  const filteredVencidos = expiredDocs.filter(doc => 
     (doc.persona_nombre_completo || '').toLowerCase().includes(searchVencidos.toLowerCase()) ||
     (doc.nombre || '').toLowerCase().includes(searchVencidos.toLowerCase())
   )
@@ -97,7 +77,7 @@ export default function DocumentacionDashboard() {
             </div>
           </div>
           <div className="my-space-md flex items-baseline gap-space-xs">
-            <span className="font-display-lg text-display-lg text-error leading-none">{vencidos.length}</span>
+            <span className="font-display-lg text-display-lg text-error leading-none">{expiredDocs.length}</span>
             <span className="font-label-lg text-label-lg text-error font-medium">inhabilitados</span>
           </div>
         </div>
@@ -114,7 +94,7 @@ export default function DocumentacionDashboard() {
             </div>
           </div>
           <div className="my-space-md flex items-baseline gap-space-xs">
-            <span className="font-display-lg text-display-lg text-secondary leading-none">{proximosAVencer.length}</span>
+            <span className="font-display-lg text-display-lg text-secondary leading-none">{upcomingDocs.length}</span>
             <span className="font-label-lg text-label-lg text-secondary font-medium">a vencer (próx. 30 días)</span>
           </div>
         </div>
@@ -131,7 +111,7 @@ export default function DocumentacionDashboard() {
             </div>
           </div>
           <div className="my-space-md flex items-baseline gap-space-xs">
-            <span className="font-display-lg text-display-lg text-on-surface leading-none">{vigentes}</span>
+            <span className="font-display-lg text-display-lg text-on-surface leading-none">{validCount}</span>
             <span className="font-label-lg text-label-lg text-on-surface-variant"> activos</span>
           </div>
         </div>
@@ -148,7 +128,7 @@ export default function DocumentacionDashboard() {
               <div>
                 <div className="flex items-center gap-2">
                   <h2 className="font-headline-sm text-headline-sm text-on-surface">Próximos a Vencer</h2>
-                  <span className="bg-secondary-fixed text-on-secondary-fixed font-label-sm text-label-sm px-2 py-0.5 rounded-full font-bold">{proximosAVencer.length}</span>
+                  <span className="bg-secondary-fixed text-on-secondary-fixed font-label-sm text-label-sm px-2 py-0.5 rounded-full font-bold">{upcomingDocs.length}</span>
                 </div>
               </div>
             </div>
@@ -187,9 +167,9 @@ export default function DocumentacionDashboard() {
                       <span className="block font-label-sm text-label-sm text-outline">{getNombreTipo(doc.tipo_documento)}</span>
                     </td>
                     <td className="py-space-md px-space-md whitespace-nowrap">
-                      <span className="block font-medium">{doc.fechaStr}</span>
+                      <span className="block font-medium">{doc.dueDateLabel}</span>
                       <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-secondary-fixed text-on-secondary-fixed text-label-sm font-semibold mt-1">
-                        Vence en {doc.diasVence} día/s
+                        Vence en {doc.daysLeft} día/s
                       </span>
                     </td>
                   </tr>
@@ -223,7 +203,7 @@ export default function DocumentacionDashboard() {
               <div>
                 <div className="flex items-center gap-2">
                   <h2 className="font-headline-sm text-headline-sm text-on-surface">Documentos Vencidos</h2>
-                  <span className="bg-error text-on-error font-label-sm text-label-sm px-2 py-0.5 rounded-full font-bold">{vencidos.length}</span>
+                  <span className="bg-error text-on-error font-label-sm text-label-sm px-2 py-0.5 rounded-full font-bold">{expiredDocs.length}</span>
                 </div>
               </div>
             </div>
@@ -262,9 +242,9 @@ export default function DocumentacionDashboard() {
                       <span className="block font-label-sm text-label-sm text-outline">{getNombreTipo(doc.tipo_documento)}</span>
                     </td>
                     <td className="py-space-md px-space-md whitespace-nowrap">
-                      <span className="block font-medium text-on-surface">{doc.fechaStr}</span>
+                      <span className="block font-medium text-on-surface">{doc.dueDateLabel}</span>
                       <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-error-container text-error text-label-sm font-semibold mt-1">
-                        {doc.diasMora} día/s de mora
+                        {doc.overdueDays} día/s de mora
                       </span>
                     </td>
                   </tr>
