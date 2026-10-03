@@ -22,6 +22,7 @@ from .models import (
 	Pago,
 )
 from .delinquency import ReporteMorosidadInvalidoError, delinquency_report, parse_delinquency_params
+from .delinquency_pdf import delinquency_filename, render_delinquency_pdf
 from .receipts import receipt_filename, render_receipt_pdf
 from .serializers import (
 	BecaSerializer,
@@ -346,6 +347,20 @@ def reporte_morosidad(request):
 	report = delinquency_report(**params)
 	report["fecha"] = report["fecha"].strftime("%d/%m/%Y %H:%M")
 	return Response(report)
+
+
+@extend_schema(tags=["Finanzas/Morosidad"], responses={(200, "application/pdf"): bytes})
+@api_view(["GET"])
+def delinquency_report_pdf(request):
+	try:
+		params = parse_delinquency_params(request.query_params)
+	except ReporteMorosidadInvalidoError as error:
+		return Response({"detail": str(error)}, status=status.HTTP_400_BAD_REQUEST)
+
+	report = delinquency_report(**params)
+	response = HttpResponse(render_delinquency_pdf(report), content_type="application/pdf")
+	response["Content-Disposition"] = f'attachment; filename="{delinquency_filename(report)}"'
+	return response
 
 
 @extend_schema(tags=["Finanzas/MovimientoCuenta"], responses=MovimientoCuentaSerializer)

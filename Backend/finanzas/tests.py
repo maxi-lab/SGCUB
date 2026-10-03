@@ -1300,6 +1300,57 @@ class ReporteMorosidadTests(APITestCase):
 		self.assertNotIn("erroresConsulta", data)
 
 
+class ReporteMorosidadPdfTests(APITestCase):
+	def setUp(self):
+		self.client.force_authenticate(user=get_user_model().objects.create_user(username="tesorero"))
+		today = timezone.localdate()
+		self.debtor = Socio.objects.create(persona=Persona.objects.create(nombre="Rosa", apellido="Mora", dni="78901240"))
+		crear_cuota_con_cargo(
+			CuentaCorriente.objects.create(socio=self.debtor), "2026-08", "1000.00",
+			venc1=today - timedelta(days=5), venc2=today + timedelta(days=5),
+		)
+		self.up_to_date = Socio.objects.create(persona=Persona.objects.create(nombre="Luis", apellido="Paz", dni="78901241"))
+		crear_cuota_con_cargo(
+			CuentaCorriente.objects.create(socio=self.up_to_date), "2026-08", "1000.00",
+			venc1=today + timedelta(days=5), venc2=today + timedelta(days=15),
+		)
+
+	def download(self, **params):
+		return self.client.get(reverse("reporte-morosidad-pdf"), params)
+
+	def test_returns_pdf_attachment_with_debtors(self):
+		response = self.download()
+
+		self.assertEqual(response.status_code, 200)
+		self.assertEqual(response["Content-Type"], "application/pdf")
+		self.assertRegex(response["Content-Disposition"], r'^attachment; filename="reporte-morosidad-\d{8}-\d{4}\.pdf"$')
+		self.assertTrue(response.content.startswith(b"%PDF"))
+		self.assertIn(b"Mora, Rosa", response.content)
+		self.assertIn(b"78901240", response.content)
+		self.assertIn(b"$ 1.000,00", response.content)
+		self.assertNotIn(b"Paz, Luis", response.content)
+
+	def test_respects_selected_scope(self):
+		response = self.download(alcance="socio", socio_id=self.up_to_date.pk)
+
+		self.assertEqual(response.status_code, 200)
+		self.assertNotIn(b"Mora, Rosa", response.content)
+		self.assertIn(b"No hay socios con deuda vencida", response.content)
+
+		response = self.download(alcance="manual", socio_ids=f"{self.debtor.pk},{self.up_to_date.pk}")
+
+		self.assertIn(b"Mora, Rosa", response.content)
+		self.assertIn(rb"Alcance: Selecci\363n manual", response.content)
+
+	def test_rejects_invalid_parameters(self):
+		for params in ({"alcance": "todos"}, {"alcance": "manual"}, {"alcance": "socio", "socio_id": "x"}):
+			with self.subTest(params=params):
+				response = self.download(**params)
+
+				self.assertEqual(response.status_code, 400)
+				self.assertIn("detail", response.data)
+
+
 class RecargosPorMoraTests(APITestCase):
 	def setUp(self):
 		self.client.force_authenticate(user=get_user_model().objects.create_user(username="tesorero"))
