@@ -89,13 +89,6 @@ class ItemCuota(models.Model):
     fecha_aplicacion = models.DateField()
     monto = models.DecimalField(max_digits=10, decimal_places=2)
     motivo = models.CharField(max_length=200, blank=True)
-    beca = models.ForeignKey(
-        "finanzas.Beca",
-        on_delete=models.PROTECT,
-        related_name="items",
-        null=True,
-        blank=True,
-    )
 
     class Meta:
         db_table = "item_cuota"

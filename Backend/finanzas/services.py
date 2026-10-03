@@ -628,7 +628,6 @@ def assign_benefit(cuota_id, kind, mode, value, concept, start_date, reason, end
             fecha_aplicacion=start_date,
             monto=scholarship_amount,
             motivo=benefit_reason(concept, reason),
-            beca=scholarship,
         )
         sync_cuota_charge(cuota)
     return scholarship, item

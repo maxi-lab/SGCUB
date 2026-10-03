@@ -795,8 +795,9 @@ class BeneficioCuotaTests(APITestCase):
 		self.assertEqual(beca.usuario, self.usuario)
 		self.assertTrue(response.data["aplicado_a_cuota"])
 		item = self.cuota.items.get(concepto="Beca")
-		self.assertEqual(item.beca, beca)
+		self.assertTrue(item.es_descuento)
 		self.assertEqual(item.monto, Decimal("1250.00"))
+		self.assertEqual(item.motivo, "Cuota Social: Hermanos en el club")
 		self.assertEqual(self.cargo(), Decimal("1250.00"))
 
 	def test_beca_fuera_de_la_vigencia_no_modifica_la_cuota(self):
@@ -853,13 +854,13 @@ class BecasEnGeneracionDeCuotasTests(TestCase):
 		return list(cuota.items.filter(es_descuento=True).values_list("monto", flat=True))
 
 	def test_beca_vigente_descuenta_en_la_cuota_generada(self):
-		beca = self.beca(date(2026, 10, 1), date(2026, 12, 31), porcentaje=Decimal("50"), concepto="CuotaDeportiva")
+		self.beca(date(2026, 10, 1), date(2026, 12, 31), porcentaje=Decimal("50"), concepto="CuotaDeportiva")
 
 		generar_cuotas_mensuales(date(2026, 11, 1))
 
 		cuota = self.cuota("2026-11")
 		item = cuota.items.get(concepto="Beca")
-		self.assertEqual(item.beca, beca)
+		self.assertTrue(item.es_descuento)
 		self.assertEqual(item.monto, Decimal("1250.00"))
 		self.assertEqual(item.motivo, "Cuota Deportiva: Rendimiento deportivo")
 		self.assertEqual(cuota.movimiento.monto, Decimal("1250.00"))

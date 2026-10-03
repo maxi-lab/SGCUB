@@ -55,7 +55,6 @@ class GeneradorItemsCuota:
                 amount,
                 is_discount=True,
                 reason=benefit_reason(scholarship.concepto, scholarship.motivo),
-                scholarship=scholarship,
             ))
             available -= amount
         return benefits
@@ -66,12 +65,11 @@ class GeneradorItemsCuota:
             return prefetched
         return scholarships_for_period(self.application_date).filter(socio=self.socio)
 
-    def _item(self, concept, amount, is_discount=False, reason="", scholarship=None):
+    def _item(self, concept, amount, is_discount=False, reason=""):
         return ItemCuota(
             concepto=concept,
             es_descuento=is_discount,
             fecha_aplicacion=self.application_date,
             monto=amount,
             motivo=reason,
-            beca=scholarship,
         )
