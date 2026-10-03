@@ -1,4 +1,5 @@
 import useDocumentacion from '../hooks/useDocumentacion'
+import PageHeader from '../components/shared/PageHeader'
 import StatCard from '../components/shared/StatCard'
 import DocumentAlertTable from '../components/documental/DocumentAlertTable'
 import { parseDueDate } from '../components/documental/dueDate'
@@ -27,21 +28,11 @@ export default function DocumentacionDashboard() {
 
   return (
     <div className="flex flex-col w-full gap-space-xl pb-space-xl">
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-space-md">
-        <div className="flex flex-col gap-space-xs max-w-3xl">
-          <div className="flex items-center gap-space-xs">
-            <span className="bg-surface-container text-primary font-label-sm text-label-sm px-space-sm py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-primary"></span>
-              Módulo de Auditoría y Control
-            </span>
-          </div>
-          <h1 className="font-display-md text-display-md text-on-surface tracking-tight">
-            Control Documental
-          </h1>
-          <p className="font-body-md text-body-md text-on-surface-variant">
-            Seguimiento institucional de aptos médicos, fichas de salud, autorizaciones y fichajes federativos del club.
-          </p>
-        </div>
+      <div className="flex flex-col gap-1 max-w-3xl">
+        <PageHeader breadcrumb={[{ label: 'Documental' }]} title="Control Documental" />
+        <p className="font-body-md text-body-md text-on-surface-variant">
+          Seguimiento institucional de aptos médicos, fichas de salud, autorizaciones y fichajes federativos del club.
+        </p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
