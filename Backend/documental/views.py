@@ -4,7 +4,7 @@ from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from drf_spectacular.utils import extend_schema
-from django.db.models import OuterRef, Subquery, F
+from django.db.models import OuterRef, Subquery
 
 from .models import Documento, TipoDocumento, EstadoDocumento
 from .serializers import DocumentoSerializer, TipoDocumentoSerializer, EstadoDocumentoSerializer
@@ -77,11 +77,11 @@ def alertas_count(request):
     hoy = timezone.now().date()
     limite = hoy + timedelta(days=30)
     
-    # Subquery to get the latest document per persona+tipo
+    # Subquery to get the most recently uploaded document per persona+tipo
     latest_docs = Documento.objects.filter(
         persona=OuterRef('persona'),
         tipo_documento=OuterRef('tipo_documento')
-    ).order_by(F('fecha_vencimiento').desc(nulls_last=True), '-id_documento')
+    ).order_by('-id_documento')
 
     documentos = Documento.objects.filter(
         id_documento=Subquery(latest_docs.values('id_documento')[:1])
