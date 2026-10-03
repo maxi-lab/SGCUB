@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
@@ -6,6 +6,7 @@ from django.db import connection
 from django.db.migrations.executor import MigrationExecutor
 from django.test import TestCase, TransactionTestCase
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework.test import APITestCase
 
 from padron.models import (
@@ -59,11 +60,11 @@ def crear_socio(dni, socio_inactivo=False, con_jugador=False, jugador_inactivo=F
 	return Socio.objects.get(pk=socio.pk)
 
 
-def crear_cuota_con_cargo(cuenta, periodo, monto, estado=EstadoCuotaChoices.EN_FECHA):
+def crear_cuota_con_cargo(cuenta, periodo, monto, estado=EstadoCuotaChoices.EN_FECHA, venc1=date(2026, 9, 10), venc2=date(2026, 9, 20)):
 	cuota = Cuota.objects.create(
 		estado_cuota=estado,
-		fecha_venc1=date(2026, 9, 10),
-		fecha_venc2=date(2026, 9, 20),
+		fecha_venc1=venc1,
+		fecha_venc2=venc2,
 		periodo=periodo,
 	)
 	ItemCuota.objects.create(
@@ -506,6 +507,63 @@ class EstadoCuentaPendienteTests(PagoTestBase):
 		cuotas = {cuota["cuota_id"]: cuota for cuota in response.data}
 		self.assertEqual(Decimal(str(cuotas[self.agosto.pk]["saldo_pendiente"])), Decimal("750.00"))
 		self.assertEqual(Decimal(str(cuotas[self.agosto.pk]["monto_pagado"])), Decimal("250.00"))
+
+
+class ReporteMorosidadTests(APITestCase):
+	def setUp(self):
+		self.client.force_authenticate(user=get_user_model().objects.create_user(username="tesorero"))
+		self.hoy = timezone.localdate()
+		persona = Persona.objects.create(nombre="Rosa", apellido="Mora", dni="78901234")
+		self.socio = Socio.objects.create(persona=persona)
+		self.cuenta = CuentaCorriente.objects.create(socio=self.socio)
+		self.vencida = crear_cuota_con_cargo(
+			self.cuenta, "2026-08", "1000.00",
+			venc1=self.hoy - timedelta(days=5), venc2=self.hoy + timedelta(days=5),
+		)
+		crear_cuota_con_cargo(
+			self.cuenta, "2026-09", "1000.00",
+			venc1=self.hoy + timedelta(days=3), venc2=self.hoy + timedelta(days=13),
+		)
+
+	def reporte(self):
+		response = self.client.get(reverse("reporte-morosidad"))
+		self.assertEqual(response.status_code, 200)
+		return response.data
+
+	def fila(self, data):
+		return next(fila for fila in data["filas"] if fila["socio_id"] == self.socio.pk)
+
+	def test_cuota_vencida_desde_el_primer_vencimiento(self):
+		fila = self.fila(self.reporte())
+
+		self.assertEqual(fila["monto_adeudado"], Decimal("1000.00"))
+		self.assertEqual(fila["cuotas_vencidas"], 1)
+		self.assertEqual(fila["dias_mora"], 5)
+
+	def test_monto_adeudado_descuenta_pagos_parciales(self):
+		self.client.post(
+			reverse("registrar-pago"),
+			{
+				"socio_id": self.socio.pk,
+				"cuota_ids": [self.vencida.pk],
+				"monto_total": "300.00",
+				"medios": [{"medio_de_pago": "Efectivo", "monto": "300.00"}],
+			},
+			format="json",
+		)
+
+		fila = self.fila(self.reporte())
+
+		self.assertEqual(fila["monto_adeudado"], Decimal("700.00"))
+
+	def test_socio_sin_deuda_vencida_no_figura(self):
+		crear_socio("78901235")
+
+		data = self.reporte()
+
+		self.assertEqual(len(data["filas"]), 1)
+		self.assertEqual(data["sin_cuenta"], 1)
+		self.assertNotIn("erroresConsulta", data)
 
 
 class NumeracionComprobanteTests(APITestCase):

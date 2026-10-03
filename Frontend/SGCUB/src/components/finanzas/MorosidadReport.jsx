@@ -135,10 +135,8 @@ function MorosidadReport({
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
             <div className="border-l-4 border-error bg-error-container/40 px-4 py-3"><p className="text-sm text-on-surface-variant">Socios morosos</p><p className="text-xl font-bold text-on-surface">{reporte.filas.length}</p></div>
             <div className="border-l-4 border-primary bg-surface-container-low px-4 py-3"><p className="text-sm text-on-surface-variant">Deuda vencida total</p><p className="text-xl font-bold text-on-surface">{formatAmount(deudaTotal)}</p></div>
-            <div className="border-l-4 border-outline bg-surface-container-low px-4 py-3"><p className="text-sm text-on-surface-variant">Sin cuenta corriente</p><p className="text-xl font-bold text-on-surface">{reporte.sinCuenta}</p></div>
+            <div className="border-l-4 border-outline bg-surface-container-low px-4 py-3"><p className="text-sm text-on-surface-variant">Sin cuenta corriente</p><p className="text-xl font-bold text-on-surface">{reporte.sin_cuenta}</p></div>
           </div>
-
-          {reporte.erroresConsulta > 0 && <p className="mb-3 text-sm text-error" role="alert">No se pudieron consultar {reporte.erroresConsulta} cuentas; este resultado puede estar incompleto.</p>}
 
           {reporte.filas.length === 0 ? (
             <div className="py-12 text-center border border-dashed border-outline-variant/50 text-on-surface-variant"><span className="material-symbols-outlined text-3xl">task_alt</span><p className="mt-2 font-semibold text-on-surface">No hay socios con deuda vencida en este alcance.</p></div>

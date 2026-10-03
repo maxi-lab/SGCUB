@@ -50,7 +50,6 @@ from .services import (
 	delete_cuota,
 	generar_cuotas_mensuales,
 	lock_account_cuotas,
-	net_amount,
 	next_receipt_number,
 	pending_amounts,
 	register_payment,
@@ -479,18 +478,19 @@ def reporte_morosidad(request):
 			socios = socios.filter(jugador__categoria__nombre__iexact=categoria)
 
 	objetivos = list(socios.order_by("persona__apellido", "persona__nombre"))
-	cuotas_por_cuenta = {}
-	cuotas_vencidas_objetivos = (
+	cuotas_vencidas_objetivos = list(
 		Cuota.objects.filter(
 			movimiento__cuenta_corriente__socio__in=[socio.pk for socio in objetivos],
-			fecha_venc2__lt=hoy,
+			fecha_venc1__lt=hoy,
 		)
 		.exclude(estado_cuota=EstadoCuotaChoices.PAGA)
 		.select_related("movimiento")
-		.prefetch_related("items")
 	)
+	pendiente = pending_amounts(cuotas_vencidas_objetivos)
+	cuotas_por_cuenta = {}
 	for cuota in cuotas_vencidas_objetivos:
-		cuotas_por_cuenta.setdefault(cuota.movimiento.cuenta_corriente_id, []).append(cuota)
+		if pendiente[cuota.pk] > 0:
+			cuotas_por_cuenta.setdefault(cuota.movimiento.cuenta_corriente_id, []).append(cuota)
 	sin_cuenta = sum(1 for socio in objetivos if getattr(socio, "cuenta_corriente", None) is None)
 	filas = []
 	for socio in objetivos:
@@ -499,12 +499,9 @@ def reporte_morosidad(request):
 			continue
 
 		cuotas_vencidas = cuotas_por_cuenta.get(cuenta.pk, [])
-		monto_adeudado = sum(
-			(net_amount(cuota.items.all()) for cuota in cuotas_vencidas),
-			Decimal("0.00"),
-		)
-		if monto_adeudado <= 0:
+		if not cuotas_vencidas:
 			continue
+		monto_adeudado = sum((pendiente[cuota.pk] for cuota in cuotas_vencidas), Decimal("0.00"))
 
 		jugador = getattr(socio, "jugador", None)
 		categoria_deportiva = jugador.categoria.nombre if jugador else "Sin categoría"
@@ -516,7 +513,8 @@ def reporte_morosidad(request):
 			"dni": socio.persona.dni,
 			"categoria_deportiva": categoria_deportiva,
 			"monto_adeudado": monto_adeudado,
-			"dias_mora": max((hoy - cuota.fecha_venc2).days for cuota in cuotas_vencidas),
+			"cuotas_vencidas": len(cuotas_vencidas),
+			"dias_mora": max((hoy - cuota.fecha_venc1).days for cuota in cuotas_vencidas),
 		})
 
 	return Response({
@@ -528,8 +526,7 @@ def reporte_morosidad(request):
 			"manual": "Selección manual",
 			"socio": "Socio individual",
 		}[alcance],
-		"sinCuenta": sin_cuenta,
-		"erroresConsulta": 0,
+		"sin_cuenta": sin_cuenta,
 	})
 
 
