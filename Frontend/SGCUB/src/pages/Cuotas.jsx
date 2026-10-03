@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { deleteCuota, deleteItemCuota, getCuotas, getCuentasCorrientes, patchCuota, patchItemCuota, postCuota, postItemCuota } from '../api/cuotas'
+import { deleteCuota, getCuotas, patchCuota, postCuota } from '../api/cuotas'
 import { getSocios } from '../api/socios'
 import AddCuotaModal from '../components/cuota/AddCuotaModal'
 import CuotaTable from '../components/cuota/CuotaTable'
@@ -7,20 +7,18 @@ import DeleteCuotaModal from '../components/cuota/DeleteCuotaModal'
 import EditCuotaModal from '../components/cuota/EditCuotaModal'
 import PageHeader from '../components/shared/PageHeader'
 import StatCard from '../components/shared/StatCard'
-import { itemCuotaInicial } from '../components/cuota/ItemsCuotaFields'
 
 const FORMULARIO_INICIAL = {
-  cuenta_corriente: '',
-  estado_cuota: 'EnFecha',
+  socio_id: '',
+  periodo: '',
   fecha_venc1: '',
   fecha_venc2: '',
-  periodo: '',
-  items: [itemCuotaInicial()],
 }
+
+const esSocioActivo = (socio) => (socio.estado_administrativo_nombre ?? '').toLowerCase() === 'activo'
 
 function Cuotas() {
   const [cuotas, setCuotas] = useState([])
-  const [cuentas, setCuentas] = useState([])
   const [socios, setSocios] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
@@ -36,13 +34,11 @@ function Cuotas() {
     try {
       setIsLoading(true)
       setError('')
-      const [respuestaCuotas, respuestaCuentas, respuestaSocios] = await Promise.all([
+      const [respuestaCuotas, respuestaSocios] = await Promise.all([
         getCuotas(),
-        getCuentasCorrientes(),
         getSocios(),
       ])
       setCuotas(respuestaCuotas ?? [])
-      setCuentas(respuestaCuentas ?? [])
       setSocios(respuestaSocios ?? [])
     } catch (requestError) {
       setError(requestError.response?.data?.detail || 'No se pudieron cargar las cuotas.')
@@ -55,44 +51,24 @@ function Cuotas() {
     cargarDatos()
   }, [])
 
-  const cuentasPorId = useMemo(
-    () => Object.fromEntries((cuentas ?? []).map((cuenta) => [String(cuenta.cuenta_corriente_id), cuenta])),
-    [cuentas],
-  )
-
-  const cuentasOptions = useMemo(() => cuentas.map((cuenta) => {
-    const socioId = typeof cuenta.socio === 'object' ? cuenta.socio?.socio_id : cuenta.socio
-    const socio = socios.find((item) => String(item.socio_id) === String(socioId))
-    const nombre = socio ? `${socio.apellido}, ${socio.nombre}` : `Socio ${socioId}`
-    return { value: String(cuenta.cuenta_corriente_id), label: `${nombre} - Cuenta ${cuenta.cuenta_corriente_id}` }
-  }), [cuentas, socios])
-
-  const cuotaConDetalle = useMemo(
-    () =>
-      (cuotas ?? []).map((cuota) => {
-        const cuenta = cuentasPorId[String(cuota.cuenta_corriente)]
-        const socio = cuenta?.socio
-
-        return {
-          ...cuota,
-          cuenta_corriente: cuenta ?? { socio: cuota.cuenta_corriente },
-          socio,
-        }
-      }),
-    [cuotas, cuentasPorId],
-  )
+  const sociosOptions = useMemo(() => socios
+    .filter(esSocioActivo)
+    .map((socio) => ({
+      value: String(socio.socio_id),
+      label: `${socio.apellido}, ${socio.nombre} - DNI ${socio.dni}`,
+    })), [socios])
 
   const resumen = useMemo(() => {
-    const total = cuotaConDetalle.length
-    const vencidas = cuotaConDetalle.filter((cuota) => cuota.estado_cuota === 'Vencida').length
-    const pagas = cuotaConDetalle.filter((cuota) => cuota.estado_cuota === 'Paga').length
+    const total = cuotas.length
+    const vencidas = cuotas.filter((cuota) => cuota.estado_cuota === 'Vencida').length
+    const pagas = cuotas.filter((cuota) => cuota.estado_cuota === 'Paga').length
 
     return {
       total: total.toLocaleString('es-AR'),
       vencidas: vencidas.toLocaleString('es-AR'),
       pagas: pagas.toLocaleString('es-AR'),
     }
-  }, [cuotaConDetalle])
+  }, [cuotas])
 
   const abrirAgregar = () => {
     setFormulario(FORMULARIO_INICIAL)
@@ -103,19 +79,10 @@ function Cuotas() {
   const abrirEditar = (cuota) => {
     setCuotaSeleccionada(cuota)
     setFormulario({
-      cuenta_corriente: cuota.cuenta_corriente?.cuenta_corriente_id ?? cuota.cuenta_corriente ?? '',
-      estado_cuota: cuota.estado_cuota ?? 'EnFecha',
+      socio_id: cuota.socio?.socio_id ?? '',
+      periodo: cuota.periodo ?? '',
       fecha_venc1: cuota.fecha_venc1 ?? '',
       fecha_venc2: cuota.fecha_venc2 ?? '',
-      periodo: cuota.periodo ?? '',
-      items: (cuota.items ?? []).map((item) => ({
-        item_cuota_id: item.item_cuota_id,
-        concepto: item.concepto,
-        es_descuento: item.es_descuento,
-        fecha_aplicacion: item.fecha_aplicacion,
-        monto: Number(item.monto ?? 0),
-        motivo: item.motivo ?? '',
-      })),
     })
     setErrorFormulario('')
     setModalEditar(true)
@@ -136,37 +103,24 @@ function Cuotas() {
     setErrorFormulario('')
 
     try {
-      const { items, ...datosCuota } = formulario
-      const payload = {
-        ...datosCuota,
-        cuenta_corriente: Number(formulario.cuenta_corriente),
-      }
-
-      const itemsInvalidos = !items.length || items.some((item) => !item.concepto || !item.fecha_aplicacion || !item.monto || Number(item.monto) <= 0)
-      if (!payload.cuenta_corriente || !payload.periodo || !payload.fecha_venc1 || !payload.fecha_venc2 || itemsInvalidos) {
-        throw new Error('Completá los campos obligatorios.')
-      }
-
       if (modalEditar && cuotaSeleccionada) {
-        await patchCuota(cuotaSeleccionada.cuota_id, payload)
-        const itemsOriginales = cuotaSeleccionada.items ?? []
-        const itemsActuales = items.filter((item) => item.item_cuota_id)
-        await Promise.all(items.map((item) => {
-          const itemPayload = { ...item, cuota: cuotaSeleccionada.cuota_id, monto: Number(item.monto) }
-          return item.item_cuota_id ? patchItemCuota(item.item_cuota_id, itemPayload) : postItemCuota(itemPayload)
-        }))
-        await Promise.all(itemsOriginales
-          .filter((item) => !itemsActuales.some((actual) => actual.item_cuota_id === item.item_cuota_id))
-          .map((item) => deleteItemCuota(item.item_cuota_id)))
-      } else {
-        const cuotaCreada = await postCuota(payload)
-        for (const item of items) {
-          await postItemCuota({
-            ...item,
-            cuota: cuotaCreada.cuota_id,
-            monto: Number(item.monto),
-          })
+        if (!formulario.fecha_venc1 || !formulario.fecha_venc2) {
+          throw new Error('Completá los campos obligatorios.')
         }
+        await patchCuota(cuotaSeleccionada.cuota_id, {
+          fecha_venc1: formulario.fecha_venc1,
+          fecha_venc2: formulario.fecha_venc2,
+        })
+      } else {
+        if (!formulario.socio_id || !formulario.periodo) {
+          throw new Error('Completá los campos obligatorios.')
+        }
+        await postCuota({
+          socio_id: Number(formulario.socio_id),
+          periodo: formulario.periodo,
+          ...(formulario.fecha_venc1 && { fecha_venc1: formulario.fecha_venc1 }),
+          ...(formulario.fecha_venc2 && { fecha_venc2: formulario.fecha_venc2 }),
+        })
       }
 
       cerrarModal()
@@ -224,7 +178,7 @@ function Cuotas() {
 
       <section aria-label="Cuotas">
         <CuotaTable
-          data={cuotaConDetalle}
+          data={cuotas}
           isLoading={isLoading}
           error={error}
           onAdd={abrirAgregar}
@@ -244,7 +198,7 @@ function Cuotas() {
         onChange={(campo, valor) => setFormulario((actual) => ({ ...actual, [campo]: valor }))}
         loading={guardando}
         error={errorFormulario}
-        cuentasOptions={cuentasOptions}
+        sociosOptions={sociosOptions}
       />
 
       <EditCuotaModal
@@ -255,7 +209,7 @@ function Cuotas() {
         onChange={(campo, valor) => setFormulario((actual) => ({ ...actual, [campo]: valor }))}
         loading={guardando}
         error={errorFormulario}
-        cuentasOptions={cuentasOptions}
+        cuota={cuotaSeleccionada}
       />
 
       <DeleteCuotaModal

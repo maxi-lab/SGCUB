@@ -1,34 +1,32 @@
-import { Alert, Button, Group, Modal, Select, Stack, TextInput } from '@mantine/core'
+import { Alert, Button, Group, Modal, Stack, Table, Text, TextInput } from '@mantine/core'
 import { IconAlertCircle } from '@tabler/icons-react'
-import ItemsCuotaFields from './ItemsCuotaFields'
 
-const ESTADO_OPTIONS = [
-  { value: 'EnFecha', label: 'En fecha' },
-  { value: 'Vencida', label: 'Vencida' },
-  { value: 'Paga', label: 'Paga' },
-]
+const CONCEPTO_LABEL = {
+  CuotaSocial: 'Cuota social',
+  CuotaDeportiva: 'Cuota deportiva',
+  Mora: 'Mora',
+  DescuentoUnico: 'Descuento único',
+  Beca: 'Beca',
+  Otro: 'Otro',
+}
 
-function EditCuotaModal({ opened, onClose, onSubmit, formulario, onChange, loading, error, cuentasOptions = [] }) {
+const formatAmount = (item) => {
+  const monto = Number(item.monto ?? 0) * (item.es_descuento ? -1 : 1)
+  return monto.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })
+}
+
+function EditCuotaModal({ opened, onClose, onSubmit, formulario, onChange, loading, error, cuota }) {
+  const socio = cuota?.socio
+  const nombreSocio = socio ? `${socio.apellido}, ${socio.nombre}` : 'Sin socio'
+
   return (
     <Modal opened={opened} onClose={onClose} title="Editar cuota" centered size="md">
       <form onSubmit={onSubmit}>
         <Stack gap="md">
-          <TextInput
-            label="Período"
-            placeholder="Ej: 2026-03"
-            value={formulario.periodo || ''}
-            onChange={(event) => onChange('periodo', event.currentTarget.value)}
-            required
-          />
-
-          <Select
-            label="Estado"
-            placeholder="Seleccione un estado"
-            data={ESTADO_OPTIONS}
-            value={formulario.estado_cuota || ''}
-            onChange={(value) => onChange('estado_cuota', value)}
-            required
-          />
+          <Group grow>
+            <TextInput label="Socio" value={nombreSocio} disabled />
+            <TextInput label="Período" value={formulario.periodo || ''} disabled />
+          </Group>
 
           <Group grow>
             <TextInput
@@ -47,24 +45,19 @@ function EditCuotaModal({ opened, onClose, onSubmit, formulario, onChange, loadi
             />
           </Group>
 
-          <Select
-            label="Cuenta corriente"
-            placeholder="Seleccione el socio"
-            data={cuentasOptions}
-            searchable
-            clearable
-            value={formulario.cuenta_corriente ? String(formulario.cuenta_corriente) : null}
-            onChange={(value) => onChange('cuenta_corriente', value || '')}
-            required
-          />
-
-          <ItemsCuotaFields
-            items={formulario.items || []}
-            onChange={(index, campo, valor) => onChange('items', formulario.items.map((item, itemIndex) => itemIndex === index ? { ...item, [campo]: valor } : item))}
-            onAdd={() => onChange('items', [...(formulario.items || []), { concepto: 'CuotaSocial', es_descuento: false, fecha_aplicacion: formulario.fecha_venc1 || '', monto: '', motivo: '' }])}
-            onRemove={(index) => onChange('items', formulario.items.filter((_, itemIndex) => itemIndex !== index))}
-            disabled={loading}
-          />
+          <Stack gap={4}>
+            <Text size="sm" fw={500}>Ítems</Text>
+            <Table withTableBorder>
+              <Table.Tbody>
+                {(cuota?.items ?? []).map((item) => (
+                  <Table.Tr key={item.item_cuota_id}>
+                    <Table.Td>{CONCEPTO_LABEL[item.concepto] ?? item.concepto}</Table.Td>
+                    <Table.Td ta="right">{formatAmount(item)}</Table.Td>
+                  </Table.Tr>
+                ))}
+              </Table.Tbody>
+            </Table>
+          </Stack>
 
           {error && (
             <Alert icon={<IconAlertCircle size={16} />} title="Atención" color="red" variant="filled">

@@ -1,32 +1,27 @@
-import { Alert, Button, Group, Modal, Select, Stack, TextInput } from '@mantine/core'
+import { Alert, Button, Group, Modal, Select, Stack, Text, TextInput } from '@mantine/core'
 import { IconAlertCircle } from '@tabler/icons-react'
-import ItemsCuotaFields from './ItemsCuotaFields'
 
-const ESTADO_OPTIONS = [
-  { value: 'EnFecha', label: 'En fecha' },
-  { value: 'Vencida', label: 'Vencida' },
-  { value: 'Paga', label: 'Paga' },
-]
-
-function AddCuotaModal({ opened, onClose, onSubmit, formulario, onChange, loading, error, cuentasOptions = [] }) {
+function AddCuotaModal({ opened, onClose, onSubmit, formulario, onChange, loading, error, sociosOptions = [] }) {
   return (
-    <Modal opened={opened} onClose={onClose} title="Agregar cuota" centered size="md">
+    <Modal opened={opened} onClose={onClose} title="Generar cuota" centered size="md">
       <form onSubmit={onSubmit}>
         <Stack gap="md">
-          <TextInput
-            label="Período"
-            placeholder="Ej: 2026-03"
-            value={formulario.periodo || ''}
-            onChange={(event) => onChange('periodo', event.currentTarget.value)}
+          <Select
+            label="Socio"
+            placeholder="Seleccione el socio"
+            data={sociosOptions}
+            searchable
+            clearable
+            value={formulario.socio_id ? String(formulario.socio_id) : null}
+            onChange={(value) => onChange('socio_id', value || '')}
             required
           />
 
-          <Select
-            label="Estado"
-            placeholder="Seleccione un estado"
-            data={ESTADO_OPTIONS}
-            value={formulario.estado_cuota || ''}
-            onChange={(value) => onChange('estado_cuota', value)}
+          <TextInput
+            label="Período"
+            type="month"
+            value={formulario.periodo || ''}
+            onChange={(event) => onChange('periodo', event.currentTarget.value)}
             required
           />
 
@@ -36,35 +31,18 @@ function AddCuotaModal({ opened, onClose, onSubmit, formulario, onChange, loadin
               type="date"
               value={formulario.fecha_venc1 || ''}
               onChange={(event) => onChange('fecha_venc1', event.currentTarget.value)}
-              required
             />
             <TextInput
               label="Fecha vencimiento 2"
               type="date"
               value={formulario.fecha_venc2 || ''}
               onChange={(event) => onChange('fecha_venc2', event.currentTarget.value)}
-              required
             />
           </Group>
 
-          <Select
-            label="Cuenta corriente"
-            placeholder="Seleccione el socio"
-            data={cuentasOptions}
-            searchable
-            clearable
-            value={formulario.cuenta_corriente ? String(formulario.cuenta_corriente) : null}
-            onChange={(value) => onChange('cuenta_corriente', value || '')}
-            required
-          />
-
-          <ItemsCuotaFields
-            items={formulario.items || []}
-            onChange={(index, campo, valor) => onChange('items', formulario.items.map((item, itemIndex) => itemIndex === index ? { ...item, [campo]: valor } : item))}
-            onAdd={() => onChange('items', [...(formulario.items || []), { concepto: 'CuotaSocial', es_descuento: false, fecha_aplicacion: formulario.fecha_venc1 || '', monto: '', motivo: '' }])}
-            onRemove={(index) => onChange('items', formulario.items.filter((_, itemIndex) => itemIndex !== index))}
-            disabled={loading}
-          />
+          <Text size="sm" c="dimmed">
+            Los ítems de la cuota se calculan automáticamente según el socio. Si no se indican vencimientos, se usan los días 10 y 20 del período.
+          </Text>
 
           {error && (
             <Alert icon={<IconAlertCircle size={16} />} title="Atención" color="red" variant="filled">
@@ -77,7 +55,7 @@ function AddCuotaModal({ opened, onClose, onSubmit, formulario, onChange, loadin
               Cancelar
             </Button>
             <Button type="submit" loading={loading} color="teal">
-              Guardar
+              Generar
             </Button>
           </Group>
         </Stack>

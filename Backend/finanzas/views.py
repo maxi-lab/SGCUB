@@ -2,7 +2,7 @@ from decimal import Decimal, InvalidOperation
 
 from django.contrib.auth import get_user_model
 from django.db import transaction
-from django.db.models import Prefetch, Q
+from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import status
@@ -29,7 +29,9 @@ from .serializers import (
 	CorreccionPagoSerializer,
 	ComprobanteSerializer,
 	CuentaCorrienteSerializer,
+	CuotaCreateSerializer,
 	CuotaSerializer,
+	CuotaUpdateSerializer,
 	ImputacionSerializer,
 	ItemPagoSerializer,
 	ItemCuotaSerializer,
@@ -38,7 +40,16 @@ from .serializers import (
 	CuentaCorrienteEstadoSerializer,
 	ComprobanteDetalleSerializer,
 )
-from .services import generar_cuotas_mensuales, next_receipt_number
+from .services import (
+	CuotaDuplicadaError,
+	SocioInactivoError,
+	create_cuota,
+	delete_cuota,
+	generar_cuotas_mensuales,
+	net_amount,
+	next_receipt_number,
+	sync_cuota_charge,
+)
 
 
 def _list_create(request, model, serializer_class, queryset=None):
@@ -76,11 +87,10 @@ def _detail(request, model, serializer_class, pk, queryset=None):
 	return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-def _monto_neto_items_cuota(items):
-	return sum(
-		(-item.monto if item.es_descuento else item.monto)
-		for item in items
-	)
+def _cuotas_queryset():
+	return Cuota.objects.select_related(
+		"movimiento__cuenta_corriente__socio__persona",
+	).prefetch_related("items")
 
 
 @extend_schema(tags=["Finanzas/EstadoCuota"])
@@ -92,15 +102,26 @@ def estado_cuota_list_create(request):
 	])
 
 
-@extend_schema(tags=["Finanzas/Cuota"], request=CuotaSerializer, responses=CuotaSerializer)
+@extend_schema(tags=["Finanzas/Cuota"], request=CuotaCreateSerializer, responses=CuotaSerializer)
 @api_view(["GET", "POST"])
 def cuota_list_create(request):
-	return _list_create(
-		request,
-		Cuota,
-		CuotaSerializer,
-		Cuota.objects.select_related("cuenta_corriente"),
+	if request.method == "GET":
+		return Response(CuotaSerializer(_cuotas_queryset().order_by("pk"), many=True).data)
+
+	serializer = CuotaCreateSerializer(data=request.data)
+	if not serializer.is_valid():
+		return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+	data = serializer.validated_data
+	socio = get_object_or_404(
+		Socio.objects.select_related("estado_administrativo", "jugador__estado"),
+		pk=data["socio_id"],
 	)
+	try:
+		cuota = create_cuota(socio, data["periodo"], data.get("fecha_venc1"), data.get("fecha_venc2"))
+	except (CuotaDuplicadaError, SocioInactivoError) as error:
+		return Response({"detail": str(error)}, status=status.HTTP_400_BAD_REQUEST)
+	return Response(CuotaSerializer(_cuotas_queryset().get(pk=cuota.pk)).data, status=status.HTTP_201_CREATED)
 
 
 @extend_schema(tags=["Finanzas/Cuota"])
@@ -109,131 +130,62 @@ def generar_cuotas_mensuales_manual(request):
 	return Response(generar_cuotas_mensuales(), status=status.HTTP_200_OK)
 
 
-@extend_schema(tags=["Finanzas/Cuota"], request=CuotaSerializer, responses=CuotaSerializer)
+@extend_schema(tags=["Finanzas/Cuota"], request=CuotaUpdateSerializer, responses=CuotaSerializer)
 @api_view(["GET", "PUT", "PATCH", "DELETE"])
 def cuota_detail(request, pk):
+	cuota = get_object_or_404(_cuotas_queryset(), pk=pk)
 	if request.method == "GET":
-		cuota = get_object_or_404(
-			Cuota.objects.select_related("cuenta_corriente"),
-			pk=pk,
-		)
 		return Response(CuotaSerializer(cuota).data)
 
-	if request.method in ("PUT", "PATCH"):
-		with transaction.atomic():
-			cuota = get_object_or_404(
-				Cuota.objects.select_for_update().prefetch_related("items"),
-				pk=pk,
-			)
-			serializer = CuotaSerializer(
-				cuota,
-				data=request.data,
-				partial=request.method == "PATCH",
-			)
-			if not serializer.is_valid():
-				return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+	if request.method == "DELETE":
+		delete_cuota(cuota)
+		return Response(status=status.HTTP_204_NO_CONTENT)
 
-			cuenta_anterior_id = cuota.cuenta_corriente_id
-			cuenta_nueva_id = serializer.validated_data.get(
-				"cuenta_corriente", cuota.cuenta_corriente
-			).pk
-			monto_neto = _monto_neto_items_cuota(cuota.items.all())
-			cuentas = {
-				cuenta.pk: cuenta
-				for cuenta in CuentaCorriente.objects.select_for_update()
-				.filter(pk__in={cuenta_anterior_id, cuenta_nueva_id})
-				.order_by("pk")
-			}
-			cuota = serializer.save()
-			if cuenta_anterior_id != cuenta_nueva_id:
-				cuentas[cuenta_anterior_id].saldo += monto_neto
-				cuentas[cuenta_nueva_id].saldo -= monto_neto
-				cuentas[cuenta_anterior_id].save(update_fields=["saldo"])
-				cuentas[cuenta_nueva_id].save(update_fields=["saldo"])
-		return Response(CuotaSerializer(cuota).data)
-
-	with transaction.atomic():
-		cuota = get_object_or_404(
-			Cuota.objects.select_for_update().select_related("cuenta_corriente").prefetch_related("items"),
-			pk=pk,
-		)
-		cuenta = CuentaCorriente.objects.select_for_update().get(pk=cuota.cuenta_corriente_id)
-		monto_neto = _monto_neto_items_cuota(cuota.items.all())
-		cuota.delete()
-		cuenta.saldo += monto_neto
-		cuenta.save(update_fields=["saldo"])
-	return Response(status=status.HTTP_204_NO_CONTENT)
+	serializer = CuotaUpdateSerializer(cuota, data=request.data, partial=request.method == "PATCH")
+	if not serializer.is_valid():
+		return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+	serializer.save()
+	return Response(CuotaSerializer(_cuotas_queryset().get(pk=pk)).data)
 
 
 @extend_schema(tags=["Finanzas/ItemCuota"], request=ItemCuotaSerializer, responses=ItemCuotaSerializer)
 @api_view(["GET", "POST"])
 def item_cuota_list_create(request):
 	if request.method == "GET":
-		return _list_create(request, ItemCuota, ItemCuotaSerializer)
+		return Response(ItemCuotaSerializer(ItemCuota.objects.all(), many=True).data)
 
 	serializer = ItemCuotaSerializer(data=request.data)
 	if not serializer.is_valid():
 		return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 	with transaction.atomic():
-		cuota = get_object_or_404(
-			Cuota.objects.select_for_update().select_related("cuenta_corriente"),
-			pk=serializer.validated_data["cuota"].pk,
-		)
-		cuenta = CuentaCorriente.objects.select_for_update().get(pk=cuota.cuenta_corriente_id)
 		item = serializer.save()
-		monto_neto = -item.monto if item.es_descuento else item.monto
-		cuenta.saldo -= monto_neto
-		cuenta.save(update_fields=["saldo"])
+		sync_cuota_charge(item.cuota)
 	return Response(ItemCuotaSerializer(item).data, status=status.HTTP_201_CREATED)
 
 
 @extend_schema(tags=["Finanzas/ItemCuota"], request=ItemCuotaSerializer, responses=ItemCuotaSerializer)
 @api_view(["GET", "PUT", "PATCH", "DELETE"])
 def item_cuota_detail(request, pk):
+	item = get_object_or_404(ItemCuota.objects.select_related("cuota"), pk=pk)
 	if request.method == "GET":
-		return _detail(request, ItemCuota, ItemCuotaSerializer, pk)
+		return Response(ItemCuotaSerializer(item).data)
 
+	previous_cuota = item.cuota
 	with transaction.atomic():
-		item = get_object_or_404(
-			ItemCuota.objects.select_for_update().select_related("cuota"),
-			pk=pk,
-		)
-		serializer = ItemCuotaSerializer(
-			item,
-			data=request.data,
-			partial=request.method == "PATCH",
-		)
-		if request.method in ("PUT", "PATCH"):
-			if not serializer.is_valid():
-				return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+		if request.method == "DELETE":
+			item.delete()
+			sync_cuota_charge(previous_cuota)
+			return Response(status=status.HTTP_204_NO_CONTENT)
 
-			monto_anterior = -item.monto if item.es_descuento else item.monto
-			cuota_nueva = serializer.validated_data.get("cuota", item.cuota)
-			cuentas = {
-				cuenta.pk: cuenta
-				for cuenta in CuentaCorriente.objects.select_for_update()
-				.filter(pk__in={item.cuota.cuenta_corriente_id, cuota_nueva.cuenta_corriente_id})
-				.order_by("pk")
-			}
-			cuenta_anterior_id = item.cuota.cuenta_corriente_id
-			item = serializer.save()
-			monto_nuevo = -item.monto if item.es_descuento else item.monto
-			cuenta_nueva_id = item.cuota.cuenta_corriente_id
-			cuentas[cuenta_anterior_id].saldo += monto_anterior
-			cuentas[cuenta_nueva_id].saldo -= monto_nuevo
-			for cuenta in cuentas.values():
-				cuenta.save(update_fields=["saldo"])
-			return Response(ItemCuotaSerializer(item).data)
-
-		monto_neto = -item.monto if item.es_descuento else item.monto
-		cuenta = CuentaCorriente.objects.select_for_update().get(
-			pk=item.cuota.cuenta_corriente_id
-		)
-		item.delete()
-		cuenta.saldo += monto_neto
-		cuenta.save(update_fields=["saldo"])
-	return Response(status=status.HTTP_204_NO_CONTENT)
+		serializer = ItemCuotaSerializer(item, data=request.data, partial=request.method == "PATCH")
+		if not serializer.is_valid():
+			return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+		item = serializer.save()
+		sync_cuota_charge(previous_cuota)
+		if item.cuota_id != previous_cuota.pk:
+			sync_cuota_charge(item.cuota)
+	return Response(ItemCuotaSerializer(item).data)
 
 
 @extend_schema(tags=["Finanzas/Pago"], request=PagoSerializer, responses=PagoSerializer)
@@ -299,8 +251,7 @@ def corregir_pago(request, pk):
 		)
 		movimiento_original = MovimientoCuenta.objects.select_for_update().filter(
 			pago_id=pago_original.pk,
-			tipo_movimiento="Abono",
-		).order_by("movimiento_cuenta_id").first()
+		).first()
 		if movimiento_original is None:
 			return Response({"detail": "El pago original no tiene un movimiento de cuenta para revertir."}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -308,15 +259,15 @@ def corregir_pago(request, pk):
 			pk=movimiento_original.cuenta_corriente_id
 		)
 		cuotas = list(
-			Cuota.objects.select_for_update()
-			.filter(cuenta_corriente=cuenta, cuota_id__in=cuota_ids)
+			Cuota.objects.select_for_update(of=("self",))
+			.filter(movimiento__cuenta_corriente=cuenta, cuota_id__in=cuota_ids)
 			.prefetch_related("items")
 		)
 		if len(cuotas) != len(cuota_ids):
 			return Response({"detail": "Una o más cuotas no pertenecen al socio del pago original."}, status=status.HTTP_400_BAD_REQUEST)
 
 		monto_cuotas = sum(
-			(_monto_neto_items_cuota(cuota.items.all()) for cuota in cuotas),
+			(net_amount(cuota.items.all()) for cuota in cuotas),
 			Decimal("0.00"),
 		)
 		if monto_total > monto_cuotas:
@@ -345,7 +296,7 @@ def corregir_pago(request, pk):
 		monto_original = comprobante_original.monto_total
 		MovimientoCuenta.objects.create(
 			cuenta_corriente=cuenta,
-			pago=pago_original,
+			movimiento_revertido=movimiento_original,
 			tipo_movimiento=TipoMovimientoChoices.CARGO,
 			fecha=timezone.now(),
 			monto=monto_original,
@@ -368,7 +319,7 @@ def corregir_pago(request, pk):
 
 		restante = monto_total
 		for cuota in cuotas:
-			monto_cuota = _monto_neto_items_cuota(cuota.items.all())
+			monto_cuota = net_amount(cuota.items.all())
 			if restante >= monto_cuota:
 				cuota.estado_cuota = EstadoCuotaChoices.PAGA
 				cuota.save(update_fields=["estado_cuota"])
@@ -414,20 +365,22 @@ def registrar_pago(request):
 
 	with transaction.atomic():
 		cuenta = get_object_or_404(
-			CuentaCorriente.objects.select_for_update().prefetch_related(
-				Prefetch("cuotas", queryset=Cuota.objects.select_for_update().prefetch_related("items"))
-			),
+			CuentaCorriente.objects.select_for_update(),
 			socio_id=data.get("socio_id"),
 		)
-		cuotas = list(cuenta.cuotas.filter(cuota_id__in=cuota_ids))
+		cuotas = list(
+			Cuota.objects.select_for_update(of=("self",))
+			.filter(movimiento__cuenta_corriente=cuenta, cuota_id__in=cuota_ids)
+			.prefetch_related("items")
+		)
 		if len(cuotas) != len(set(cuota_ids)):
 			return Response({"detail": "Una o más cuotas no pertenecen a este socio."}, status=status.HTTP_400_BAD_REQUEST)
 		if any(cuota.estado_cuota == EstadoCuotaChoices.PAGA for cuota in cuotas):
 			return Response({"detail": "No se pueden pagar cuotas ya saldadas."}, status=status.HTTP_400_BAD_REQUEST)
 
 		monto_cuotas = sum(
-			(sum((-item.monto if item.es_descuento else item.monto) for item in cuota.items.all()))
-			for cuota in cuotas
+			(net_amount(cuota.items.all()) for cuota in cuotas),
+			Decimal("0.00"),
 		)
 		if monto_total > monto_cuotas:
 			return Response({"detail": "El pago supera el saldo de las cuotas seleccionadas."}, status=status.HTTP_400_BAD_REQUEST)
@@ -460,7 +413,7 @@ def registrar_pago(request):
 
 		restante = monto_total
 		for cuota in cuotas:
-			monto_cuota = sum((-item.monto if item.es_descuento else item.monto) for item in cuota.items.all())
+			monto_cuota = net_amount(cuota.items.all())
 			if restante >= monto_cuota:
 				cuota.estado_cuota = EstadoCuotaChoices.PAGA
 				cuota.save(update_fields=["estado_cuota"])
@@ -494,10 +447,9 @@ def comprobante_list_create(request):
 @api_view(["GET"])
 def comprobante_detail(request, pk):
 	comprobante = get_object_or_404(
-		Comprobante.objects.select_related("pago").prefetch_related(
-			"pago__items_pago",
-			"pago__movimientos",
-		),
+		Comprobante.objects.select_related(
+			"pago__movimiento__cuenta_corriente__socio__persona",
+		).prefetch_related("pago__items_pago"),
 		pk=pk,
 	)
 	return Response(ComprobanteDetalleSerializer(comprobante).data)
@@ -532,12 +484,7 @@ def cuenta_corriente_detail(request, pk):
 @extend_schema(tags=["Finanzas/EstadoCuenta"], responses=CuentaCorrienteEstadoSerializer)
 @api_view(["GET"])
 def estado_cuenta_socio(request, socio_id):
-	cuenta = get_object_or_404(
-		CuentaCorriente.objects.prefetch_related(
-			Prefetch("cuotas", queryset=Cuota.objects.prefetch_related("items"))
-		),
-		socio_id=socio_id,
-	)
+	cuenta = get_object_or_404(CuentaCorriente, socio_id=socio_id)
 	return Response(CuentaCorrienteEstadoSerializer(cuenta).data)
 
 
@@ -557,13 +504,6 @@ def reporte_morosidad(request):
 		"estado_administrativo",
 		"jugador__categoria",
 		"cuenta_corriente",
-	).prefetch_related(
-		Prefetch(
-			"cuenta_corriente__cuotas",
-			queryset=Cuota.objects.filter(fecha_venc2__lt=hoy)
-			.exclude(estado_cuota=EstadoCuotaChoices.PAGA)
-			.prefetch_related("items"),
-		)
 	)
 
 	if alcance == "activos":
@@ -602,6 +542,18 @@ def reporte_morosidad(request):
 			socios = socios.filter(jugador__categoria__nombre__iexact=categoria)
 
 	objetivos = list(socios.order_by("persona__apellido", "persona__nombre"))
+	cuotas_por_cuenta = {}
+	cuotas_vencidas_objetivos = (
+		Cuota.objects.filter(
+			movimiento__cuenta_corriente__socio__in=[socio.pk for socio in objetivos],
+			fecha_venc2__lt=hoy,
+		)
+		.exclude(estado_cuota=EstadoCuotaChoices.PAGA)
+		.select_related("movimiento")
+		.prefetch_related("items")
+	)
+	for cuota in cuotas_vencidas_objetivos:
+		cuotas_por_cuenta.setdefault(cuota.movimiento.cuenta_corriente_id, []).append(cuota)
 	sin_cuenta = sum(1 for socio in objetivos if getattr(socio, "cuenta_corriente", None) is None)
 	filas = []
 	for socio in objetivos:
@@ -609,13 +561,9 @@ def reporte_morosidad(request):
 		if cuenta is None:
 			continue
 
-		cuotas_vencidas = list(cuenta.cuotas.all())
+		cuotas_vencidas = cuotas_por_cuenta.get(cuenta.pk, [])
 		monto_adeudado = sum(
-			(
-				-item.monto if item.es_descuento else item.monto
-				for cuota in cuotas_vencidas
-				for item in cuota.items.all()
-			),
+			(net_amount(cuota.items.all()) for cuota in cuotas_vencidas),
 			Decimal("0.00"),
 		)
 		if monto_adeudado <= 0:

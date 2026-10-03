@@ -1,27 +1,34 @@
 from calendar import monthrange
-from datetime import date
-from decimal import Decimal, InvalidOperation
+from datetime import date, datetime
+from decimal import Decimal
 
-from django.conf import settings
-from django.core.exceptions import ImproperlyConfigured
 from django.db import transaction
-from django.db.models import Q
 from django.utils import timezone
 
-from padron.models import (
-    ESTADO_ADMINISTRATIVO_ACTIVO,
-    ESTADO_DEPORTIVO_ACTIVO,
-    Socio,
-)
+from padron.models import ESTADO_ADMINISTRATIVO_ACTIVO, Socio
 
+from .generators import GeneradorItemsCuota
 from .models import (
+    ConceptoItemChoices,
     CuentaCorriente,
     Cuota,
-    EstadoCuotaChoices,
     ItemCuota,
-    ConceptoItemChoices,
+    MovimientoCuenta,
     SecuenciaComprobante,
+    TipoMovimientoChoices,
 )
+
+FIRST_DUE_DAY = 10
+SECOND_DUE_DAY = 20
+PERIOD_FORMAT = "%Y-%m"
+
+
+class CuotaDuplicadaError(Exception):
+    pass
+
+
+class SocioInactivoError(Exception):
+    pass
 
 
 def next_receipt_number():
@@ -31,64 +38,102 @@ def next_receipt_number():
     return sequence.ultimo_numero
 
 
-def _monto_configurado(nombre):
-    valor = 1000
+def net_amount(items):
+    return sum(
+        ((-item.monto if item.es_descuento else item.monto) for item in items),
+        Decimal("0.00"),
+    )
+
+
+def parse_period(period):
     try:
-        monto = Decimal(str(valor)).quantize(Decimal("0.01"))
-    except (InvalidOperation, TypeError, ValueError):
-        raise ImproperlyConfigured(
-            f"Debe configurar {nombre} con un importe decimal mayor a cero."
-        ) from None
-
-    if monto <= 0:
-        raise ImproperlyConfigured(
-            f"Debe configurar {nombre} con un importe decimal mayor a cero."
-        )
-    return monto
+        return datetime.strptime(str(period).strip(), PERIOD_FORMAT).date()
+    except ValueError:
+        raise ValueError("El período debe tener el formato AAAA-MM.") from None
 
 
-def _fecha_vencimiento(anio, mes, dia):
-    if not 1 <= dia <= 31:
-        raise ImproperlyConfigured("Los días de vencimiento deben estar entre 1 y 31.")
-    ultimo_dia = monthrange(anio, mes)[1]
-    return date(anio, mes, min(dia, ultimo_dia))
+def due_date(first_day, day):
+    return first_day.replace(day=min(day, monthrange(first_day.year, first_day.month)[1]))
+
+
+def lock_account(socio):
+    account, _ = CuentaCorriente.objects.get_or_create(socio=socio)
+    return CuentaCorriente.objects.select_for_update().get(pk=account.pk)
+
+
+def lock_cuota_charge(cuota):
+    account_id = MovimientoCuenta.objects.values_list("cuenta_corriente_id", flat=True).get(cuota=cuota)
+    account = CuentaCorriente.objects.select_for_update().get(pk=account_id)
+    movement = MovimientoCuenta.objects.select_for_update().get(cuota=cuota)
+    return account, movement
+
+
+@transaction.atomic
+def create_cuota(socio, period, first_due_date=None, second_due_date=None):
+    first_day = parse_period(period)
+    period = first_day.strftime(PERIOD_FORMAT)
+    items = GeneradorItemsCuota(socio, first_day).build_items()
+    if not items:
+        raise SocioInactivoError("El socio no está activo; no corresponde generar cuota.")
+
+    account = lock_account(socio)
+    if account.cuotas.filter(periodo=period).exists():
+        raise CuotaDuplicadaError(f"El socio ya tiene una cuota para el período {period}.")
+
+    cuota = Cuota.objects.create(
+        periodo=period,
+        fecha_venc1=first_due_date or due_date(first_day, FIRST_DUE_DAY),
+        fecha_venc2=second_due_date or due_date(first_day, SECOND_DUE_DAY),
+    )
+    for item in items:
+        item.cuota = cuota
+    ItemCuota.objects.bulk_create(items)
+
+    amount = net_amount(items)
+    MovimientoCuenta.objects.create(
+        cuenta_corriente=account,
+        cuota=cuota,
+        tipo_movimiento=TipoMovimientoChoices.CARGO,
+        fecha=timezone.now(),
+        monto=amount,
+        concepto=f"Cuota {period}",
+    )
+    account.saldo -= amount
+    account.save(update_fields=["saldo"])
+    return cuota
+
+
+@transaction.atomic
+def sync_cuota_charge(cuota):
+    account, movement = lock_cuota_charge(cuota)
+    amount = net_amount(ItemCuota.objects.filter(cuota=cuota))
+    account.saldo -= amount - movement.monto
+    account.save(update_fields=["saldo"])
+    movement.monto = amount
+    movement.save(update_fields=["monto"])
+
+
+@transaction.atomic
+def delete_cuota(cuota):
+    account, movement = lock_cuota_charge(cuota)
+    account.saldo += movement.monto
+    account.save(update_fields=["saldo"])
+    cuota.delete()
 
 
 def generar_cuotas_mensuales(fecha=None):
-    """Genera una cuota por socio elegible para el mes de ``fecha``."""
     fecha = fecha or timezone.localdate()
     if not isinstance(fecha, date):
         raise TypeError("La fecha de generación debe ser una fecha.")
 
-    monto_social = 1000
-    monto_deportivo = 1500
-    periodo = fecha.strftime("%Y-%m")
-    fecha_aplicacion = date(fecha.year, fecha.month, 1)
-    vencimiento_1 = _fecha_vencimiento(
-        fecha.year,
-        fecha.month,
-        10,
-    )
-    vencimiento_2 = _fecha_vencimiento(
-        fecha.year,
-        fecha.month,
-        20,
-    )
-    if vencimiento_2 < vencimiento_1:
-        raise ImproperlyConfigured(
-            "El segundo vencimiento no puede ser anterior al primero."
-        )
-
+    period = fecha.strftime(PERIOD_FORMAT)
     socios = (
-        Socio.objects.filter(
-            Q(estado_administrativo__nombre__iexact=ESTADO_ADMINISTRATIVO_ACTIVO)
-            | Q(jugador__isnull=False)
-        )
+        Socio.objects.filter(estado_administrativo__nombre__iexact=ESTADO_ADMINISTRATIVO_ACTIVO)
         .select_related("estado_administrativo", "jugador__estado")
         .order_by("pk")
     )
-    resultado = {
-        "periodo": periodo,
+    result = {
+        "periodo": period,
         "cuotas_creadas": 0,
         "cuotas_existentes": 0,
         "items_sociales": 0,
@@ -97,46 +142,17 @@ def generar_cuotas_mensuales(fecha=None):
 
     with transaction.atomic():
         for socio in socios:
-            cuenta, _ = CuentaCorriente.objects.get_or_create(socio=socio)
-            cuenta = CuentaCorriente.objects.select_for_update().get(pk=cuenta.pk)
-            if Cuota.objects.filter(cuenta_corriente=cuenta, periodo=periodo).exists():
-                resultado["cuotas_existentes"] += 1
+            try:
+                cuota = create_cuota(socio, period)
+            except CuotaDuplicadaError:
+                result["cuotas_existentes"] += 1
+                continue
+            except SocioInactivoError:
                 continue
 
-            cuota = Cuota.objects.create(
-                cuenta_corriente=cuenta,
-                estado_cuota=EstadoCuotaChoices.EN_FECHA,
-                fecha_venc1=vencimiento_1,
-                fecha_venc2=vencimiento_2,
-                periodo=periodo,
-            )
-            ItemCuota.objects.create(
-                cuota=cuota,
-                concepto=ConceptoItemChoices.CUOTA_SOCIAL,
-                fecha_aplicacion=fecha_aplicacion,
-                monto=monto_social,
-            )
-            monto_total = monto_social
-            resultado["items_sociales"] += 1
+            concepts = list(cuota.items.values_list("concepto", flat=True))
+            result["cuotas_creadas"] += 1
+            result["items_sociales"] += concepts.count(ConceptoItemChoices.CUOTA_SOCIAL)
+            result["items_deportivos"] += concepts.count(ConceptoItemChoices.CUOTA_DEPORTIVA)
 
-            jugador = getattr(socio, "jugador", None)
-            if (
-                jugador is not None
-                and socio.estado_administrativo.nombre.casefold()
-                == ESTADO_ADMINISTRATIVO_ACTIVO.casefold()
-                and jugador.estado.nombre.casefold() == ESTADO_DEPORTIVO_ACTIVO.casefold()
-            ):
-                ItemCuota.objects.create(
-                    cuota=cuota,
-                    concepto=ConceptoItemChoices.CUOTA_DEPORTIVA,
-                    fecha_aplicacion=fecha_aplicacion,
-                    monto=monto_deportivo,
-                )
-                monto_total += monto_deportivo
-                resultado["items_deportivos"] += 1
-
-            cuenta.saldo -= monto_total
-            cuenta.save(update_fields=["saldo"])
-            resultado["cuotas_creadas"] += 1
-
-    return resultado
+    return result

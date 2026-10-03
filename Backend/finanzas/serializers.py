@@ -14,13 +14,26 @@ from .models import (
     EstadoCuotaChoices,
     MedioDePagoChoices,
 )
+from .services import net_amount, parse_period
 
 
 def monto_total_cuota(cuota):
-    return sum(
-        (-item.monto if item.es_descuento else item.monto)
-        for item in cuota.items.all()
-    )
+    return net_amount(cuota.items.all())
+
+
+def socio_data(socio):
+    return {
+        "socio_id": socio.socio_id,
+        "numero_socio": socio.numero_socio,
+        "nombre": socio.persona.nombre,
+        "apellido": socio.persona.apellido,
+        "dni": socio.persona.dni,
+    }
+
+
+def cuota_account(cuota):
+    movement = getattr(cuota, "movimiento", None)
+    return movement.cuenta_corriente if movement else None
 
 
 class MedioCorreccionPagoSerializer(serializers.Serializer):
@@ -62,6 +75,8 @@ class CorreccionPagoSerializer(serializers.Serializer):
 
 
 class CuotaSerializer(serializers.ModelSerializer):
+    cuenta_corriente = serializers.SerializerMethodField()
+    socio = serializers.SerializerMethodField()
     items = serializers.SerializerMethodField()
     monto_total = serializers.SerializerMethodField()
 
@@ -70,20 +85,66 @@ class CuotaSerializer(serializers.ModelSerializer):
         fields = [
             "cuota_id",
             "cuenta_corriente",
+            "socio",
             "estado_cuota",
+            "fecha_creacion",
             "fecha_venc1",
             "fecha_venc2",
             "periodo",
             "items",
             "monto_total",
         ]
-        read_only_fields = ["cuota_id"]
+        read_only_fields = fields
+
+    def get_cuenta_corriente(self, obj):
+        account = cuota_account(obj)
+        return account.cuenta_corriente_id if account else None
+
+    def get_socio(self, obj):
+        account = cuota_account(obj)
+        return socio_data(account.socio) if account else None
 
     def get_items(self, obj):
         return ItemCuotaSerializer(obj.items.all(), many=True).data
 
     def get_monto_total(self, obj):
         return monto_total_cuota(obj)
+
+
+def validate_due_dates(attrs, instance=None):
+    first = attrs.get("fecha_venc1", getattr(instance, "fecha_venc1", None))
+    second = attrs.get("fecha_venc2", getattr(instance, "fecha_venc2", None))
+    if first and second and second < first:
+        raise serializers.ValidationError({
+            "fecha_venc2": "El segundo vencimiento no puede ser anterior al primero."
+        })
+    return attrs
+
+
+class CuotaCreateSerializer(serializers.Serializer):
+    socio_id = serializers.IntegerField(min_value=1)
+    periodo = serializers.CharField(max_length=20)
+    fecha_venc1 = serializers.DateField(required=False)
+    fecha_venc2 = serializers.DateField(required=False)
+
+    def validate_periodo(self, value):
+        try:
+            parse_period(value)
+        except ValueError as error:
+            raise serializers.ValidationError(str(error))
+        return value
+
+    def validate(self, attrs):
+        return validate_due_dates(attrs)
+
+
+class CuotaUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Cuota
+        fields = ["fecha_venc1", "fecha_venc2"]
+
+    def validate(self, attrs):
+        return validate_due_dates(attrs, self.instance)
 
 
 class ItemCuotaSerializer(serializers.ModelSerializer):
@@ -132,18 +193,8 @@ class ComprobanteDetalleSerializer(ComprobanteSerializer):
         pago = obj.pago
         detalle = PagoSerializer(pago).data
         detalle["items_pago"] = ItemPagoSerializer(pago.items_pago.all(), many=True).data
-        movimiento = pago.movimientos.select_related("cuenta_corriente__socio__persona").first()
-        if movimiento:
-            socio = movimiento.cuenta_corriente.socio
-            detalle["socio"] = {
-                "socio_id": socio.socio_id,
-                "numero_socio": socio.numero_socio,
-                "nombre": socio.persona.nombre,
-                "apellido": socio.persona.apellido,
-                "dni": socio.persona.dni,
-            }
-        else:
-            detalle["socio"] = None
+        movimiento = getattr(pago, "movimiento", None)
+        detalle["socio"] = socio_data(movimiento.cuenta_corriente.socio) if movimiento else None
         return detalle
 
 
@@ -157,7 +208,7 @@ class CuentaCorrienteSerializer(serializers.ModelSerializer):
 
 
 class CuentaCorrienteEstadoSerializer(serializers.ModelSerializer):
-    cuotas = CuotaSerializer(many=True, read_only=True)
+    cuotas = serializers.SerializerMethodField()
     cuotas_generadas = serializers.SerializerMethodField()
     cuotas_pagas = serializers.SerializerMethodField()
     cuotas_impagas = serializers.SerializerMethodField()
@@ -179,28 +230,43 @@ class CuentaCorrienteEstadoSerializer(serializers.ModelSerializer):
             "total_mora",
         ]
 
+    def _account_cuotas(self, obj):
+        cache = self.__dict__.setdefault("_cuotas_cache", {})
+        if obj.pk not in cache:
+            cache[obj.pk] = list(
+                obj.cuotas.select_related("movimiento__cuenta_corriente__socio__persona")
+                .prefetch_related("items")
+                .order_by("pk")
+            )
+        return cache[obj.pk]
+
+    def get_cuotas(self, obj):
+        return CuotaSerializer(self._account_cuotas(obj), many=True).data
+
     def get_cuotas_generadas(self, obj):
-        return obj.cuotas.count()
+        return len(self._account_cuotas(obj))
 
     def get_cuotas_pagas(self, obj):
-        return obj.cuotas.filter(estado_cuota=EstadoCuotaChoices.PAGA).count()
+        return sum(1 for cuota in self._account_cuotas(obj) if cuota.estado_cuota == EstadoCuotaChoices.PAGA)
 
     def get_cuotas_impagas(self, obj):
-        return obj.cuotas.exclude(estado_cuota=EstadoCuotaChoices.PAGA).count()
+        return sum(1 for cuota in self._account_cuotas(obj) if cuota.estado_cuota != EstadoCuotaChoices.PAGA)
 
     def get_total_adeudado(self, obj):
         return sum(
-            monto_total_cuota(cuota)
-            for cuota in obj.cuotas.all()
-            if cuota.estado_cuota != EstadoCuotaChoices.PAGA
+            (monto_total_cuota(cuota) for cuota in self._account_cuotas(obj) if cuota.estado_cuota != EstadoCuotaChoices.PAGA),
+            Decimal("0.00"),
         )
 
     def get_total_mora(self, obj):
         return sum(
-            item.monto
-            for cuota in obj.cuotas.all()
-            for item in cuota.items.all()
-            if "mora" in item.concepto.lower()
+            (
+                item.monto
+                for cuota in self._account_cuotas(obj)
+                for item in cuota.items.all()
+                if "mora" in item.concepto.lower()
+            ),
+            Decimal("0.00"),
         )
 
 

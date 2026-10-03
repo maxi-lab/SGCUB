@@ -41,7 +41,7 @@ const formatDate = (value) => {
 }
 
 const nombreSocio = (cuota) => {
-  const socio = cuota?.cuenta_corriente?.socio
+  const socio = cuota?.socio
   if (!socio) return 'Sin socio'
 
   const nombre = `${socio.nombre ?? ''} ${socio.apellido ?? ''}`.trim()
@@ -75,7 +75,7 @@ function CuotaTable({ data = [], isLoading = false, error = null, onAdd, onEdit,
         cuota.periodo,
         cuota.cuota_id,
         nombreSocio(cuota),
-        cuota.cuenta_corriente?.socio?.dni,
+        cuota.socio?.dni,
       ].some((campo) => String(campo ?? '').toLowerCase().includes(texto))
     })
   }, [cuotas, busqueda, estado])

@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.db import models
+from django.utils import timezone
 
 
 class EstadoCuotaChoices(models.TextChoices):
@@ -41,16 +42,12 @@ class EstadoCuentaCorrienteChoices(models.TextChoices):
 
 class Cuota(models.Model):
     cuota_id = models.AutoField(primary_key=True)
-    cuenta_corriente = models.ForeignKey(
-        "finanzas.CuentaCorriente",
-        on_delete=models.PROTECT,
-        related_name="cuotas",
-    )
     estado_cuota = models.CharField(
         max_length=40,
         choices=EstadoCuotaChoices.choices,
         default=EstadoCuotaChoices.EN_FECHA,
     )
+    fecha_creacion = models.DateTimeField(default=timezone.now)
     fecha_venc1 = models.DateField()
     fecha_venc2 = models.DateField()
     periodo = models.CharField(max_length=20)
@@ -59,7 +56,7 @@ class Cuota(models.Model):
         db_table = "cuota"
 
     def __str__(self):
-        return f"{self.cuenta_corriente} - {self.periodo}"
+        return f"Cuota {self.periodo}"
 
 
 class ItemCuota(models.Model):
@@ -179,6 +176,10 @@ class CuentaCorriente(models.Model):
     def __str__(self):
         return f"Cuenta corriente de {self.socio}"
 
+    @property
+    def cuotas(self):
+        return Cuota.objects.filter(movimiento__cuenta_corriente=self)
+
 
 class MovimientoCuenta(models.Model):
     movimiento_cuenta_id = models.AutoField(primary_key=True)
@@ -187,10 +188,24 @@ class MovimientoCuenta(models.Model):
         on_delete=models.CASCADE,
         related_name="movimientos",
     )
-    pago = models.ForeignKey(
+    pago = models.OneToOneField(
         Pago,
-        on_delete=models.SET_NULL,
-        related_name="movimientos",
+        on_delete=models.PROTECT,
+        related_name="movimiento",
+        null=True,
+        blank=True,
+    )
+    cuota = models.OneToOneField(
+        Cuota,
+        on_delete=models.CASCADE,
+        related_name="movimiento",
+        null=True,
+        blank=True,
+    )
+    movimiento_revertido = models.OneToOneField(
+        "self",
+        on_delete=models.PROTECT,
+        related_name="reversion",
         null=True,
         blank=True,
     )
@@ -205,6 +220,16 @@ class MovimientoCuenta(models.Model):
 
     class Meta:
         db_table = "movimiento_cuenta"
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    models.Q(cuota__isnull=False, pago__isnull=True, movimiento_revertido__isnull=True)
+                    | models.Q(cuota__isnull=True, pago__isnull=False, movimiento_revertido__isnull=True)
+                    | models.Q(cuota__isnull=True, pago__isnull=True, movimiento_revertido__isnull=False)
+                ),
+                name="movimiento_cuenta_single_origin",
+            ),
+        ]
 
     def __str__(self):
         return f"{self.tipo_movimiento} - {self.monto}"
@@ -223,7 +248,7 @@ class Imputacion(models.Model):
         related_name="imputaciones_destino",
     )
     fecha = models.DateTimeField()
-    monto = models.DecimalField(max_digits=10, decimal_places=2)
+    monto_aplicado = models.DecimalField(max_digits=10, decimal_places=2)
 
     class Meta:
         db_table = "imputacion"
