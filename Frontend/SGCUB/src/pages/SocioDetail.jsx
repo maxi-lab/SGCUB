@@ -6,7 +6,7 @@ import DeactivateSocioModal from '../components/socios/DeactivateSocioModal'
 import PersonHeader, { EditButton, DeactivateButton, ActivateButton } from '../components/personas/HeaderPersona'
 import PersonTabs from '../components/personas/TabsNavPersonas'
 import PersonalDataTab from '../components/personas/tabs/PersonalDataTab'
-import EstadoCuentaPanel from '../components/finanzas/EstadoCuentaPanel'
+import FinancialTab from '../components/personas/tabs/FinancialTab'
 import { LoadingFile, ErrorFile } from '../components/personas/FileStatus'
 import { yearsSince, isActiveStatus, formatDni, formatDate, formatNumber, yearsText } from '../components/personas/format'
 import useLocalidades from '../hooks/useLocalidades'
@@ -84,7 +84,7 @@ function SocioDetail() {
       id: 'financiero',
       label: 'Financiero',
       icon: 'account_balance_wallet',
-      content: <EstadoCuentaPanel socio={socio} enableBenefits />,
+      content: <FinancialTab socio={socio} enableBenefits />,
     },
   ]
 

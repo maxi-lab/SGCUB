@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { formatDni, formatNumber } from '../components/personas/format'
 import PageHeader from '../components/shared/PageHeader'
-import EstadoCuentaPanel from '../components/finanzas/EstadoCuentaPanel'
+import FinancialTab from '../components/personas/tabs/FinancialTab'
 import useSocio from '../hooks/useSocio'
 
 function EstadoCuenta() {
@@ -56,7 +56,7 @@ function EstadoCuenta() {
             <div><p className="text-sm uppercase tracking-wider font-semibold text-primary">Socio seleccionado</p><h2 className="text-2xl font-bold text-on-surface">{socioSeleccionado.apellido}, {socioSeleccionado.nombre}</h2><p className="text-base text-on-surface-variant">DNI {formatDni(socioSeleccionado.dni)} · Socio {formatNumber(socioSeleccionado.numero_socio)}</p></div>
             <button type="button" onClick={() => navigate(`/padron/socios/${socioSeleccionado.socio_id}`)} className="inline-flex items-center gap-2 h-10 px-4 border border-outline-variant/40 rounded-lg text-on-surface font-semibold hover:bg-surface-container-low cursor-pointer"><span className="material-symbols-outlined text-[19px]">person</span>Ver ficha</button>
           </div>
-          <EstadoCuentaPanel socio={socioSeleccionado} />
+          <FinancialTab socio={socioSeleccionado} />
         </section>
       ) : (
         <div className="py-16 flex flex-col items-center text-center gap-3 text-on-surface-variant border border-dashed border-outline-variant/40 rounded-xl"><span className="material-symbols-outlined text-4xl text-outline">account_balance_wallet</span><h2 className="text-lg font-semibold text-on-surface">Seleccioná un socio</h2><p>El detalle de cuotas y deuda aparecerá aquí.</p></div>

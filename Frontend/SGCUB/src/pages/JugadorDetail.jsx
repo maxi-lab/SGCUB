@@ -9,6 +9,7 @@ import PersonalDataTab from '../components/personas/tabs/PersonalDataTab'
 import FamilyTab from '../components/personas/tabs/FamilyTab'
 import FinancialTab from '../components/personas/tabs/FinancialTab'
 import DocumentationTab from '../components/personas/tabs/DocumentationTab'
+import { EmptyState } from '../components/personas/tabs/parts'
 import { LoadingFile, ErrorFile } from '../components/personas/FileStatus'
 import { isActiveStatus, formatDni, formatDate, formatNumber, getErrorMessage } from '../components/personas/format'
 import useLocalidades from '../hooks/useLocalidades'
@@ -39,7 +40,6 @@ function JugadorDetail() {
   const setJugador = (datos) => setCarga((actual) => ({ ...actual, datos }))
 
   const { localidades } = useLocalidades()
-  const financiero = useFinancialStatus(jugador?.socio?.socio_id)
 
   const [modalBajaAbierto, setModalBajaAbierto] = useState(false)
   const [dandoDeBaja, setDandoDeBaja] = useState(false)
@@ -161,8 +161,9 @@ function JugadorDetail() {
       id: 'financiero',
       label: 'Financiero',
       icon: 'account_balance_wallet',
-      badge: financiero.isLoading || financiero.error ? undefined : financiero.situacion,
-      content: <FinancialTab {...financiero} />,
+      content: socio.socio_id
+        ? <FinancialTab socio={socio} enableBenefits />
+        : <EmptyState icon="account_balance_wallet" title="Sin datos de socio" description="El jugador no tiene un socio asociado." />,
     },
   ]
 

@@ -1,6 +1,6 @@
 import { Fragment, useState } from 'react'
 import { formatAmount, formatDni, formatNumber } from '../personas/format'
-import EstadoCuentaPanel from './EstadoCuentaPanel'
+import FinancialTab from '../personas/tabs/FinancialTab'
 import './MorosidadReport.css'
 
 const alcances = [
@@ -156,7 +156,7 @@ function MorosidadReport({
                           <td className="px-3 py-2.5 text-right font-semibold text-error">{formatAmount(fila.monto_adeudado)}</td>
                           <td className="px-3 py-2.5 text-right tabular-nums text-on-surface">{fila.dias_mora}</td>
                         </tr>
-                        {expandido && <tr key={`${fila.socio_id}-detalle`} className="morosidad-detail bg-surface-container-low/50"><td colSpan="5" className="p-4"><EstadoCuentaPanel socio={fila} /></td></tr>}
+                        {expandido && <tr key={`${fila.socio_id}-detalle`} className="morosidad-detail bg-surface-container-low/50"><td colSpan="5" className="p-4"><FinancialTab socio={fila} /></td></tr>}
                       </Fragment>
                     )
                   })}
