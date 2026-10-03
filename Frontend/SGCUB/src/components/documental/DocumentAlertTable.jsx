@@ -79,8 +79,8 @@ export default function DocumentAlertTable({ title, icon, tone = 'warning', docu
           <h2 className="text-lg font-semibold text-on-surface">{title}</h2>
           <span className={`ml-auto text-sm px-2.5 py-0.5 rounded-full font-semibold ${style.count}`}>{rows.length}</span>
         </div>
-        <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2">
-          <div className="relative w-full sm:flex-1 sm:min-w-[12rem]">
+        <div className="flex flex-col gap-2">
+          <div className="relative w-full">
             <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[18px]">search</span>
             <input
               className="w-full h-10 pl-9 pr-4 bg-surface-container-low text-on-surface placeholder:text-outline font-body-sm text-sm rounded-lg focus:outline-none focus:bg-surface-container-lowest transition-all"
@@ -90,14 +90,16 @@ export default function DocumentAlertTable({ title, icon, tone = 'warning', docu
               onChange={e => setSearch(e.target.value)}
             />
           </div>
-          <FilterSelect className={SELECT_CLASS} value={category} onChange={e => setCategory(e.target.value)} aria-label="Filtrar por categoría">
-            <option value={ALL}>Categoría: Todas</option>
-            {getCategoryOptions(rows).map(name => <option key={name} value={name}>{name}</option>)}
-          </FilterSelect>
-          <FilterSelect className={SELECT_CLASS} value={docType} onChange={e => setDocType(e.target.value)} aria-label="Filtrar por tipo de documento">
-            <option value={ALL}>Tipo: Todos</option>
-            {getTypeOptions(rows, getTypeName).map(type => <option key={type.id} value={type.id}>{type.name}</option>)}
-          </FilterSelect>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <FilterSelect className={SELECT_CLASS} value={category} onChange={e => setCategory(e.target.value)} aria-label="Filtrar por categoría">
+              <option value={ALL}>Categoría: Todas</option>
+              {getCategoryOptions(rows).map(name => <option key={name} value={name}>{name}</option>)}
+            </FilterSelect>
+            <FilterSelect className={SELECT_CLASS} value={docType} onChange={e => setDocType(e.target.value)} aria-label="Filtrar por tipo de documento">
+              <option value={ALL}>Tipo: Todos</option>
+              {getTypeOptions(rows, getTypeName).map(type => <option key={type.id} value={type.id}>{type.name}</option>)}
+            </FilterSelect>
+          </div>
         </div>
       </div>
       <div className="overflow-x-auto">
