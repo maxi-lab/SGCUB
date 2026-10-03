@@ -159,8 +159,8 @@ function CorregirPagoModal({ comprobante, pago, opened, onClose, onSuccess }) {
         </fieldset>
 
         <label className="flex flex-col gap-1.5 text-sm font-semibold text-on-surface">Motivo de la corrección
-          <textarea value={motivo} onChange={(event) => setMotivo(event.target.value)} rows={3} maxLength={150} required className="p-3 bg-surface-container-lowest border border-outline-variant/50 rounded-md font-normal focus:outline-none focus:border-primary resize-y" placeholder="Describí el error que se corrige" />
-          <span className="text-xs font-normal text-on-surface-variant">{motivo.length}/150</span>
+          <textarea value={motivo} onChange={(event) => setMotivo(event.target.value)} rows={3} maxLength={500} required className="p-3 bg-surface-container-lowest border border-outline-variant/50 rounded-md font-normal focus:outline-none focus:border-primary resize-y" placeholder="Describí el error que se corrige" />
+          <span className="text-xs font-normal text-on-surface-variant">{motivo.length}/500</span>
         </label>
 
         {error && <p className="p-3 text-sm text-error bg-error-container rounded-md" role="alert">{error}</p>}

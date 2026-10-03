@@ -276,11 +276,7 @@ class CuotaEndpointTests(APITestCase):
 
 class CorregirPagoTests(APITestCase):
 	def setUp(self):
-		self.root = get_user_model().objects.create_user(
-			username="root",
-			is_staff=True,
-			is_superuser=True,
-		)
+		self.root = get_user_model().objects.create_user(username="tesorero")
 		self.client.force_authenticate(user=self.root)
 
 		persona = Persona.objects.create(nombre="Ana", apellido="Perez", dni="12345678")
@@ -330,7 +326,17 @@ class CorregirPagoTests(APITestCase):
 		self.pago_original.refresh_from_db()
 		self.cuenta.refresh_from_db()
 		self.assertEqual(self.pago_original.estado_pago, "Anulado")
-		self.assertIn(f"#{response.data['pago']['pago_id']}", self.pago_original.observacion)
+		self.assertEqual(self.pago_original.motivo_anulacion, "Se registró un monto incorrecto")
+		self.comprobante_original.refresh_from_db()
+		self.assertEqual(self.comprobante_original.estado, "Anulado")
+		self.assertEqual(self.comprobante_original.reemplazado_por_id, response.data["comprobante"]["comprobante_id"])
+		self.assertEqual(response.data["usuario"], "tesorero")
+		detalle = self.client.get(reverse("comprobante-detail", args=[self.comprobante_original.pk])).data
+		self.assertEqual(detalle["estado"], "Anulado")
+		self.assertEqual(detalle["reemplazado_por_numero"], response.data["comprobante"]["numero"])
+		detalle_nuevo = self.client.get(reverse("comprobante-detail", args=[response.data["comprobante"]["comprobante_id"]])).data
+		self.assertEqual(detalle_nuevo["reemplaza_a_numero"], self.comprobante_original.numero)
+		self.assertIsNone(detalle_nuevo["reemplazado_por_numero"])
 		self.assertEqual(self.cuenta.saldo, Decimal("50.00"))
 		self.assertTrue(Comprobante.objects.filter(pk=self.comprobante_original.pk).exists())
 		self.assertEqual(response.data["pago"]["usuario"], self.root.pk)
@@ -456,7 +462,6 @@ class RegistroPagoTests(PagoTestBase):
 
 	def test_correccion_sobre_la_misma_cuota_ignora_el_pago_original(self):
 		original = self.pagar([self.agosto], "1000.00")
-		get_user_model().objects.create_user(username="root")
 
 		response = self.client.post(
 			reverse("corregir-pago", args=[original.data["pago"]["pago_id"]]),
@@ -508,6 +513,83 @@ class EstadoCuentaPendienteTests(PagoTestBase):
 		cuotas = {cuota["cuota_id"]: cuota for cuota in response.data}
 		self.assertEqual(Decimal(str(cuotas[self.agosto.pk]["saldo_pendiente"])), Decimal("750.00"))
 		self.assertEqual(Decimal(str(cuotas[self.agosto.pk]["monto_pagado"])), Decimal("250.00"))
+
+
+class CorreccionPagoTests(PagoTestBase):
+	def corregir(self, pago_id, cuotas, monto, motivo="Cuota equivocada"):
+		return self.client.post(
+			reverse("corregir-pago", args=[pago_id]),
+			{
+				"motivo": motivo,
+				"cuota_ids": [cuota.pk for cuota in cuotas],
+				"monto_total": monto,
+				"medios": [{"medio_de_pago": "Transferencia", "monto": monto}],
+			},
+			format="json",
+		)
+
+	def pendiente(self, cuota):
+		response = self.client.get(reverse("estado-cuenta-socio", args=[self.socio.pk]))
+		fila = next(item for item in response.data["cuotas"] if item["cuota_id"] == cuota.pk)
+		return Decimal(str(fila["saldo_pendiente"]))
+
+	def test_cuotas_del_pago_original_vuelven_a_estar_pendientes(self):
+		original = self.pagar([self.agosto], "1000.00")
+
+		response = self.corregir(original.data["pago"]["pago_id"], [self.septiembre], "1000.00")
+
+		self.assertEqual(response.status_code, 201, response.data)
+		self.agosto.refresh_from_db()
+		self.septiembre.refresh_from_db()
+		self.assertNotEqual(self.agosto.estado_cuota, EstadoCuotaChoices.PAGA)
+		self.assertEqual(self.pendiente(self.agosto), Decimal("1000.00"))
+		self.assertEqual(self.septiembre.estado_cuota, EstadoCuotaChoices.PAGA)
+		self.cuenta.refresh_from_db()
+		self.assertEqual(self.cuenta.saldo, Decimal("-1000.00"))
+
+	def test_registra_el_usuario_que_corrige(self):
+		original = self.pagar([self.agosto], "1000.00")
+		directivo = get_user_model().objects.create_user(username="directivo")
+		self.client.force_authenticate(user=directivo)
+
+		response = self.corregir(original.data["pago"]["pago_id"], [self.agosto], "900.00")
+
+		self.assertEqual(response.status_code, 201, response.data)
+		self.assertEqual(Pago.objects.get(pk=response.data["pago"]["pago_id"]).usuario, directivo)
+		self.assertEqual(response.data["usuario"], "directivo")
+
+	def test_no_permite_corregir_hacia_una_cuota_saldada_por_otro_pago(self):
+		self.pagar([self.agosto], "1000.00")
+		segundo = self.pagar([self.septiembre], "500.00")
+
+		response = self.corregir(segundo.data["pago"]["pago_id"], [self.agosto], "500.00")
+
+		self.assertEqual(response.status_code, 400)
+		self.assertEqual(Pago.objects.get(pk=segundo.data["pago"]["pago_id"]).estado_pago, "Acreditado")
+
+	def test_no_permite_corregir_un_pago_ya_anulado(self):
+		original = self.pagar([self.agosto], "1000.00")
+		self.corregir(original.data["pago"]["pago_id"], [self.agosto], "900.00")
+
+		response = self.corregir(original.data["pago"]["pago_id"], [self.agosto], "800.00")
+
+		self.assertEqual(response.status_code, 400)
+
+	def test_conserva_el_motivo_completo_y_la_observacion_original(self):
+		original = self.pagar([self.agosto], "1000.00", observacion="Pagó en ventanilla")
+		motivo = "Error de carga " * 25
+
+		response = self.corregir(original.data["pago"]["pago_id"], [self.agosto], "900.00", motivo=motivo)
+
+		self.assertEqual(response.status_code, 201, response.data)
+		pago_original = Pago.objects.get(pk=original.data["pago"]["pago_id"])
+		self.assertEqual(pago_original.motivo_anulacion, motivo.strip())
+		self.assertEqual(pago_original.observacion, "Pagó en ventanilla")
+
+	def test_pago_inexistente_devuelve_404(self):
+		response = self.corregir(999999, [self.agosto], "100.00")
+
+		self.assertEqual(response.status_code, 404)
 
 
 class ProteccionRegistrosFinancierosTests(PagoTestBase):
@@ -752,3 +834,36 @@ class MovimientoCuotaMigrationTests(TransactionTestCase):
 		self.assertIsNone(reversion.pago_id)
 		self.assertEqual(reversion.movimiento_revertido_id, abono.pk)
 		self.assertEqual(MovimientoCuenta.objects.get(pk=abono.pk).pago_id, pago.pk)
+
+
+class ComprobantesAnuladosMigrationTests(TransactionTestCase):
+	migrate_from = [("finanzas", "0015_trazabilidad_correccion_pagos")]
+	migrate_to = [("finanzas", "0016_backfill_comprobantes_anulados")]
+
+	def migrate(self, targets):
+		executor = MigrationExecutor(connection)
+		executor.loader.build_graph()
+		executor.migrate(targets)
+
+	def tearDown(self):
+		self.migrate(MigrationExecutor(connection).loader.graph.leaf_nodes())
+
+	def test_marca_anulados_y_vincula_el_reemplazo_desde_la_observacion(self):
+		self.migrate(self.migrate_from)
+		nuevo = Pago.objects.create(fecha=date(2026, 9, 2))
+		original = Pago.objects.create(
+			fecha=date(2026, 9, 1),
+			estado_pago="Anulado",
+			observacion=f"Anulado. Sustituido por pago #{nuevo.pk}. Motivo: Monto mal cargado",
+		)
+		comprobante_nuevo = Comprobante.objects.create(pago=nuevo, fecha_emision=date(2026, 9, 2), numero=2, monto_total=Decimal("90.00"))
+		comprobante_original = Comprobante.objects.create(pago=original, fecha_emision=date(2026, 9, 1), numero=1, monto_total=Decimal("100.00"))
+
+		self.migrate(self.migrate_to)
+
+		comprobante_original.refresh_from_db()
+		comprobante_nuevo.refresh_from_db()
+		self.assertEqual(comprobante_original.estado, "Anulado")
+		self.assertEqual(comprobante_original.reemplazado_por_id, comprobante_nuevo.pk)
+		self.assertEqual(comprobante_nuevo.estado, "Vigente")
+		self.assertEqual(Pago.objects.get(pk=original.pk).motivo_anulacion, "Monto mal cargado")

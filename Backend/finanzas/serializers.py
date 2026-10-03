@@ -46,7 +46,7 @@ class MedioPagoSerializer(serializers.Serializer):
 
 
 class CorreccionPagoSerializer(serializers.Serializer):
-    motivo = serializers.CharField(max_length=150, allow_blank=False, trim_whitespace=True)
+    motivo = serializers.CharField(max_length=500, allow_blank=False, trim_whitespace=True)
     cuota_ids = serializers.ListField(
         child=serializers.IntegerField(min_value=1),
         allow_empty=False,
@@ -221,6 +221,8 @@ class ComprobanteSerializer(serializers.ModelSerializer):
 
 class ComprobanteDetalleSerializer(ComprobanteSerializer):
     pago_detalle = serializers.SerializerMethodField()
+    reemplazado_por_numero = serializers.IntegerField(source="reemplazado_por.numero", read_only=True, default=None)
+    reemplaza_a_numero = serializers.SerializerMethodField()
 
     class Meta(ComprobanteSerializer.Meta):
         fields = [
@@ -229,9 +231,17 @@ class ComprobanteDetalleSerializer(ComprobanteSerializer):
             "fecha_emision",
             "numero",
             "monto_total",
+            "estado",
+            "reemplazado_por",
+            "reemplazado_por_numero",
+            "reemplaza_a_numero",
             "pago_detalle",
         ]
         read_only_fields = ["comprobante_id"]
+
+    def get_reemplaza_a_numero(self, obj):
+        replaced = getattr(obj, "reemplaza_a", None)
+        return replaced.numero if replaced else None
 
     def get_pago_detalle(self, obj):
         pago = obj.pago

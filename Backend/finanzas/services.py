@@ -14,6 +14,7 @@ from .models import (
     ConceptoItemChoices,
     CuentaCorriente,
     Cuota,
+    EstadoComprobanteChoices,
     EstadoCuotaChoices,
     EstadoPagoChoices,
     Imputacion,
@@ -244,16 +245,14 @@ def lock_account_cuotas(account, cuota_ids):
     return cuotas
 
 
-@transaction.atomic
-def register_payment(socio_id, cuota_ids, payment_methods, total, note="", user=None):
-    account = CuentaCorriente.objects.select_for_update().get(socio_id=socio_id)
-    cuotas = lock_account_cuotas(account, cuota_ids)
-    pending = pending_amounts(cuotas)
+def validate_payment_amount(pending, total, paid_message):
     if any(amount <= 0 for amount in pending.values()):
-        raise PagoInvalidoError("No se pueden pagar cuotas ya saldadas.")
+        raise PagoInvalidoError(paid_message)
     if total > sum(pending.values(), Decimal("0.00")):
         raise PagoInvalidoError("El pago supera el saldo pendiente de las cuotas seleccionadas.")
 
+
+def create_payment(account, payment_methods, total, note, user, concept):
     payment = Pago.objects.create(
         usuario=user,
         estado_pago=EstadoPagoChoices.ACREDITADO,
@@ -276,9 +275,79 @@ def register_payment(socio_id, cuota_ids, payment_methods, total, note="", user=
         tipo_movimiento=TipoMovimientoChoices.ABONO,
         fecha=timezone.now(),
         monto=total,
-        concepto="Pago de cuotas",
+        concepto=concept[:200],
     )
+    return payment, receipt, movement
+
+
+@transaction.atomic
+def register_payment(socio_id, cuota_ids, payment_methods, total, note="", user=None):
+    account = CuentaCorriente.objects.select_for_update().get(socio_id=socio_id)
+    cuotas = lock_account_cuotas(account, cuota_ids)
+    validate_payment_amount(pending_amounts(cuotas), total, "No se pueden pagar cuotas ya saldadas.")
+
+    payment, receipt, movement = create_payment(account, payment_methods, total, note, user, "Pago de cuotas")
     account.saldo += total
     account.save(update_fields=["saldo"])
     apply_payment(movement, cuotas, total)
     return payment, receipt
+
+
+@transaction.atomic
+def correct_payment(payment_id, cuota_ids, payment_methods, total, reason, user=None):
+    original = Pago.objects.select_for_update().get(pk=payment_id)
+    if original.estado_pago != EstadoPagoChoices.ACREDITADO:
+        raise PagoInvalidoError("Solo se pueden corregir pagos acreditados.")
+    original_receipt = Comprobante.objects.select_for_update().filter(pago=original).first()
+    original_movement = MovimientoCuenta.objects.select_for_update().filter(pago=original).first()
+    if original_receipt is None or original_movement is None:
+        raise PagoInvalidoError("El pago original no tiene comprobante o movimiento de cuenta para revertir.")
+
+    account = CuentaCorriente.objects.select_for_update().get(pk=original_movement.cuenta_corriente_id)
+    cuotas = lock_account_cuotas(account, cuota_ids)
+    validate_payment_amount(
+        pending_amounts(cuotas, ignored_origin=original_movement),
+        total,
+        "No se puede imputar la corrección a cuotas ya saldadas.",
+    )
+    previously_covered_ids = set(
+        Imputacion.objects.filter(movimiento_origen=original_movement)
+        .values_list("movimiento_destino__cuota", flat=True)
+    ) - {cuota.pk for cuota in cuotas}
+    previously_covered = list(
+        Cuota.objects.select_for_update(of=("self",))
+        .filter(pk__in=previously_covered_ids)
+        .select_related("movimiento")
+    )
+
+    replacement, receipt, movement = create_payment(
+        account,
+        payment_methods,
+        total,
+        f"Sustituye al pago #{original.pk}.",
+        user,
+        f"Pago corregido; sustituye al pago #{original.pk}.",
+    )
+    MovimientoCuenta.objects.create(
+        cuenta_corriente=account,
+        movimiento_revertido=original_movement,
+        tipo_movimiento=TipoMovimientoChoices.CARGO,
+        fecha=timezone.now(),
+        monto=original_movement.monto,
+        concepto=f"Reversión del pago #{original.pk}. Sustituido por #{replacement.pk}."[:200],
+    )
+    account.saldo += total - original_movement.monto
+    account.save(update_fields=["saldo"])
+
+    original.estado_pago = EstadoPagoChoices.ANULADO
+    original.motivo_anulacion = reason
+    original.save(update_fields=["estado_pago", "motivo_anulacion"])
+    original_receipt.estado = EstadoComprobanteChoices.ANULADO
+    original_receipt.reemplazado_por = receipt
+    original_receipt.save(update_fields=["estado", "reemplazado_por"])
+
+    apply_payment(movement, cuotas, total)
+    pending = pending_amounts(previously_covered)
+    for cuota in previously_covered:
+        refresh_cuota_state(cuota, pending[cuota.pk])
+    return original, original_receipt, replacement, receipt

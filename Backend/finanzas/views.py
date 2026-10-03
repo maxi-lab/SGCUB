@@ -1,6 +1,5 @@
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 
-from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
@@ -15,15 +14,12 @@ from .models import (
 	Comprobante,
 	CuentaCorriente,
 	Cuota,
-	EstadoPagoChoices,
 	EstadoCuotaChoices,
 	Imputacion,
 	ItemPago,
 	ItemCuota,
-	MedioDePagoChoices,
 	MovimientoCuenta,
 	Pago,
-	TipoMovimientoChoices,
 )
 from .serializers import (
 	CorreccionPagoSerializer,
@@ -46,13 +42,11 @@ from .services import (
 	CuotaDuplicadaError,
 	PagoInvalidoError,
 	SocioInactivoError,
-	apply_payment,
+	correct_payment,
 	create_cuota,
 	delete_cuota,
 	ensure_cuota_without_payments,
 	generar_cuotas_mensuales,
-	lock_account_cuotas,
-	next_receipt_number,
 	pending_amounts,
 	register_payment,
 	sync_cuota_charge,
@@ -185,122 +179,32 @@ def pago_detail(request, pk):
 @extend_schema(tags=["Finanzas/Pago"], request=CorreccionPagoSerializer)
 @api_view(["POST"])
 def corregir_pago(request, pk):
-	
+	serializer = CorreccionPagoSerializer(data=request.data)
+	if not serializer.is_valid():
+		return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-	data = request.data
-	motivo = str(data.get("motivo", "")).strip()
-	cuota_ids = data.get("cuota_ids", [])
-	medios = data.get("medios", [])
-	if not motivo:
-		return Response({"detail": "El motivo de la corrección es obligatorio."}, status=status.HTTP_400_BAD_REQUEST)
-	if len(motivo) > 150:
-		return Response({"detail": "El motivo no puede superar los 150 caracteres."}, status=status.HTTP_400_BAD_REQUEST)
-	if not isinstance(cuota_ids, list) or not cuota_ids:
-		return Response({"detail": "Debe seleccionar al menos una cuota."}, status=status.HTTP_400_BAD_REQUEST)
-	if not isinstance(medios, list) or not medios:
-		return Response({"detail": "Debe informar al menos un medio de pago."}, status=status.HTTP_400_BAD_REQUEST)
+	data = serializer.validated_data
 	try:
-		cuota_ids = [int(cuota_id) for cuota_id in cuota_ids]
-		monto_total = Decimal(str(data.get("monto_total"))).quantize(Decimal("0.01"))
-		montos = [Decimal(str(medio.get("monto"))).quantize(Decimal("0.01")) for medio in medios]
-	except (InvalidOperation, TypeError, ValueError, AttributeError):
-		return Response({"detail": "Los importes, cuotas y medios informados no son válidos."}, status=status.HTTP_400_BAD_REQUEST)
-	if len(cuota_ids) != len(set(cuota_ids)):
-		return Response({"detail": "No se deben repetir cuotas."}, status=status.HTTP_400_BAD_REQUEST)
-	if monto_total <= 0 or any(monto <= 0 for monto in montos):
-		return Response({"detail": "Los importes deben ser mayores a cero."}, status=status.HTTP_400_BAD_REQUEST)
-	if sum(montos, Decimal("0.00")) != monto_total:
-		return Response({"detail": "La suma de los medios no coincide con el monto total."}, status=status.HTTP_400_BAD_REQUEST)
-	medios_validos = {value for value, _ in MedioDePagoChoices.choices}
-	if any(medio.get("medio_de_pago") not in medios_validos for medio in medios):
-		return Response({"detail": "El medio de pago informado no es válido."}, status=status.HTTP_400_BAD_REQUEST)
-
-	usuario_root = get_user_model().objects.filter(username__iexact="root", is_active=True).first()
-	if usuario_root is None:
-		return Response({"detail": "No existe un usuario activo con nombre root para registrar la corrección."}, status=status.HTTP_400_BAD_REQUEST)
-
-	with transaction.atomic():
-		pago_original = get_object_or_404(
-			Pago.objects.select_for_update(),
-			pk=pk,
+		pago_original, comprobante_original, pago, comprobante = correct_payment(
+			pk,
+			data["cuota_ids"],
+			data["medios"],
+			data["monto_total"],
+			data["motivo"],
+			request.user if request.user.is_authenticated else None,
 		)
-		if pago_original.estado_pago != EstadoPagoChoices.ACREDITADO:
-			return Response({"detail": "Solo se pueden corregir pagos acreditados."}, status=status.HTTP_400_BAD_REQUEST)
-		comprobante_original = get_object_or_404(
-			Comprobante.objects.select_for_update(),
-			pago_id=pago_original.pk,
-		)
-		movimiento_original = MovimientoCuenta.objects.select_for_update().filter(
-			pago_id=pago_original.pk,
-		).first()
-		if movimiento_original is None:
-			return Response({"detail": "El pago original no tiene un movimiento de cuenta para revertir."}, status=status.HTTP_400_BAD_REQUEST)
-
-		cuenta = CuentaCorriente.objects.select_for_update().get(
-			pk=movimiento_original.cuenta_corriente_id
-		)
-		try:
-			cuotas = lock_account_cuotas(cuenta, cuota_ids)
-		except PagoInvalidoError:
-			return Response({"detail": "Una o más cuotas no pertenecen al socio del pago original."}, status=status.HTTP_400_BAD_REQUEST)
-
-		pendiente = pending_amounts(cuotas, ignored_origin=movimiento_original)
-		if monto_total > sum(pendiente.values(), Decimal("0.00")):
-			return Response({"detail": "El pago corregido supera el saldo pendiente de las cuotas seleccionadas."}, status=status.HTTP_400_BAD_REQUEST)
-
-		pago_nuevo = Pago.objects.create(
-			usuario=usuario_root,
-			estado_pago=EstadoPagoChoices.ACREDITADO,
-			fecha=timezone.localdate(),
-			observacion=f"Sustituye al pago #{pago_original.pk}. Motivo: {motivo}"[:200],
-		)
-		for medio, monto in zip(medios, montos):
-			ItemPago.objects.create(
-				pago=pago_nuevo,
-				medio_de_pago=medio["medio_de_pago"],
-				monto=monto,
-			)
-
-		comprobante_nuevo = Comprobante.objects.create(
-			pago=pago_nuevo,
-			fecha_emision=timezone.localdate(),
-			numero=next_receipt_number(),
-			monto_total=monto_total,
-		)
-
-		monto_original = comprobante_original.monto_total
-		MovimientoCuenta.objects.create(
-			cuenta_corriente=cuenta,
-			movimiento_revertido=movimiento_original,
-			tipo_movimiento=TipoMovimientoChoices.CARGO,
-			fecha=timezone.now(),
-			monto=monto_original,
-			concepto=f"Reversión del pago #{pago_original.pk}. Sustituido por #{pago_nuevo.pk}. Motivo: {motivo}"[:200],
-		)
-		movimiento_nuevo = MovimientoCuenta.objects.create(
-			cuenta_corriente=cuenta,
-			pago=pago_nuevo,
-			tipo_movimiento=TipoMovimientoChoices.ABONO,
-			fecha=timezone.now(),
-			monto=monto_total,
-			concepto=f"Pago corregido; sustituye al pago #{pago_original.pk}."[:200],
-		)
-		cuenta.saldo += monto_total - monto_original
-		cuenta.save(update_fields=["saldo"])
-
-		pago_original.estado_pago = EstadoPagoChoices.ANULADO
-		pago_original.observacion = f"Anulado. Sustituido por pago #{pago_nuevo.pk}. Motivo: {motivo}"[:200]
-		pago_original.save(update_fields=["estado_pago", "observacion"])
-
-		apply_payment(movimiento_nuevo, cuotas, monto_total)
+	except Pago.DoesNotExist:
+		return Response({"detail": "El pago no existe."}, status=status.HTTP_404_NOT_FOUND)
+	except PagoInvalidoError as error:
+		return Response({"detail": str(error)}, status=status.HTTP_400_BAD_REQUEST)
 
 	return Response({
 		"pago_original": PagoSerializer(pago_original).data,
-		"pago": PagoSerializer(pago_nuevo).data,
+		"pago": PagoSerializer(pago).data,
 		"comprobante_original": ComprobanteSerializer(comprobante_original).data,
-		"comprobante": ComprobanteSerializer(comprobante_nuevo).data,
-		"motivo": motivo,
-		"usuario": usuario_root.get_username(),
+		"comprobante": ComprobanteSerializer(comprobante).data,
+		"motivo": data["motivo"],
+		"usuario": request.user.get_username() if request.user.is_authenticated else None,
 		"fecha": timezone.localtime().isoformat(),
 	}, status=status.HTTP_201_CREATED)
 
@@ -357,6 +261,8 @@ def comprobante_detail(request, pk):
 	comprobante = get_object_or_404(
 		Comprobante.objects.select_related(
 			"pago__movimiento__cuenta_corriente__socio__persona",
+			"reemplazado_por",
+			"reemplaza_a",
 		).prefetch_related("pago__items_pago"),
 		pk=pk,
 	)

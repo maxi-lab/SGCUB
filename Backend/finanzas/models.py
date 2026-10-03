@@ -24,6 +24,11 @@ class EstadoPagoChoices(models.TextChoices):
     PENDIENTE_VERIFICACION = "PendienteVerificacion", "Pendiente de verificacion"
 
 
+class EstadoComprobanteChoices(models.TextChoices):
+    VIGENTE = "Vigente", "Vigente"
+    ANULADO = "Anulado", "Anulado"
+
+
 class MedioDePagoChoices(models.TextChoices):
     EFECTIVO = "Efectivo", "Efectivo"
     TRANSFERENCIA = "Transferencia", "Transferencia"
@@ -99,6 +104,7 @@ class Pago(models.Model):
     )
     fecha = models.DateField()
     observacion = models.CharField(max_length=200, blank=True)
+    motivo_anulacion = models.TextField(blank=True)
 
     class Meta:
         db_table = "pago"
@@ -137,6 +143,18 @@ class Comprobante(models.Model):
     fecha_emision = models.DateField()
     numero = models.IntegerField(unique=True)
     monto_total = models.DecimalField(max_digits=10, decimal_places=2)
+    estado = models.CharField(
+        max_length=20,
+        choices=EstadoComprobanteChoices.choices,
+        default=EstadoComprobanteChoices.VIGENTE,
+    )
+    reemplazado_por = models.OneToOneField(
+        "self",
+        on_delete=models.PROTECT,
+        related_name="reemplaza_a",
+        null=True,
+        blank=True,
+    )
 
     class Meta:
         db_table = "comprobante"
