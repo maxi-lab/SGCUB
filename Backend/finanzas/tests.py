@@ -1,4 +1,4 @@
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone as dt_timezone
 from decimal import Decimal
 from importlib import import_module
 
@@ -411,7 +411,7 @@ class CorregirPagoTests(APITestCase):
 		self.pago_original = Pago.objects.create(
 			usuario=self.root,
 			estado_pago="Acreditado",
-			fecha=date(2026, 9, 30),
+			fecha=timezone.make_aware(datetime(2026, 9, 30, 10, 0)),
 		)
 		ItemPago.objects.create(
 			pago=self.pago_original,
@@ -1645,3 +1645,40 @@ class DetalleImputacionMigrationTests(TransactionTestCase):
 
 		self.assertEqual(detalle(imputaciones[0]), [("CuotaSocial", Decimal("200.00")), ("Mora", Decimal("200.00"))])
 		self.assertEqual(detalle(imputaciones[1]), [("CuotaDeportiva", Decimal("200.00")), ("CuotaSocial", Decimal("800.00"))])
+
+
+class PagoFechaHoraMigrationTests(TransactionTestCase):
+	migrate_from = [("finanzas", "0022_backfill_detalle_imputacion")]
+	migrate_to = [("finanzas", "0023_pago_fecha_hora")]
+
+	def migrate(self, targets):
+		executor = MigrationExecutor(connection)
+		executor.loader.build_graph()
+		executor.migrate(targets)
+		return executor.loader.project_state(targets).apps
+
+	def tearDown(self):
+		self.migrate(MigrationExecutor(connection).loader.graph.leaf_nodes())
+
+	def test_conserva_la_fecha_y_toma_la_hora_del_movimiento(self):
+		old_apps = self.migrate(self.migrate_from)
+		OldPago = old_apps.get_model("finanzas", "Pago")
+		OldMovimiento = old_apps.get_model("finanzas", "MovimientoCuenta")
+
+		persona = Persona.objects.create(nombre="Ana", apellido="Este", dni="92345678")
+		cuenta = CuentaCorriente.objects.create(socio=Socio.objects.create(persona=persona))
+		con_movimiento = OldPago.objects.create(fecha=date(2026, 10, 5))
+		OldMovimiento.objects.create(cuenta_corriente_id=cuenta.pk, pago=con_movimiento, tipo_movimiento="Abono", fecha="2026-10-05T14:30:00Z", monto=Decimal("100.00"))
+		sin_movimiento = OldPago.objects.create(fecha=date(2026, 10, 6))
+
+		new_apps = self.migrate(self.migrate_to)
+		NewPago = new_apps.get_model("finanzas", "Pago")
+
+		self.assertEqual(
+			NewPago.objects.get(pk=con_movimiento.pk).fecha,
+			datetime(2026, 10, 5, 14, 30, tzinfo=dt_timezone.utc),
+		)
+		self.assertEqual(
+			NewPago.objects.get(pk=sin_movimiento.pk).fecha,
+			timezone.make_aware(datetime(2026, 10, 6)),
+		)

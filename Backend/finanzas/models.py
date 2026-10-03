@@ -118,7 +118,7 @@ class Pago(models.Model):
         choices=EstadoPagoChoices.choices,
         default=EstadoPagoChoices.ACREDITADO,
     )
-    fecha = models.DateField()
+    fecha = models.DateTimeField(default=timezone.now)
     observacion = models.CharField(max_length=200, blank=True)
     motivo_anulacion = models.TextField(blank=True)
 

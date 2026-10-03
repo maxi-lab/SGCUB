@@ -386,7 +386,7 @@ def create_payment(account, payment_methods, total, note, user, concept):
     payment = Pago.objects.create(
         usuario=user,
         estado_pago=EstadoPagoChoices.ACREDITADO,
-        fecha=timezone.localdate(),
+        fecha=timezone.now(),
         observacion=note,
     )
     ItemPago.objects.bulk_create([
