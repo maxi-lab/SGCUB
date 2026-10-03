@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { formatDni, formatNumber } from '../components/personas/format'
 import PageHeader from '../components/shared/PageHeader'
 import EstadoCuentaPanel from '../components/finanzas/EstadoCuentaPanel'
-import useSocio from './useSocio'
+import useSocio from '../hooks/useSocio'
 
 function EstadoCuenta() {
   const navigate = useNavigate()

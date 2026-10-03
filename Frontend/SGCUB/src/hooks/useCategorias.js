@@ -11,12 +11,10 @@ function useCategorias() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  const cargarCategorias = useCallback(async () => {
-    setIsLoading(true)
-    setError(null)
-
+  const fetchCategorias = useCallback(async () => {
     try {
       setCategorias(await getCategorias())
+      setError(null)
     } catch (requestError) {
       setError(requestError)
     } finally {
@@ -24,34 +22,43 @@ function useCategorias() {
     }
   }, [])
 
-  const crearCategoria = useCallback(async (categoria) => {
-    const categoriaCreada = await postCategoria(categoria)
-    await cargarCategorias()
-    return categoriaCreada
-  }, [cargarCategorias])
+  const reloadCategorias = useCallback(async () => {
+    setIsLoading(true)
+    await fetchCategorias()
+  }, [fetchCategorias])
 
-  const editarCategoria = useCallback(async (categoriaId, categoria) => {
-    const categoriaEditada = await patchCategoria(categoriaId, categoria)
-    await cargarCategorias()
-    return categoriaEditada
-  }, [cargarCategorias])
-
-  const eliminarCategoria = useCallback(async (categoriaId) => {
-    await deleteCategoria(categoriaId)
-    await cargarCategorias()
-  }, [cargarCategorias])
+  const withRefresh = useCallback((request) => async (...args) => {
+    const result = await request(...args)
+    await fetchCategorias()
+    return result
+  }, [fetchCategorias])
 
   useEffect(() => {
-    cargarCategorias()
-  }, [cargarCategorias])
+    let cancelled = false
+    getCategorias()
+      .then((receivedCategorias) => {
+        if (!cancelled) setCategorias(receivedCategorias)
+      })
+      .catch((requestError) => {
+        if (!cancelled) setError(requestError)
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   return {
     categorias,
     isLoading,
     error,
-    crearCategoria,
-    editarCategoria,
-    eliminarCategoria,
+    reloadCategorias,
+    createCategoria: withRefresh(postCategoria),
+    updateCategoria: withRefresh(patchCategoria),
+    deleteCategoria: withRefresh(deleteCategoria),
   }
 }
 

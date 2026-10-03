@@ -1,4 +1,6 @@
-const nombreCargo = (cargo) => (typeof cargo === 'string' ? cargo : cargo?.nombre)
+import { isActiveStatus } from '../personas/format'
+
+const nombreCargo =(cargo) => (typeof cargo === 'string' ? cargo : cargo?.nombre)
 
 export const cargosDe = (asignaciones = []) =>
   [...new Set(asignaciones.map((asignacion) => nombreCargo(asignacion.cargo)).filter(Boolean))]
@@ -12,20 +14,7 @@ export const etiquetaCategoria = (categoria) => {
 
 export const esCategoriaAsignable = (categoria) => categoria.nombre !== 'No asignado'
 
-const nombreEstado = (docente) => {
-  const estado = docente.estado
-  if (estado?.nombre) return estado.nombre
-  if (typeof estado === 'string') return estado
-  return ''
-}
-
-export const esActivo = (docente) => {
-  if (typeof docente.activo === 'boolean') return docente.activo
-  if (docente.fecha_baja) return false
-  const estado = nombreEstado(docente).toLowerCase()
-  if (!estado) return true
-  return estado.includes('activo') && !estado.includes('baja') && !estado.includes('inactivo')
-}
+export const esActivo = (docente) => isActiveStatus(docente.estado_nombre)
 
 export const exportarNominaCSV = (docentes, categoriasPorDocente = {}) => {
   const encabezados = ['Legajo', 'Nombre', 'Apellido', 'DNI', 'Teléfono', 'Email', 'Cargo', 'Categorías', 'Estado']
@@ -50,4 +39,12 @@ export const exportarNominaCSV = (docentes, categoriasPorDocente = {}) => {
   enlace.download = `nomina-docentes-${new Date().toISOString().slice(0, 10)}.csv`
   enlace.click()
   URL.revokeObjectURL(enlace.href)
+}
+
+export const idsCategorias = (asignacion) => asignacion.categorias.map((categoria) => String(categoria.categoria_id))
+
+export const validateCargo = (cargo, seleccionadas) => {
+  if (!cargo) return 'Seleccione un cargo.'
+  if (seleccionadas.length === 0) return 'Seleccione al menos una categoría.'
+  return ''
 }

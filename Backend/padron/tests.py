@@ -1,3 +1,4 @@
+from django.contrib.auth import get_user_model
 from django.db.models import ProtectedError
 from rest_framework import status
 from rest_framework.test import APITestCase
@@ -11,6 +12,9 @@ from .models import CargoDocente, Categoria, VinculoFamiliar, Docente, DocenteCa
 
 class PadronViewTests(APITestCase):
     def setUp(self):
+        # Toda la API requiere un usuario autenticado
+        self.user = get_user_model().objects.create_user(username="30123456", password="Clave-segura-123")
+        self.client.force_authenticate(self.user)
         self.persona_data = {
             "nombre": "Juan",
             "apellido": "Perez",
@@ -287,6 +291,28 @@ class PadronViewTests(APITestCase):
         self.assertEqual(["40111222", "50111222"], buscar("GOMEZ"))
         self.assertEqual(["40111222"], buscar("4011"))
         self.assertEqual(["50111222"], buscar("juana gomez"))
+
+    def test_persona_busqueda_por_numero_socio(self):
+        socio = self.crear_socio_orm(persona=self.crear_persona_orm(dni="30111222"))
+        self.crear_persona_orm(dni="40111222")
+        response = self.client.get("/api/padron/persona/", {"q": str(socio.numero_socio)})
+        self.assertEqual(["30111222"], [p["dni"] for p in response.data])
+
+    def test_persona_busqueda_limita_resultados(self):
+        for index in range(12):
+            self.crear_persona_orm(apellido="Gomez", dni=f"301112{index:02d}")
+        response = self.client.get("/api/padron/persona/", {"q": "gomez"})
+        self.assertEqual(10, len(response.data))
+
+    def test_persona_perfiles_incluye_vinculos_familiares(self):
+        jugador = self.crear_jugador_orm()
+        vinculo = jugador.vinculos_familiares.get()
+        response = self.client.get(f"/api/padron/persona/{vinculo.persona_id}/")
+        self.assertEqual([{
+            "jugador_id": jugador.pk,
+            "jugador_nombre": str(jugador.socio.persona),
+            "relacion": "Madre",
+        }], response.data["perfiles"]["vinculos"])
 
     def test_vinculo_familiar_no_exige_datos_de_alta(self):
         socio = self.crear_socio_orm()
@@ -571,6 +597,24 @@ class PadronViewTests(APITestCase):
     def test_categoria_delete_no_existe(self):
         response = self.client.delete("/api/padron/categoria/9999/", format="json")
         self.assertEqual(status.HTTP_404_NOT_FOUND, response.status_code)
+
+    def test_categoria_no_se_puede_borrar_si_tiene_jugadores(self):
+        jugador = self.crear_jugador_orm()
+        response = self.client.delete(f"/api/padron/categoria/{jugador.categoria_id}/")
+        self.assertEqual(status.HTTP_400_BAD_REQUEST, response.status_code)
+        self.assertIn("1 jugador asignado", response.data["detail"])
+        self.assertIn(str(jugador.socio.persona), response.data["detail"])
+        self.assertTrue(Categoria.objects.filter(pk=jugador.categoria_id).exists())
+
+    def test_categoria_no_se_puede_borrar_si_es_secundaria_de_un_jugador(self):
+        jugador = self.crear_jugador_orm()
+        secundaria = self.crear_categoria_orm(nombre="Secundaria")
+        jugador.categoria_secundaria = secundaria
+        jugador.save()
+        response = self.client.delete(f"/api/padron/categoria/{secundaria.pk}/")
+        self.assertEqual(status.HTTP_400_BAD_REQUEST, response.status_code)
+        self.assertIn("1 jugador asignado", response.data["detail"])
+        self.assertTrue(Categoria.objects.filter(pk=secundaria.pk).exists())
 
     # ==================================================================
     # JUGADOR
@@ -1015,6 +1059,44 @@ class PadronViewTests(APITestCase):
         response = self.client.delete(f"/api/padron/categoria/{categoria.pk}/")
         self.assertEqual(status.HTTP_204_NO_CONTENT, response.status_code)
         self.assertTrue(docente.has_assignments())
+
+    def test_docente_inactivo_puede_quedar_sin_cargos(self):
+        docente = self.crear_docente_orm()
+        docente.deactivate()
+        response = self.client.patch(f"/api/padron/docente/{docente.pk}/", {"asignaciones": []}, format="json")
+        self.assertEqual(status.HTTP_200_OK, response.status_code, response.data)
+        self.assertEqual([], response.data["asignaciones"])
+        self.assertFalse(docente.categorias_docente.exists())
+
+    def test_docente_activo_no_puede_quedar_sin_cargos(self):
+        docente = self.crear_docente_orm()
+        response = self.client.patch(f"/api/padron/docente/{docente.pk}/", {"asignaciones": []}, format="json")
+        self.assertEqual(status.HTTP_400_BAD_REQUEST, response.status_code)
+        self.assertIn("asignaciones", response.data)
+
+    def test_docente_categoria_inactivo_se_puede_borrar_la_ultima(self):
+        docente = self.crear_docente_orm()
+        docente.deactivate()
+        asignacion = docente.categorias_docente.get()
+        response = self.client.delete(f"/api/padron/docente-categoria/{asignacion.pk}/")
+        self.assertEqual(status.HTTP_204_NO_CONTENT, response.status_code)
+        self.assertFalse(docente.categorias_docente.exists())
+
+    def test_categoria_se_puede_borrar_si_es_la_unica_de_un_docente_inactivo(self):
+        docente = self.crear_docente_orm()
+        docente.deactivate()
+        categoria = docente.categorias_docente.get().categoria
+        response = self.client.delete(f"/api/padron/categoria/{categoria.pk}/")
+        self.assertEqual(status.HTTP_204_NO_CONTENT, response.status_code)
+        self.assertFalse(docente.categorias_docente.exists())
+
+    def test_docente_no_se_puede_reactivar_sin_cargos(self):
+        docente = self.crear_docente_orm(con_asignacion=False)
+        docente.deactivate()
+        activo = EstadoAdministrativo.objects.get(nombre="Activo")
+        response = self.client.patch(f"/api/padron/docente/{docente.pk}/", {"estado": activo.pk}, format="json")
+        self.assertEqual(status.HTTP_400_BAD_REQUEST, response.status_code)
+        self.assertIn("dar de alta", str(response.data["asignaciones"]))
 
     def test_docente_delete_no_existe(self):
         response = self.client.delete("/api/padron/docente/9999/", format="json")

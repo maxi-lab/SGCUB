@@ -153,11 +153,6 @@
   font-size: 20px;
 }
 
-.padron-table-section {
-  margin-top: 48px;
-  overflow-x: auto;
-}
-
 .site-footer {
   padding: 24px 48px;
   border-top: 1px solid var(--border);
@@ -199,10 +194,6 @@
 
   .intro {
     font-size: 18px;
-  }
-
-  .padron-table-section {
-    margin-top: 32px;
   }
 
   .site-footer {

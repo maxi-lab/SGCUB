@@ -3,7 +3,10 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api/conf'
 import { getSocio } from '../api/socios'
 import PageHeader from '../components/shared/PageHeader'
-import useSocio from './useSocio'
+
+import { BotonCambiarPersona, ListaSugerenciasPersona } from '../components/shared/PersonaSearchDNI'
+import usePersonaSearchDNI from '../hooks/usePersonaSearchDNI'
+import useSocio from '../hooks/useSocio'
 import useGeneros from '../hooks/useGeneros'
 import useLocalidades from '../hooks/useLocalidades'
 import { CAMPOS_OBLIGATORIOS, FORM_INICIAL, claseInput, enfocarCampo, socioAFormulario, validar } from '../components/socios/socioForm'
@@ -14,7 +17,9 @@ const formatearDni = (dni) => {
   return Number.isNaN(numero) ? dni : numero.toLocaleString('es-AR')
 }
 
-const formatearNumeroSocio = (numero) => `#${String(numero).padStart(4, '0')}`
+const CAMPOS_BLOQUEADOS_PERSONA = ['nombre', 'apellido', 'fecha_nacimiento', 'genero', 'genero_otro']
+
+const formatearNumeroSocio =(numero) => `#${String(numero).padStart(4, '0')}`
 
 const formatearFecha = (fecha) => {
   if (!fecha) return '—'
@@ -55,7 +60,7 @@ function SocioForm() {
   const [errorGuardado, setErrorGuardado] = useState('')
   const [estadosSocio, setEstadosSocio] = useState([])
   const [personaEncontrada, setPersonaEncontrada] = useState(null)
-  const [buscandoPersona, setBuscandoPersona] = useState(false)
+  const busqueda = usePersonaSearchDNI({ habilitada: !editando })
 
   useEffect(() => {
     if (!editando) return
@@ -90,60 +95,85 @@ function SocioForm() {
     return numeros.length ? formatearNumeroSocio(Math.max(...numeros) + 1) : '—'
   }, [socios])
 
+  const dniIngresado = formulario.dni.trim()
   const socioDuplicado = useMemo(() => {
-    const dni = formulario.dni.trim()
-    if (!/^\d{7,8}$/.test(dni)) return null
-    return socios.find((s) => String(s.dni) === dni && String(s.socio_id) !== String(id)) ?? null
-  }, [socios, formulario.dni, id])
+    if (!editando || !/^\d{7,8}$/.test(dniIngresado)) return null
+    return socios.find((s) => String(s.dni) === dniIngresado && String(s.socio_id) !== String(id)) ?? null
+  }, [socios, dniIngresado, editando, id])
+
+  const perfilesSeleccionados = editando ? null : personaEncontrada?.perfiles
+  const socioSeleccionado = perfilesSeleccionados?.socio_id
+    ? socios.find((s) => String(s.socio_id) === String(perfilesSeleccionados.socio_id)) ?? { ...personaEncontrada, socio_id: perfilesSeleccionados.socio_id }
+    : null
+  const dniSinSeleccionar = !editando && !personaEncontrada
+    ? busqueda.coincidencias.find((persona) => String(persona.dni) === dniIngresado) ?? null
+    : null
+
+  const limpiarError = (campo) => {
+    if (errores[campo]) setErrores((actuales) => ({ ...actuales, [campo]: undefined }))
+  }
 
   const actualizarCampo = (campo, valor) => {
     setFormulario((actual) => ({ ...actual, [campo]: valor }))
-    if (errores[campo]) setErrores((actuales) => ({ ...actuales, [campo]: undefined }))
-    if (campo === 'dni') setPersonaEncontrada(null)
+    limpiarError(campo)
   }
+
+  const campoBloqueado = (campo) => !editando
+    && Boolean(personaEncontrada)
+    && CAMPOS_BLOQUEADOS_PERSONA.includes(campo)
+    && String(personaEncontrada[campo] ?? '').trim() !== ''
 
   const bindInput = (campo) => ({
     id: campo,
     name: campo,
     value: formulario[campo],
     onChange: (event) => actualizarCampo(campo, event.target.value),
+    disabled: campoBloqueado(campo),
   })
 
-  const buscarPersonaPorDni = async () => {
-    const dni = formulario.dni.trim()
-    if (editando || !/^\d{7,8}$/.test(dni) || socioDuplicado) return
-    setBuscandoPersona(true)
-    try {
-      const response = await api.get(`padron/persona/?dni=${dni}`)
-      const persona = response.data?.[0]
-      if (persona) {
-        setFormulario((actual) => ({
-          ...actual,
-          nombre: persona.nombre || actual.nombre,
-          apellido: persona.apellido || actual.apellido,
-          telefono: persona.telefono || actual.telefono,
-          email: persona.email || actual.email,
-        }))
-        setErrores((actuales) => ({ ...actuales, nombre: undefined, apellido: undefined, telefono: undefined, email: undefined }))
-        setPersonaEncontrada(persona)
-      }
-    } catch (requestError) {
-      console.error('Error al buscar persona:', requestError)
-    } finally {
-      setBuscandoPersona(false)
+  const limpiarErroresPersona = () => setErrores((actuales) => ({
+    ...actuales,
+    ...Object.fromEntries([...CAMPOS_OBLIGATORIOS, 'genero_otro'].map((campo) => [campo, undefined])),
+  }))
+
+  const cambiarDni = (event) => {
+    const dni = event.target.value.replace(/\D/g, '').slice(0, 8)
+    if (personaEncontrada) {
+      // Al cambiar el DNI se descarta la persona elegida y los datos que se habían autocompletado.
+      setPersonaEncontrada(null)
+      setFormulario({ ...FORM_INICIAL, dni })
+    } else {
+      actualizarCampo('dni', dni)
     }
+    limpiarError('dni')
+    busqueda.buscar(dni)
   }
 
+  const quitarSeleccion = () => {
+    setPersonaEncontrada(null)
+    busqueda.limpiar()
+    setFormulario(FORM_INICIAL)
+    limpiarErroresPersona()
+    enfocarCampo('dni')
+  }
+
+  const seleccionarPersona = (persona) => {
+    setPersonaEncontrada(persona)
+    busqueda.setAbiertas(false)
+    setFormulario(socioAFormulario(persona))
+    limpiarErroresPersona()
+  }
 
   const guardar = async (event) => {
     event.preventDefault()
     setErrorGuardado('')
 
     const nuevosErrores = validar(formulario, esGeneroOtro)
-    if (socioDuplicado) nuevosErrores.dni = nuevosErrores.dni ?? ''
+    if (socioDuplicado || socioSeleccionado) nuevosErrores.dni = 'Esta persona ya está registrada como socio.'
+    if (dniSinSeleccionar) nuevosErrores.dni = 'Este DNI ya está registrado: seleccioná la persona en la lista de sugerencias.'
     setErrores(nuevosErrores)
 
-    const primerError = [...CAMPOS_OBLIGATORIOS, 'genero_otro'].find((campo) => campo in nuevosErrores)
+    const primerError = [...CAMPOS_OBLIGATORIOS, 'genero_otro'].find((campo) => nuevosErrores[campo])
     if (primerError) {
       enfocarCampo(primerError)
       return
@@ -170,7 +200,10 @@ function SocioForm() {
 
   const rutaVolver = editando ? `/padron/socios/${id}` : '/padron/socios'
   const nombreEditado = socioOriginal ? `${socioOriginal.nombre ?? ''} ${socioOriginal.apellido ?? ''}`.trim() : ''
-  const dniConError = Boolean(errores.dni) || Boolean(socioDuplicado)
+  const dniConError = Boolean(errores.dni) || Boolean(socioDuplicado) || Boolean(socioSeleccionado)
+  const mostrarSugerencias = !editando && !personaEncontrada && busqueda.abiertas && busqueda.coincidencias.length > 0
+  const iconoDni = busqueda.buscando ? 'progress_activity' : dniConError ? 'warning' : personaEncontrada ? 'check_circle' : 'fingerprint'
+  const colorIconoDni = dniConError ? 'text-error' : personaEncontrada ? 'text-[#00875a]' : 'text-outline'
 
   if (cargando) {
     return (
@@ -247,7 +280,6 @@ function SocioForm() {
         </div>
       )}
 
-      {/* Tarjeta principal del formulario */}
       <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/30 shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-outline-variant/20 bg-surface-container-low/40 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -258,7 +290,6 @@ function SocioForm() {
 
         <form id="form-socio" className="p-6 md:p-8" onSubmit={guardar} noValidate>
           <div className="space-y-6">
-            {/* Datos personales */}
             <SeccionDatosPersonales
               bindInput={bindInput}
               errores={errores}
@@ -275,17 +306,35 @@ function SocioForm() {
                   <div className="relative">
                     <input
                       {...bindInput('dni')}
-                      onChange={(event) => actualizarCampo('dni', event.target.value.replace(/\D/g, '').slice(0, 8))}
-                      onBlur={buscarPersonaPorDni}
+                      onChange={cambiarDni}
+                      onFocus={() => busqueda.setAbiertas(true)}
+                      onBlur={() => busqueda.setAbiertas(false)}
                       type="text"
                       inputMode="numeric"
+                      autoComplete="off"
                       placeholder="Ej: 38492104"
+                      role="combobox"
+                      aria-expanded={mostrarSugerencias}
+                      aria-controls="sugerencias-dni"
                       aria-invalid={dniConError || undefined}
                       className={claseInput(dniConError, 'pr-10 font-mono font-medium')}
                     />
-                    <span className={`material-symbols-outlined absolute right-3 top-3 text-base pointer-events-none ${dniConError ? 'text-error' : personaEncontrada ? 'text-[#00875a]' : 'text-outline'} ${buscandoPersona ? 'animate-spin' : ''}`}>
-                      {buscandoPersona ? 'progress_activity' : dniConError ? 'warning' : personaEncontrada ? 'check_circle' : 'fingerprint'}
+                    <span className={`material-symbols-outlined absolute right-3 top-3 text-base pointer-events-none ${colorIconoDni} ${busqueda.buscando ? 'animate-spin' : ''}`}>
+                      {iconoDni}
                     </span>
+
+                    {mostrarSugerencias && (
+                      <ListaSugerenciasPersona
+                        id="sugerencias-dni"
+                        coincidencias={busqueda.coincidencias}
+                        onSelect={seleccionarPersona}
+                        etiquetaDe={(persona) => {
+                          if (persona.perfiles?.socio_id) return { texto: 'Ya es socio', tono: 'error' }
+                          if (persona.perfiles?.docente_id) return { texto: 'Docente', tono: 'info' }
+                          return null
+                        }}
+                      />
+                    )}
                   </div>
 
                   {socioDuplicado && (
@@ -320,13 +369,43 @@ function SocioForm() {
                     </div>
                   )}
 
-                  {personaEncontrada && !socioDuplicado && (
-                    <div className="bg-surface-container-low text-on-surface p-3 rounded-lg border border-outline-variant/40 flex items-center gap-2.5 mt-1">
-                      <span className="material-symbols-outlined text-base text-[#00875a]">how_to_reg</span>
-                      <p className="text-base">
-                        <strong>{`${personaEncontrada.nombre ?? ''} ${personaEncontrada.apellido ?? ''}`.trim()}</strong>
-                        {' '}ya está registrada en el padrón. Se completaron sus datos de contacto.
-                      </p>
+                  {socioSeleccionado && (
+                    <div className="bg-error-container text-on-error-container p-3 rounded-lg border border-error/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm mt-1" role="alert">
+                      <div className="flex items-start sm:items-center gap-2.5">
+                        <div className="p-1 bg-error/10 text-error rounded shrink-0">
+                          <span className="material-symbols-outlined text-base">error</span>
+                        </div>
+                        <p className="text-base">
+                          <strong>{`${personaEncontrada.nombre ?? ''} ${personaEncontrada.apellido ?? ''}`.trim()}</strong>
+                          {' '}(DNI {formatearDni(personaEncontrada.dni)}) ya está registrado como socio
+                          {socioSeleccionado.numero_socio ? ` (Socio N° ${formatearNumeroSocio(socioSeleccionado.numero_socio)})` : ''}.
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <BotonCambiarPersona onClick={quitarSeleccion} />
+                        <Link
+                          to={`/padron/socios/${socioSeleccionado.socio_id}`}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-on-error-container hover:opacity-90 rounded text-base font-semibold shrink-0 transition-opacity"
+                        >
+                          <span>Ver ficha existente</span>
+                          <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                        </Link>
+                      </div>
+                    </div>
+                  )}
+
+                  {personaEncontrada && !socioSeleccionado && (
+                    <div className="bg-surface-container-low text-on-surface p-3 rounded-lg border border-outline-variant/40 flex items-center justify-between gap-2.5 mt-1">
+                      <div className="flex items-center gap-2.5">
+                        <span className="material-symbols-outlined text-base text-[#00875a]">how_to_reg</span>
+                        <p className="text-base">
+                          <strong>{`${personaEncontrada.nombre ?? ''} ${personaEncontrada.apellido ?? ''}`.trim()}</strong>
+                          {' '}ya está registrada en el padrón{personaEncontrada.perfiles?.docente_id ? ' como docente' : ''}.
+                          {' '}Se completaron sus datos personales y domicilio: no se pueden modificar el nombre, apellido,
+                          {' '}fecha de nacimiento ni género.
+                        </p>
+                      </div>
+                      <BotonCambiarPersona onClick={quitarSeleccion} />
                     </div>
                   )}
                 </Campo>
@@ -335,7 +414,6 @@ function SocioForm() {
 
             <SeccionDomicilio bindInput={bindInput} errores={errores} localidades={localidades} />
 
-            {/* Estado institucional (solo edición) */}
             {editando && (
               <div className="flex flex-col gap-4 pt-4 border-t border-outline-variant/20">
                 <SeccionTitulo icono="verified_user" titulo="Estado Institucional" />
@@ -352,7 +430,6 @@ function SocioForm() {
               </div>
             )}
 
-            {/* Acciones */}
             <div className="mt-8 pt-6 border-t border-outline-variant/20 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div className="text-base text-on-surface-variant flex items-center gap-1.5">
                 <span className="text-error font-bold">*</span> Campos obligatorios

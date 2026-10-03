@@ -20,11 +20,14 @@ from django.contrib import admin
 from django.urls import path
 from django.views.generic import RedirectView
 from . import settings
+from usuarios.urls import auth_urlpatterns, usuario_urlpatterns
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path("api-auth/", include("rest_framework.urls")),
+    path("api/auth/", include(auth_urlpatterns)),
+    path("api/usuarios/", include(usuario_urlpatterns)),
     path("api/padron/", include("padron.urls")),   
     path("api/finanzas/", include("finanzas.urls")),
      ]

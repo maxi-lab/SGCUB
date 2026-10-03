@@ -1,4 +1,5 @@
-from django.db.models import Q
+from django.db import transaction
+from django.db.models import Count, ProtectedError, Q
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.decorators import api_view
@@ -14,6 +15,7 @@ from .serializers import (
     PersonaSerializer,
     SocioSerializer,
     CategoriaSerializer,
+    CategoriaListSerializer,
     EstadoDeportivoSerializer,
     JugadorSerializer,
     JugadorListSerializer,
@@ -25,6 +27,8 @@ from .serializers import (
     LocalidadSerializer,
     player_contacts_error,
 )
+
+PERSONA_SEARCH_LIMIT = 10
 
 
 @extend_schema(tags=["Padron / Genero"], request=GeneroSerializer, responses=GeneroSerializer)
@@ -63,7 +67,7 @@ def persona_list_create(request):
     if request.method == "GET":
         people = Persona.objects.select_related(
             "genero", "domicilio__localidad", "socio__jugador", "docente"
-        )
+        ).prefetch_related("vinculos_familiares__jugador__socio__persona")
         dni = request.query_params.get("dni")
         dni_prefix = request.query_params.get("dni_prefix")
         search = request.query_params.get("q", "").strip()
@@ -73,10 +77,11 @@ def persona_list_create(request):
             people = people.filter(dni__startswith=dni_prefix).order_by("dni")[:5]
         elif search:
             for term in search.split():
-                people = people.filter(
-                    Q(dni__startswith=term) | Q(nombre__icontains=term) | Q(apellido__icontains=term)
-                )
-            people = people.order_by("apellido", "nombre")
+                term_filter = Q(dni__startswith=term) | Q(nombre__icontains=term) | Q(apellido__icontains=term)
+                if term.isdigit():
+                    term_filter |= Q(socio__numero_socio=int(term))
+                people = people.filter(term_filter)
+            people = people.order_by("apellido", "nombre")[:PERSONA_SEARCH_LIMIT]
         serializer = PersonaSerializer(people, many=True)
         return Response(serializer.data)
 
@@ -149,12 +154,23 @@ def socio_detail(request, pk):
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-@extend_schema(tags=["Padron / Categoria"], request=CategoriaSerializer, responses=CategoriaSerializer)
+def format_names(names, limit=3):
+    """Lista hasta `limit` nombres y resume el resto: 'A, B, C y 2 más'."""
+    if len(names) <= limit:
+        return ", ".join(names)
+    return f"{', '.join(names[:limit])} y {len(names) - limit} más"
+
+
+@extend_schema(tags=["Padron / Categoria"], request=CategoriaSerializer, responses=CategoriaListSerializer)
 @api_view(["GET", "POST"])
 def categoria_list_create(request):
     if request.method == "GET":
-        categories = Categoria.objects.all()
-        serializer = CategoriaSerializer(categories, many=True)
+        categories = Categoria.objects.annotate(
+            main_players_count=Count("jugadores", distinct=True),
+            secondary_players_count=Count("jugadores_secundarios", distinct=True),
+            cantidad_docentes=Count("docentes_categoria", distinct=True),
+        )
+        serializer = CategoriaListSerializer(categories, many=True)
         return Response(serializer.data)
 
     serializer = CategoriaSerializer(data=request.data)
@@ -187,18 +203,42 @@ def categoria_detail(request, pk):
             return Response(CategoriaSerializer(category).data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    # Borrar la categoría elimina sus asignaciones docentes: no puede dejar a un docente sin cargos
-    teachers_left_without_assignments = [
-        str(assignment.docente.persona)
-        for assignment in category.docentes_categoria.select_related("docente__persona")
-        if not assignment.docente.has_assignments(exclude={"categoria": category})
-    ]
-    if teachers_left_without_assignments:
-        return Response(
-            {"detail": "No se puede eliminar: es la única categoría de " + ", ".join(teachers_left_without_assignments) + "."},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-    category.delete()
+    with transaction.atomic():
+        players = [
+            str(player.socio.persona)
+            for player in Jugador.objects.filter(Q(categoria=category) | Q(categoria_secundaria=category))
+            .select_related("socio__persona")
+            .distinct()
+        ]
+        if players:
+            noun = "1 jugador asignado" if len(players) == 1 else f"{len(players)} jugadores asignados"
+            return Response(
+                {"detail": f"No se puede eliminar {category.nombre}: tiene {noun} ({format_names(players)}). "
+                           "Reasignalos a otra categoría antes de eliminarla."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        teachers_left_without_assignments = [
+            str(assignment.docente.persona)
+            for assignment in category.docentes_categoria.select_related("docente__persona", "docente__estado")
+            if not assignment.docente.is_inactive
+            and not assignment.docente.has_assignments(exclude={"categoria": category})
+        ]
+        if teachers_left_without_assignments:
+            return Response(
+                {"detail": f"No se puede eliminar {category.nombre}: es la única categoría de "
+                           f"{format_names(teachers_left_without_assignments)}. "
+                           "Asignales otra categoría o debe darlo de baja antes de eliminarla."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            category.delete()
+        except ProtectedError:
+            return Response(
+                {"detail": f"No se puede eliminar {category.nombre}: tiene registros asociados."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
     return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -252,6 +292,11 @@ def jugador_list_create(request):
             "socio__persona__genero", "socio__persona__domicilio__localidad", "socio__estado_administrativo",
             "categoria", "categoria_secundaria", "estado",
         ).prefetch_related("vinculos_familiares__persona")
+        category_id = request.query_params.get("categoria")
+        if category_id:
+            if not category_id.isdigit():
+                return Response({"categoria": "Debe ser un número."}, status=status.HTTP_400_BAD_REQUEST)
+            players = players.filter(Q(categoria_id=category_id) | Q(categoria_secundaria_id=category_id))
         serializer = JugadorListSerializer(players, many=True)
         return Response(serializer.data)
 
@@ -459,7 +504,8 @@ def docente_categoria_detail(request, pk):
         pk=pk,
     )
     if request.method == "DELETE":
-        if not teacher_category.docente.has_assignments(exclude={"pk": teacher_category.pk}):
+        teacher = teacher_category.docente
+        if not teacher.is_inactive and not teacher.has_assignments(exclude={"pk": teacher_category.pk}):
             return Response(
                 {"detail": "Es la única categoría del docente: debe tener al menos un cargo con una categoría."},
                 status=status.HTTP_400_BAD_REQUEST,
