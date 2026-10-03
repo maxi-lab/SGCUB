@@ -3,6 +3,7 @@ from decimal import Decimal
 from rest_framework import serializers
 
 from .models import (
+    Beca,
     Comprobante,
     ConfiguracionFinanciera,
     CuentaCorriente,
@@ -13,10 +14,11 @@ from .models import (
     MovimientoCuenta,
     Pago,
     EstadoCuotaChoices,
+    ConceptoItemChoices,
     MedioDePagoChoices,
-    TipoRecargoChoices,
+    ModalidadMontoChoices,
 )
-from .services import net_amount, parse_period, pending_amounts
+from .services import BENEFIT_DISCOUNT, BENEFIT_SCHOLARSHIP, net_amount, parse_period, pending_amounts
 
 
 def monto_total_cuota(cuota):
@@ -388,8 +390,41 @@ class ConfiguracionFinancieraSerializer(serializers.ModelSerializer):
         if current("dia_vencimiento_2") < current("dia_vencimiento_1"):
             errors["dia_vencimiento_2"] = "El segundo vencimiento no puede ser anterior al primero."
         for number in (1, 2):
-            if current(f"tipo_recargo_{number}") == TipoRecargoChoices.PORCENTAJE and current(f"valor_recargo_{number}") > 100:
+            if current(f"tipo_recargo_{number}") == ModalidadMontoChoices.PORCENTAJE and current(f"valor_recargo_{number}") > 100:
                 errors[f"valor_recargo_{number}"] = "El porcentaje de recargo no puede superar el 100%."
         if errors:
             raise serializers.ValidationError(errors)
         return attrs
+
+
+class BeneficioSerializer(serializers.Serializer):
+    tipo = serializers.ChoiceField(choices=[BENEFIT_SCHOLARSHIP, BENEFIT_DISCOUNT])
+    modalidad = serializers.ChoiceField(choices=ModalidadMontoChoices.choices)
+    valor = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=Decimal("0.01"))
+    concepto = serializers.ChoiceField(choices=[
+        ConceptoItemChoices.CUOTA_SOCIAL,
+        ConceptoItemChoices.CUOTA_DEPORTIVA,
+        ConceptoItemChoices.OTRO,
+    ])
+    fecha_aplicacion = serializers.DateField()
+    fecha_fin = serializers.DateField(required=False, allow_null=True)
+    motivo = serializers.CharField(max_length=180, trim_whitespace=True)
+
+    def validate(self, attrs):
+        errors = {}
+        if attrs["modalidad"] == ModalidadMontoChoices.PORCENTAJE and not Decimal("1") <= attrs["valor"] <= Decimal("100"):
+            errors["valor"] = "El porcentaje debe estar entre 1% y 100%."
+        if attrs["tipo"] == BENEFIT_SCHOLARSHIP:
+            if not attrs.get("fecha_fin"):
+                errors["fecha_fin"] = "La beca requiere fecha de finalización."
+            elif attrs["fecha_fin"] < attrs["fecha_aplicacion"]:
+                errors["fecha_fin"] = "La finalización no puede ser anterior a la fecha de alta del beneficio."
+        if errors:
+            raise serializers.ValidationError(errors)
+        return attrs
+
+
+class BecaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Beca
+        fields = "__all__"

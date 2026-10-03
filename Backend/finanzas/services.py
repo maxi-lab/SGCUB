@@ -10,6 +10,7 @@ from padron.models import ESTADO_ADMINISTRATIVO_ACTIVO, Socio
 
 from .generators import GeneradorItemsCuota
 from .models import (
+    Beca,
     Comprobante,
     ConceptoItemChoices,
     ConfiguracionFinanciera,
@@ -21,6 +22,7 @@ from .models import (
     Imputacion,
     ItemCuota,
     ItemPago,
+    ModalidadMontoChoices,
     MovimientoCuenta,
     Pago,
     SecuenciaComprobante,
@@ -43,6 +45,10 @@ class PagoInvalidoError(Exception):
 
 
 class CuotaConPagosError(Exception):
+    pass
+
+
+class BeneficioInvalidoError(Exception):
     pass
 
 
@@ -353,14 +359,44 @@ def correct_payment(payment_id, cuota_ids, payment_methods, total, reason, user=
     return original, original_receipt, replacement, receipt
 
 
+BENEFIT_SCHOLARSHIP = "Beca"
+BENEFIT_DISCOUNT = "Descuento"
+
+
+def discount_base(items):
+    return net_amount(
+        item for item in items
+        if not item.es_descuento and item.concepto != ConceptoItemChoices.MORA
+    )
+
+
+def total_discounts(items):
+    return sum((item.monto for item in items if item.es_descuento), Decimal("0.00"))
+
+
+def cuota_period_start(cuota):
+    try:
+        return parse_period(cuota.periodo)
+    except ValueError:
+        return cuota.fecha_venc1.replace(day=1)
+
+
+def lock_cuota(cuota_id):
+    account_id = MovimientoCuenta.objects.values_list("cuenta_corriente_id", flat=True).get(cuota_id=cuota_id)
+    CuentaCorriente.objects.select_for_update().get(pk=account_id)
+    return (
+        Cuota.objects.select_for_update(of=("self",))
+        .select_related("movimiento__cuenta_corriente")
+        .get(pk=cuota_id)
+    )
+
+
 SURCHARGE_LABELS = {1: "primer", 2: "segundo"}
 
 
 def apply_cuota_surcharges(cuota_id, today, configuration):
     with transaction.atomic():
-        account_id = MovimientoCuenta.objects.values_list("cuenta_corriente_id", flat=True).get(cuota_id=cuota_id)
-        CuentaCorriente.objects.select_for_update().get(pk=account_id)
-        cuota = Cuota.objects.select_for_update(of=("self",)).select_related("movimiento").get(pk=cuota_id)
+        cuota = lock_cuota(cuota_id)
         if pending_amounts([cuota])[cuota.pk] <= 0:
             return []
 
@@ -410,3 +446,67 @@ def apply_surcharges(today=None):
             result[key] += 1
             result["monto_total"] += item.monto
     return result
+
+
+def benefit_amount(mode, value, base):
+    if mode == ModalidadMontoChoices.PORCENTAJE:
+        return (base * value / Decimal("100")).quantize(Decimal("0.01"))
+    return value
+
+
+def benefit_reason(concept, reason):
+    return f"{ConceptoItemChoices(concept).label}: {reason}"[:200]
+
+
+@transaction.atomic
+def assign_benefit(cuota_id, kind, mode, value, concept, start_date, reason, end_date=None, user=None):
+    cuota = lock_cuota(cuota_id)
+    items = list(cuota.items.all())
+    base = discount_base(items)
+    if mode == ModalidadMontoChoices.MONTO_FIJO and value >= base:
+        raise BeneficioInvalidoError("El monto fijo debe ser menor al valor de la cuota.")
+
+    has_payments = Imputacion.objects.filter(movimiento_destino__cuota=cuota).exists()
+    available = max(base - total_discounts(items), Decimal("0.00"))
+    amount = min(benefit_amount(mode, value, base), base)
+
+    if kind == BENEFIT_DISCOUNT:
+        if has_payments:
+            raise CuotaConPagosError("La cuota tiene pagos aplicados y no puede recibir un descuento.")
+        if amount > available:
+            raise BeneficioInvalidoError("El descuento supera el saldo de la cuota que todavía puede descontarse.")
+        item = ItemCuota.objects.create(
+            cuota=cuota,
+            concepto=ConceptoItemChoices.DESCUENTO_UNICO,
+            es_descuento=True,
+            fecha_aplicacion=start_date,
+            monto=amount,
+            motivo=benefit_reason(concept, reason),
+        )
+        sync_cuota_charge(cuota)
+        return None, item
+
+    scholarship = Beca.objects.create(
+        socio_id=cuota.movimiento.cuenta_corriente.socio_id,
+        concepto=concept,
+        monto=value if mode == ModalidadMontoChoices.MONTO_FIJO else None,
+        porcentaje=value if mode == ModalidadMontoChoices.PORCENTAJE else None,
+        fecha_aplicacion=start_date,
+        fecha_fin=end_date,
+        motivo=reason,
+        usuario=user,
+    )
+    item = None
+    scholarship_amount = min(scholarship.discount_for(base), available)
+    if not has_payments and scholarship.covers_period(cuota_period_start(cuota)) and scholarship_amount > 0:
+        item = ItemCuota.objects.create(
+            cuota=cuota,
+            concepto=ConceptoItemChoices.BECA,
+            es_descuento=True,
+            fecha_aplicacion=start_date,
+            monto=scholarship_amount,
+            motivo=benefit_reason(concept, reason),
+            beca=scholarship,
+        )
+        sync_cuota_charge(cuota)
+    return scholarship, item

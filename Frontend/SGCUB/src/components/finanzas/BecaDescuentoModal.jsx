@@ -17,6 +17,18 @@ const formularioInicial = () => ({
   motivo: '',
 })
 
+const baseDescontable = (cuota) => (cuota?.items ?? [])
+  .filter((item) => !item.es_descuento && item.concepto !== 'Mora')
+  .reduce((total, item) => total + Number(item.monto ?? 0), 0)
+
+const mensajesDeError = (data) => {
+  if (!data) return []
+  if (typeof data === 'string') return [data]
+  if (Array.isArray(data)) return data.flatMap(mensajesDeError)
+  if (typeof data === 'object') return Object.values(data).flatMap(mensajesDeError)
+  return []
+}
+
 const CONCEPTOS = [
   { value: 'CuotaSocial', label: 'Cuota social' },
   { value: 'CuotaDeportiva', label: 'Cuota deportiva' },
@@ -26,7 +38,8 @@ const CONCEPTOS = [
 function BecaDescuentoModal({ opened, cuota, onClose, onSubmit, isSaving }) {
   const [formulario, setFormulario] = useState(formularioInicial)
   const [error, setError] = useState('')
-  const montoCuota = Number(cuota?.monto_total ?? 0)
+  const montoCuota = baseDescontable(cuota)
+  const tienePagos = Number(cuota?.monto_pagado ?? 0) > 0 || cuota?.estado_cuota === 'Paga'
   const montoCalculado = useMemo(() => {
     const valor = Number(formulario.valor)
     if (!Number.isFinite(valor) || valor <= 0) return 0
@@ -38,10 +51,10 @@ function BecaDescuentoModal({ opened, cuota, onClose, onSubmit, isSaving }) {
 
   useEffect(() => {
     if (opened) {
-      setFormulario(formularioInicial())
+      setFormulario({ ...formularioInicial(), tipo: tienePagos ? 'beca' : 'descuento' })
       setError('')
     }
-  }, [cuota?.cuota_id, opened])
+  }, [cuota?.cuota_id, opened, tienePagos])
 
   const actualizar = (campo, valor) => {
     setFormulario((actual) => ({ ...actual, [campo]: valor }))
@@ -76,22 +89,18 @@ function BecaDescuentoModal({ opened, cuota, onClose, onSubmit, isSaving }) {
       return
     }
 
-    const detalleMotivo = [
-      `Concepto: ${CONCEPTOS.find(({ value }) => value === formulario.concepto)?.label ?? formulario.concepto}`,
-      formulario.tipo === 'beca' ? `Vigente hasta: ${formulario.fechaFin}` : null,
-      formulario.motivo.trim(),
-    ].filter(Boolean).join(' | ')
-
     try {
       await onSubmit({
-        concepto: formulario.tipo === 'beca' ? 'Beca' : 'DescuentoUnico',
-        es_descuento: true,
+        tipo: formulario.tipo === 'beca' ? 'Beca' : 'Descuento',
+        modalidad: formulario.modalidad === 'porcentaje' ? 'Porcentaje' : 'MontoFijo',
+        valor,
+        concepto: formulario.concepto,
         fecha_aplicacion: formulario.fechaInicio,
-        monto: montoCalculado,
-        motivo: detalleMotivo,
+        ...(formulario.tipo === 'beca' && { fecha_fin: formulario.fechaFin }),
+        motivo: formulario.motivo.trim(),
       })
     } catch (requestError) {
-      setError(requestError.response?.data?.detail || requestError.message || 'No se pudo aplicar el beneficio.')
+      setError(mensajesDeError(requestError.response?.data).join(' ') || requestError.message || 'No se pudo aplicar el beneficio.')
     }
   }
 
@@ -102,15 +111,16 @@ function BecaDescuentoModal({ opened, cuota, onClose, onSubmit, isSaving }) {
       <form onSubmit={enviar} className="flex flex-col gap-4" noValidate>
         <div className="p-3 bg-surface-container-low border border-outline-variant/30 rounded-lg">
           <p className="text-sm text-on-surface-variant">Cuota seleccionada · {cuota.periodo}</p>
-          <p className="text-lg font-semibold text-on-surface">Importe actual: {formatAmount(montoCuota)}</p>
+          <p className="text-lg font-semibold text-on-surface">Importe sobre el que se calcula: {formatAmount(montoCuota)}</p>
+          {tienePagos && <p className="mt-1 text-sm text-on-surface-variant">La cuota tiene pagos: solo puede asignarse una beca, que se aplicará a las cuotas siguientes dentro de su vigencia.</p>}
         </div>
 
         <fieldset className="flex flex-col gap-2">
           <legend className="text-sm font-semibold text-on-surface">Tipo de beneficio <span className="text-error">*</span></legend>
           <div className="grid grid-cols-2 gap-2">
             {[['descuento', 'Descuento'], ['beca', 'Beca']].map(([value, label]) => (
-              <label key={value} className={`flex items-center gap-2 p-3 border rounded-md cursor-pointer ${formulario.tipo === value ? 'border-primary bg-primary/5' : 'border-outline-variant/40'}`}>
-                <input type="radio" name="tipo-beneficio" value={value} checked={formulario.tipo === value} onChange={() => actualizar('tipo', value)} className="accent-primary" />
+              <label key={value} className={`flex items-center gap-2 p-3 border rounded-md ${value === 'descuento' && tienePagos ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} ${formulario.tipo === value ? 'border-primary bg-primary/5' : 'border-outline-variant/40'}`}>
+                <input type="radio" name="tipo-beneficio" value={value} checked={formulario.tipo === value} disabled={value === 'descuento' && tienePagos} onChange={() => actualizar('tipo', value)} className="accent-primary" />
                 <span className="font-semibold text-on-surface">{label}</span>
               </label>
             ))}

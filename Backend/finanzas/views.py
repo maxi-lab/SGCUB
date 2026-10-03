@@ -11,6 +11,7 @@ from drf_spectacular.utils import extend_schema
 from padron.models import Socio
 
 from .models import (
+	Beca,
 	Comprobante,
 	ConfiguracionFinanciera,
 	CuentaCorriente,
@@ -23,6 +24,8 @@ from .models import (
 	Pago,
 )
 from .serializers import (
+	BecaSerializer,
+	BeneficioSerializer,
 	ConfiguracionFinancieraSerializer,
 	CorreccionPagoSerializer,
 	ComprobanteSerializer,
@@ -40,11 +43,13 @@ from .serializers import (
 	ComprobanteDetalleSerializer,
 )
 from .services import (
+	BeneficioInvalidoError,
 	CuotaConPagosError,
 	CuotaDuplicadaError,
 	PagoInvalidoError,
 	SocioInactivoError,
 	apply_surcharges,
+	assign_benefit,
 	correct_payment,
 	create_cuota,
 	delete_cuota,
@@ -456,3 +461,46 @@ def configuracion_financiera(request):
 		return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 	usuario = request.user if request.user.is_authenticated else None
 	return Response(ConfiguracionFinancieraSerializer(serializer.save(usuario_actualizacion=usuario)).data)
+
+
+@extend_schema(tags=["Finanzas/Beca"], request=BeneficioSerializer)
+@api_view(["POST"])
+def cuota_beneficio(request, pk):
+	cuota = get_object_or_404(Cuota.objects.filter(movimiento__isnull=False), pk=pk)
+	serializer = BeneficioSerializer(data=request.data)
+	if not serializer.is_valid():
+		return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+	data = serializer.validated_data
+	try:
+		beca, item = assign_benefit(
+			cuota.pk,
+			data["tipo"],
+			data["modalidad"],
+			data["valor"],
+			data["concepto"],
+			data["fecha_aplicacion"],
+			data["motivo"],
+			data.get("fecha_fin"),
+			request.user if request.user.is_authenticated else None,
+		)
+	except (BeneficioInvalidoError, CuotaConPagosError) as error:
+		return Response({"detail": str(error)}, status=status.HTTP_400_BAD_REQUEST)
+
+	return Response({
+		"beca": BecaSerializer(beca).data if beca else None,
+		"item": ItemCuotaSerializer(item).data if item else None,
+		"aplicado_a_cuota": item is not None,
+	}, status=status.HTTP_201_CREATED)
+
+
+@extend_schema(tags=["Finanzas/Beca"], responses=BecaSerializer)
+@api_view(["GET"])
+def beca_list(request):
+	becas = Beca.objects.order_by("-fecha_aplicacion", "-pk")
+	socio_id = request.query_params.get("socio_id")
+	if socio_id:
+		if not socio_id.isdigit():
+			return Response({"detail": "El socio indicado no es válido."}, status=status.HTTP_400_BAD_REQUEST)
+		becas = becas.filter(socio_id=int(socio_id))
+	return Response(BecaSerializer(becas, many=True).data)

@@ -1,3 +1,4 @@
+from calendar import monthrange
 from decimal import Decimal
 
 from django.conf import settings
@@ -42,7 +43,7 @@ class TipoMovimientoChoices(models.TextChoices):
     CARGO = "Cargo", "Cargo"
 
 
-class TipoRecargoChoices(models.TextChoices):
+class ModalidadMontoChoices(models.TextChoices):
     MONTO_FIJO = "MontoFijo", "Monto fijo"
     PORCENTAJE = "Porcentaje", "Porcentaje"
 
@@ -298,14 +299,14 @@ class ConfiguracionFinanciera(models.Model):
     dia_vencimiento_2 = models.PositiveSmallIntegerField(default=20)
     tipo_recargo_1 = models.CharField(
         max_length=20,
-        choices=TipoRecargoChoices.choices,
-        default=TipoRecargoChoices.MONTO_FIJO,
+        choices=ModalidadMontoChoices.choices,
+        default=ModalidadMontoChoices.MONTO_FIJO,
     )
     valor_recargo_1 = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0.00"))
     tipo_recargo_2 = models.CharField(
         max_length=20,
-        choices=TipoRecargoChoices.choices,
-        default=TipoRecargoChoices.MONTO_FIJO,
+        choices=ModalidadMontoChoices.choices,
+        default=ModalidadMontoChoices.MONTO_FIJO,
     )
     valor_recargo_2 = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0.00"))
     fecha_actualizacion = models.DateTimeField(auto_now=True)
@@ -334,7 +335,7 @@ class ConfiguracionFinanciera(models.Model):
             if due_number == 1
             else (self.tipo_recargo_2, self.valor_recargo_2)
         )
-        if kind == TipoRecargoChoices.PORCENTAJE:
+        if kind == ModalidadMontoChoices.PORCENTAJE:
             return (base_amount * value / Decimal("100")).quantize(Decimal("0.01"))
         return value
 
@@ -384,8 +385,9 @@ class Beca(models.Model):
     def __str__(self):
         return f"Beca {self.beca_id} - {self.socio}"
 
-    def is_active_on(self, day):
-        return self.fecha_aplicacion <= day <= self.fecha_fin
+    def covers_period(self, first_day):
+        last_day = first_day.replace(day=monthrange(first_day.year, first_day.month)[1])
+        return self.fecha_aplicacion <= last_day and self.fecha_fin >= first_day
 
     def discount_for(self, base_amount):
         if self.porcentaje is not None:

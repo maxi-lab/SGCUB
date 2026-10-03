@@ -209,13 +209,14 @@ class BecaModeloTests(TestCase):
 		self.assertEqual(self.beca(monto=Decimal("800.00")).discount_for(Decimal("2500.00")), Decimal("800.00"))
 		self.assertEqual(self.beca(monto=Decimal("1500.00")).discount_for(Decimal("1000.00")), Decimal("1000.00"))
 
-	def test_vigencia_incluye_alta_y_fin(self):
-		beca = self.beca(monto=Decimal("100.00"))
+	def test_cubre_los_periodos_que_se_superponen_con_la_vigencia(self):
+		beca = self.beca(monto=Decimal("100.00"), fecha_aplicacion=date(2026, 10, 15), fecha_fin=date(2026, 12, 10))
 
-		self.assertFalse(beca.is_active_on(date(2026, 9, 30)))
-		self.assertTrue(beca.is_active_on(date(2026, 10, 1)))
-		self.assertTrue(beca.is_active_on(date(2026, 12, 31)))
-		self.assertFalse(beca.is_active_on(date(2027, 1, 1)))
+		self.assertFalse(beca.covers_period(date(2026, 9, 1)))
+		self.assertTrue(beca.covers_period(date(2026, 10, 1)))
+		self.assertTrue(beca.covers_period(date(2026, 11, 1)))
+		self.assertTrue(beca.covers_period(date(2026, 12, 1)))
+		self.assertFalse(beca.covers_period(date(2027, 1, 1)))
 
 	def test_la_base_exige_monto_o_porcentaje_pero_no_ambos(self):
 		for datos in ({}, {"monto": Decimal("100.00"), "porcentaje": Decimal("10")}):
@@ -710,6 +711,129 @@ class CorreccionPagoTests(PagoTestBase):
 		response = self.corregir(999999, [self.agosto], "100.00")
 
 		self.assertEqual(response.status_code, 404)
+
+
+class BeneficioCuotaTests(APITestCase):
+	def setUp(self):
+		self.usuario = get_user_model().objects.create_user(username="tesorero")
+		self.client.force_authenticate(user=self.usuario)
+		self.socio = crear_socio("60000001", con_jugador=True)
+		respuesta = self.client.post(reverse("cuota-list"), {"socio_id": self.socio.pk, "periodo": "2026-10"}, format="json")
+		self.cuota = Cuota.objects.get(pk=respuesta.data["cuota_id"])
+
+	def asignar(self, **datos):
+		valores = {
+			"tipo": "Descuento",
+			"modalidad": "MontoFijo",
+			"valor": "500.00",
+			"concepto": "CuotaSocial",
+			"fecha_aplicacion": "2026-10-01",
+			"motivo": "Hermanos en el club",
+		}
+		valores.update(datos)
+		return self.client.post(reverse("cuota-beneficio", args=[self.cuota.pk]), valores, format="json")
+
+	def cargo(self):
+		return MovimientoCuenta.objects.get(cuota=self.cuota).monto
+
+	def saldo(self):
+		return CuentaCorriente.objects.get(socio=self.socio).saldo
+
+	def test_descuento_fijo_reduce_la_cuota(self):
+		response = self.asignar()
+
+		self.assertEqual(response.status_code, 201, response.data)
+		self.assertIsNone(response.data["beca"])
+		self.assertEqual(response.data["item"]["concepto"], "DescuentoUnico")
+		self.assertIn("Cuota Social", response.data["item"]["motivo"])
+		self.assertEqual(self.cargo(), Decimal("2000.00"))
+		self.assertEqual(self.saldo(), Decimal("-2000.00"))
+
+	def test_descuento_porcentual_sobre_el_total(self):
+		response = self.asignar(modalidad="Porcentaje", valor="10")
+
+		self.assertEqual(response.status_code, 201, response.data)
+		self.assertEqual(Decimal(response.data["item"]["monto"]), Decimal("250.00"))
+
+	def test_validaciones_del_formulario(self):
+		casos = [
+			({"valor": "2500.00"}, None),
+			({"modalidad": "Porcentaje", "valor": "0.50"}, "valor"),
+			({"modalidad": "Porcentaje", "valor": "101"}, "valor"),
+			({"motivo": ""}, "motivo"),
+			({"tipo": "Beca"}, "fecha_fin"),
+			({"tipo": "Beca", "fecha_fin": "2026-09-30"}, "fecha_fin"),
+			({"tipo": "Otro"}, "tipo"),
+		]
+		for datos, campo in casos:
+			with self.subTest(datos=datos):
+				response = self.asignar(**datos)
+				self.assertEqual(response.status_code, 400)
+				if campo:
+					self.assertIn(campo, response.data)
+		self.assertEqual(self.cargo(), Decimal("2500.00"))
+		self.assertFalse(Beca.objects.exists())
+
+	def test_los_descuentos_no_pueden_superar_el_total_de_la_cuota(self):
+		self.asignar(valor="2000.00")
+
+		response = self.asignar(valor="1000.00")
+
+		self.assertEqual(response.status_code, 400)
+		self.assertEqual(self.cargo(), Decimal("500.00"))
+
+	def test_beca_se_registra_y_se_aplica_a_la_cuota_seleccionada(self):
+		response = self.asignar(tipo="Beca", modalidad="Porcentaje", valor="50", fecha_aplicacion="2026-10-15", fecha_fin="2026-12-31")
+
+		self.assertEqual(response.status_code, 201, response.data)
+		beca = Beca.objects.get()
+		self.assertEqual(beca.socio, self.socio)
+		self.assertEqual(beca.porcentaje, Decimal("50.00"))
+		self.assertIsNone(beca.monto)
+		self.assertEqual(beca.usuario, self.usuario)
+		self.assertTrue(response.data["aplicado_a_cuota"])
+		item = self.cuota.items.get(concepto="Beca")
+		self.assertEqual(item.beca, beca)
+		self.assertEqual(item.monto, Decimal("1250.00"))
+		self.assertEqual(self.cargo(), Decimal("1250.00"))
+
+	def test_beca_fuera_de_la_vigencia_no_modifica_la_cuota(self):
+		response = self.asignar(tipo="Beca", fecha_aplicacion="2026-11-01", fecha_fin="2026-12-31")
+
+		self.assertEqual(response.status_code, 201, response.data)
+		self.assertFalse(response.data["aplicado_a_cuota"])
+		self.assertTrue(Beca.objects.exists())
+		self.assertEqual(self.cargo(), Decimal("2500.00"))
+
+	def test_cuota_con_pagos_admite_beca_pero_no_descuento(self):
+		self.client.post(
+			reverse("registrar-pago"),
+			{
+				"socio_id": self.socio.pk,
+				"cuota_ids": [self.cuota.pk],
+				"monto_total": "100.00",
+				"medios": [{"medio_de_pago": "Efectivo", "monto": "100.00"}],
+			},
+			format="json",
+		)
+
+		descuento = self.asignar()
+		beca = self.asignar(tipo="Beca", fecha_fin="2026-12-31")
+
+		self.assertEqual(descuento.status_code, 400)
+		self.assertEqual(beca.status_code, 201, beca.data)
+		self.assertFalse(beca.data["aplicado_a_cuota"])
+		self.assertEqual(self.cargo(), Decimal("2500.00"))
+
+	def test_listado_de_becas_por_socio(self):
+		self.asignar(tipo="Beca", fecha_fin="2026-12-31")
+		otro = crear_socio("60000002")
+		Beca.objects.create(socio=otro, monto=Decimal("100.00"), fecha_aplicacion=date(2026, 10, 1), fecha_fin=date(2026, 10, 31), motivo="Otro")
+
+		response = self.client.get(reverse("beca-list"), {"socio_id": self.socio.pk})
+
+		self.assertEqual(response.status_code, 200)
+		self.assertEqual([beca["socio"] for beca in response.data], [self.socio.pk])
 
 
 class ProteccionRegistrosFinancierosTests(PagoTestBase):

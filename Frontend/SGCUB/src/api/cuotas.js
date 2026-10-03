@@ -1,7 +1,6 @@
 import { api } from './conf'
 
 const cuotasEndpoint = 'finanzas/cuota/'
-const itemsCuotaEndpoint = 'finanzas/item-cuota/'
 
 export const getCuotas = async () => {
   const response = await api.get(cuotasEndpoint)
@@ -23,7 +22,7 @@ export const deleteCuota = async (cuotaId) => {
   return response.data
 }
 
-export const postItemCuota = async (item) => {
-  const response = await api.post(itemsCuotaEndpoint, item)
+export const postBeneficio = async (cuotaId, beneficio) => {
+  const response = await api.post(`${cuotasEndpoint}${cuotaId}/beneficio/`, beneficio)
   return response.data
 }
