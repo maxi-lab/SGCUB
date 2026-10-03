@@ -1,7 +1,17 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import SortableHeader from '../shared/SortableHeader'
+import useOrdenTabla from '../../hooks/useOrdenTabla'
 
 const PAGE_SIZE = 5
+
+// Distance to today works for both tables: days left for upcoming, overdue days for expired.
+const SORT_VALUES = {
+  person: (doc) => doc.persona_nombre_completo || '',
+  dueDate: (doc) => Math.abs(doc.daysFromToday),
+}
+const INITIAL_SORT = { columna: 'dueDate', direccion: 'asc' }
+const HEADER_CLASS = 'py-space-sm px-space-md font-semibold'
 
 const TONES = {
   warning: {
@@ -30,14 +40,15 @@ const matchesSearch = (doc, search) => {
     (doc.nombre || '').toLowerCase().includes(text)
 }
 
-export default function DocumentAlertTable({ title, icon, tone = 'warning', headers, rows, getBadgeLabel, getTypeName, emptyMessage }) {
+export default function DocumentAlertTable({ title, icon, tone = 'warning', documentHeader, dateHeader, rows, getBadgeLabel, getTypeName, emptyMessage }) {
   const navigate = useNavigate()
   const [search, setSearch] = useState('')
   const [limit, setLimit] = useState(PAGE_SIZE)
   const style = TONES[tone] ?? TONES.warning
 
   const filteredRows = rows.filter(doc => matchesSearch(doc, search))
-  const visibleRows = filteredRows.slice(0, limit)
+  const { ordenadas: sortedRows, orden: sort, ordenarPor: sortBy } = useOrdenTabla(filteredRows, SORT_VALUES, INITIAL_SORT)
+  const visibleRows = sortedRows.slice(0, limit)
   const openProfile = (doc) => navigate(`${doc.url_perfil}?tab=documentacion`)
 
   return (
@@ -67,9 +78,9 @@ export default function DocumentAlertTable({ title, icon, tone = 'warning', head
         <table className="w-full text-left">
           <thead>
             <tr className="bg-surface-container-low text-on-surface-variant font-label-sm text-label-sm uppercase tracking-wider">
-              {headers.map(header => (
-                <th key={header} className="py-space-sm px-space-md font-semibold">{header}</th>
-              ))}
+              <SortableHeader className={HEADER_CLASS} etiqueta="Persona / Categoría" columna="person" orden={sort} onOrdenar={sortBy} />
+              <th className={HEADER_CLASS} scope="col">{documentHeader}</th>
+              <SortableHeader className={HEADER_CLASS} etiqueta={dateHeader} columna="dueDate" orden={sort} onOrdenar={sortBy} />
             </tr>
           </thead>
           <tbody className="font-body-sm text-body-sm text-on-surface">
@@ -100,7 +111,7 @@ export default function DocumentAlertTable({ title, icon, tone = 'warning', head
               </tr>
             ))}
             {visibleRows.length === 0 && (
-              <tr><td colSpan={headers.length} className="p-4 text-center text-outline">{emptyMessage}</td></tr>
+              <tr><td colSpan={3} className="p-4 text-center text-outline">{emptyMessage}</td></tr>
             )}
           </tbody>
         </table>

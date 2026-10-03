@@ -15,12 +15,10 @@ export default function DocumentacionDashboard() {
   const expiredDocs = activeDocs
     .filter(doc => doc.daysFromToday < 0)
     .map(doc => ({ ...doc, overdueDays: Math.floor(-doc.daysFromToday) }))
-    .sort((a, b) => b.overdueDays - a.overdueDays)
 
   const upcomingDocs = activeDocs
     .filter(doc => doc.daysFromToday >= 0 && doc.daysFromToday <= 30)
     .map(doc => ({ ...doc, daysLeft: Math.ceil(doc.daysFromToday) }))
-    .sort((a, b) => a.daysLeft - b.daysLeft)
 
   const validCount = activeDocs.length - expiredDocs.length
 
@@ -103,7 +101,8 @@ export default function DocumentacionDashboard() {
           title="Próximos a Vencer"
           icon="timelapse"
           tone="warning"
-          headers={['Persona / Categoría', 'Documento Requerido', 'Vencimiento']}
+          documentHeader="Documento Requerido"
+          dateHeader="Vencimiento"
           rows={upcomingDocs}
           getBadgeLabel={doc => `Vence en ${doc.daysLeft} día/s`}
           getTypeName={getNombreTipo}
@@ -113,7 +112,8 @@ export default function DocumentacionDashboard() {
           title="Documentos Vencidos"
           icon="cancel"
           tone="error"
-          headers={['Persona / Categoría', 'Documento Vencido', 'Fecha Vencida']}
+          documentHeader="Documento Vencido"
+          dateHeader="Fecha Vencida"
           rows={expiredDocs}
           getBadgeLabel={doc => `${doc.overdueDays} día/s de mora`}
           getTypeName={getNombreTipo}
