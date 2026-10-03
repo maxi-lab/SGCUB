@@ -163,20 +163,19 @@ def generar_cuotas_mensuales(fecha=None):
         "items_deportivos": 0,
     }
 
-    with transaction.atomic():
-        for socio in socios:
-            try:
-                cuota = create_cuota(socio, period, configuration=configuration)
-            except CuotaDuplicadaError:
-                result["cuotas_existentes"] += 1
-                continue
-            except SocioInactivoError:
-                continue
+    for socio in socios:
+        try:
+            cuota = create_cuota(socio, period, configuration=configuration)
+        except CuotaDuplicadaError:
+            result["cuotas_existentes"] += 1
+            continue
+        except SocioInactivoError:
+            continue
 
-            concepts = list(cuota.items.values_list("concepto", flat=True))
-            result["cuotas_creadas"] += 1
-            result["items_sociales"] += concepts.count(ConceptoItemChoices.CUOTA_SOCIAL)
-            result["items_deportivos"] += concepts.count(ConceptoItemChoices.CUOTA_DEPORTIVA)
+        concepts = list(cuota.items.values_list("concepto", flat=True))
+        result["cuotas_creadas"] += 1
+        result["items_sociales"] += concepts.count(ConceptoItemChoices.CUOTA_SOCIAL)
+        result["items_deportivos"] += concepts.count(ConceptoItemChoices.CUOTA_DEPORTIVA)
 
     return result
 

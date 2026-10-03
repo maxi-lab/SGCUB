@@ -52,8 +52,9 @@ INSTALLED_APPS = [
 Q_CLUSTER = {
     'name': 'django_q_cluster',
     'workers': 4,              # Número de procesos concurrentes
-    'timeout': 90,             # Segundos máximos antes de matar una tarea colgada
-    'retry': 120,              # Segundos para reintentar si el worker falla
+    'timeout': 600,            # Segundos máximos antes de matar una tarea colgada
+    'retry': 660,              # Segundos para reintentar si el worker falla
+    'catch_up': False,
     'queue_limit': 50,         # Límite de tareas en cola
     'orm': 'default',          # Usa la base de datos configurada en Django como broker
 }

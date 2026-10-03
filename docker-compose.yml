@@ -38,6 +38,27 @@ services:
       db:
         condition: service_healthy
 
+  qcluster:
+    build: ./Backend
+    container_name: sgcub_qcluster
+    command: python manage.py qcluster
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./Backend:/app
+    environment:
+      DB_NAME: ${DB_NAME:-sgcub_db}
+      DB_USER: ${DB_USER:-sgcub_user}
+      DB_PASSWORD: "${DB_PASSWORD:?Error: Falla de seguridad. Debes definir DB_PASSWORD en el archivo .env}"
+      DB_HOST: ${DB_HOST:-db}
+      DB_PORT: ${DB_PORT:-5432}
+    depends_on:
+      db:
+        condition: service_healthy
+      backend:
+        condition: service_started
+
   frontend:
     build: ./Frontend/SGCUB
     container_name: sgcub_frontend

@@ -1,5 +1,6 @@
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from decimal import Decimal
+from importlib import import_module
 
 from django.contrib.auth import get_user_model
 from django.db import connection
@@ -8,6 +9,9 @@ from django.db.migrations.executor import MigrationExecutor
 from django.test import TestCase, TransactionTestCase
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.module_loading import import_string
+from django_q.models import Schedule
+from django_q.tasks import async_task, fetch
 from rest_framework.test import APITestCase
 
 from padron.models import (
@@ -931,6 +935,58 @@ class RecargosPorMoraTests(APITestCase):
 
 		self.assertEqual(response.status_code, 200)
 		self.assertEqual(response.data["recargos_primer_vencimiento"], 1)
+
+
+class TareasProgramadasTests(TestCase):
+	migracion = import_module("finanzas.migrations.0019_tareas_programadas")
+
+	def local(self, *args):
+		return timezone.make_aware(datetime(*args))
+
+	def test_tareas_registradas_en_django_q(self):
+		esperadas = {
+			self.migracion.MONTHLY_GENERATION: ("finanzas.services.generar_cuotas_mensuales", Schedule.MONTHLY, 1, 1),
+			self.migracion.DAILY_SURCHARGES: ("finanzas.services.apply_surcharges", Schedule.DAILY, None, 2),
+		}
+		for nombre, (funcion, tipo, dia, hora) in esperadas.items():
+			with self.subTest(nombre=nombre):
+				tarea = Schedule.objects.get(name=nombre)
+				self.assertEqual(tarea.func, funcion)
+				self.assertEqual(tarea.schedule_type, tipo)
+				self.assertEqual(tarea.repeats, -1)
+				self.assertTrue(callable(import_string(tarea.func)))
+				proxima = timezone.localtime(tarea.next_run)
+				self.assertGreater(proxima, timezone.localtime() - timedelta(minutes=1))
+				self.assertEqual(proxima.hour, hora)
+				if dia is not None:
+					self.assertEqual(proxima.day, dia)
+
+	def test_django_q_ejecuta_las_tareas_programadas(self):
+		crear_socio("90000001", con_jugador=True)
+
+		for tarea in Schedule.objects.filter(name__in=[self.migracion.MONTHLY_GENERATION, self.migracion.DAILY_SURCHARGES]):
+			with self.subTest(tarea=tarea.name):
+				id_tarea = async_task(tarea.func, sync=True)
+				resultado = fetch(id_tarea)
+				self.assertTrue(resultado.success, resultado.result)
+
+		self.assertEqual(Cuota.objects.filter(movimiento__cuenta_corriente__socio__persona__dni="90000001").count(), 1)
+
+	def test_proxima_generacion_mensual(self):
+		casos = [
+			(self.local(2026, 10, 3, 15, 0), self.local(2026, 11, 1, 1, 0)),
+			(self.local(2026, 11, 1, 0, 30), self.local(2026, 11, 1, 1, 0)),
+			(self.local(2026, 11, 1, 1, 0), self.local(2026, 12, 1, 1, 0)),
+			(self.local(2026, 12, 20, 9, 0), self.local(2027, 1, 1, 1, 0)),
+		]
+		for ahora, esperado in casos:
+			with self.subTest(ahora=ahora):
+				self.assertEqual(self.migracion.next_monthly_run(ahora), esperado)
+
+	def test_proxima_aplicacion_diaria_de_recargos(self):
+		self.assertEqual(self.migracion.next_daily_run(self.local(2026, 10, 3, 1, 0)), self.local(2026, 10, 3, 2, 0))
+		self.assertEqual(self.migracion.next_daily_run(self.local(2026, 10, 3, 2, 0)), self.local(2026, 10, 4, 2, 0))
+		self.assertEqual(self.migracion.next_daily_run(self.local(2026, 12, 31, 23, 0)), self.local(2027, 1, 1, 2, 0))
 
 
 class NumeracionComprobanteTests(APITestCase):
