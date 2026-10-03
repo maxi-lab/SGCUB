@@ -3,7 +3,7 @@ from decimal import Decimal
 from importlib import import_module
 
 from django.contrib.auth import get_user_model
-from django.db import connection
+from django.db import IntegrityError, connection, transaction
 from django.db.models import ProtectedError
 from django.db.migrations.executor import MigrationExecutor
 from django.test import TestCase, TransactionTestCase
@@ -26,6 +26,7 @@ from padron.models import (
 )
 from .generators import GeneradorItemsCuota
 from .models import (
+	Beca,
 	Comprobante,
 	ConfiguracionFinanciera,
 	CuentaCorriente,
@@ -184,6 +185,47 @@ class ConfiguracionFinancieraTests(APITestCase):
 		self.assertEqual(configuracion.surcharge(1, Decimal("2500.00")), Decimal("200.00"))
 		self.assertEqual(configuracion.surcharge(2, Decimal("2500.00")), Decimal("250.00"))
 		self.assertEqual(configuracion.surcharge(2, Decimal("1333.33")), Decimal("133.33"))
+
+
+class BecaModeloTests(TestCase):
+	def setUp(self):
+		self.socio = crear_socio("50000001")
+
+	def beca(self, **datos):
+		valores = {
+			"socio": self.socio,
+			"fecha_aplicacion": date(2026, 10, 1),
+			"fecha_fin": date(2026, 12, 31),
+			"motivo": "Situación económica",
+		}
+		valores.update(datos)
+		return Beca(**valores)
+
+	def test_descuento_porcentual_sobre_la_base(self):
+		self.assertEqual(self.beca(porcentaje=Decimal("25")).discount_for(Decimal("2500.00")), Decimal("625.00"))
+		self.assertEqual(self.beca(porcentaje=Decimal("33.33")).discount_for(Decimal("1000.00")), Decimal("333.30"))
+
+	def test_monto_fijo_se_topea_a_la_base(self):
+		self.assertEqual(self.beca(monto=Decimal("800.00")).discount_for(Decimal("2500.00")), Decimal("800.00"))
+		self.assertEqual(self.beca(monto=Decimal("1500.00")).discount_for(Decimal("1000.00")), Decimal("1000.00"))
+
+	def test_vigencia_incluye_alta_y_fin(self):
+		beca = self.beca(monto=Decimal("100.00"))
+
+		self.assertFalse(beca.is_active_on(date(2026, 9, 30)))
+		self.assertTrue(beca.is_active_on(date(2026, 10, 1)))
+		self.assertTrue(beca.is_active_on(date(2026, 12, 31)))
+		self.assertFalse(beca.is_active_on(date(2027, 1, 1)))
+
+	def test_la_base_exige_monto_o_porcentaje_pero_no_ambos(self):
+		for datos in ({}, {"monto": Decimal("100.00"), "porcentaje": Decimal("10")}):
+			with self.subTest(datos=datos):
+				with self.assertRaises(IntegrityError), transaction.atomic():
+					self.beca(**datos).save()
+
+	def test_la_base_exige_fin_no_anterior_al_alta(self):
+		with self.assertRaises(IntegrityError), transaction.atomic():
+			self.beca(monto=Decimal("100.00"), fecha_fin=date(2026, 9, 1)).save()
 
 
 class GeneracionCuotasMensualesTests(TestCase):

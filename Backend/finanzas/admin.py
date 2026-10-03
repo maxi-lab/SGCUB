@@ -1,6 +1,7 @@
 from django.contrib import admin
 
 from .models import (
+	Beca,
 	Comprobante,
 	ConfiguracionFinanciera,
 	CuentaCorriente,
@@ -21,3 +22,4 @@ admin.site.register(MovimientoCuenta)
 admin.site.register(Imputacion)
 admin.site.register(ItemPago)
 admin.site.register(ConfiguracionFinanciera)
+admin.site.register(Beca)

@@ -88,6 +88,13 @@ class ItemCuota(models.Model):
     fecha_aplicacion = models.DateField()
     monto = models.DecimalField(max_digits=10, decimal_places=2)
     motivo = models.CharField(max_length=200, blank=True)
+    beca = models.ForeignKey(
+        "finanzas.Beca",
+        on_delete=models.PROTECT,
+        related_name="items",
+        null=True,
+        blank=True,
+    )
 
     class Meta:
         db_table = "item_cuota"
@@ -330,3 +337,59 @@ class ConfiguracionFinanciera(models.Model):
         if kind == TipoRecargoChoices.PORCENTAJE:
             return (base_amount * value / Decimal("100")).quantize(Decimal("0.01"))
         return value
+
+
+class Beca(models.Model):
+    beca_id = models.AutoField(primary_key=True)
+    socio = models.ForeignKey(
+        "padron.Socio",
+        on_delete=models.PROTECT,
+        related_name="becas",
+    )
+    concepto = models.CharField(
+        max_length=40,
+        choices=ConceptoItemChoices.choices,
+        default=ConceptoItemChoices.CUOTA_SOCIAL,
+    )
+    monto = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    porcentaje = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    fecha_aplicacion = models.DateField()
+    fecha_fin = models.DateField()
+    motivo = models.CharField(max_length=200)
+    fecha_creacion = models.DateTimeField(default=timezone.now)
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="becas_asignadas",
+        null=True,
+        blank=True,
+    )
+
+    class Meta:
+        db_table = "beca"
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    models.Q(monto__isnull=False, porcentaje__isnull=True)
+                    | models.Q(monto__isnull=True, porcentaje__isnull=False)
+                ),
+                name="beca_monto_o_porcentaje",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(fecha_fin__gte=models.F("fecha_aplicacion")),
+                name="beca_fecha_fin_posterior_a_alta",
+            ),
+        ]
+
+    def __str__(self):
+        return f"Beca {self.beca_id} - {self.socio}"
+
+    def is_active_on(self, day):
+        return self.fecha_aplicacion <= day <= self.fecha_fin
+
+    def discount_for(self, base_amount):
+        if self.porcentaje is not None:
+            amount = (base_amount * self.porcentaje / Decimal("100")).quantize(Decimal("0.01"))
+        else:
+            amount = self.monto
+        return max(min(amount, base_amount), Decimal("0.00"))
