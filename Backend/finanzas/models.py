@@ -148,6 +148,17 @@ class Comprobante(models.Model):
         return f"Comprobante {self.numero}"
 
 
+class SecuenciaComprobante(models.Model):
+    secuencia_comprobante_id = models.AutoField(primary_key=True)
+    ultimo_numero = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        db_table = "secuencia_comprobante"
+
+    def __str__(self):
+        return f"Último comprobante {self.ultimo_numero}"
+
+
 class CuentaCorriente(models.Model):
     cuenta_corriente_id = models.AutoField(primary_key=True)
     socio = models.OneToOneField(

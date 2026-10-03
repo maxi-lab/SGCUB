@@ -20,7 +20,15 @@ from .models import (
     EstadoCuotaChoices,
     ItemCuota,
     ConceptoItemChoices,
+    SecuenciaComprobante,
 )
+
+
+def next_receipt_number():
+    sequence, _ = SecuenciaComprobante.objects.select_for_update().get_or_create(pk=1)
+    sequence.ultimo_numero += 1
+    sequence.save(update_fields=["ultimo_numero"])
+    return sequence.ultimo_numero
 
 
 def _monto_configurado(nombre):

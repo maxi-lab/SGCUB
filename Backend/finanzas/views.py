@@ -2,7 +2,7 @@ from decimal import Decimal, InvalidOperation
 
 from django.contrib.auth import get_user_model
 from django.db import transaction
-from django.db.models import Max, Prefetch, Q
+from django.db.models import Prefetch, Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import status
@@ -38,7 +38,7 @@ from .serializers import (
 	CuentaCorrienteEstadoSerializer,
 	ComprobanteDetalleSerializer,
 )
-from .services import generar_cuotas_mensuales
+from .services import generar_cuotas_mensuales, next_receipt_number
 
 
 def _list_create(request, model, serializer_class, queryset=None):
@@ -335,11 +335,10 @@ def corregir_pago(request, pk):
 				monto=monto,
 			)
 
-		ultimo_numero = Comprobante.objects.select_for_update().aggregate(max_num=Max("numero"))["max_num"] or 0
 		comprobante_nuevo = Comprobante.objects.create(
 			pago=pago_nuevo,
 			fecha_emision=timezone.localdate(),
-			numero=ultimo_numero + 1,
+			numero=next_receipt_number(),
 			monto_total=monto_total,
 		)
 
@@ -442,11 +441,10 @@ def registrar_pago(request):
 		for medio, monto in zip(medios, montos):
 			ItemPago.objects.create(pago=pago, medio_de_pago=medio["medio_de_pago"], monto=monto)
 
-		ultimo_numero = Comprobante.objects.select_for_update().aggregate(max_num=Max("numero"))["max_num"] or 0
 		comprobante = Comprobante.objects.create(
 			pago=pago,
 			fecha_emision=timezone.localdate(),
-			numero=ultimo_numero + 1,
+			numero=next_receipt_number(),
 			monto_total=monto_total,
 		)
 		MovimientoCuenta.objects.create(

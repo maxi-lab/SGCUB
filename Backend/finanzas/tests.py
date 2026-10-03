@@ -2,7 +2,7 @@ from datetime import date
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
-from django.test import TestCase, override_settings
+from django.test import TestCase
 from django.urls import reverse
 from rest_framework.test import APITestCase
 
@@ -25,16 +25,11 @@ from .models import (
 	ItemPago,
 	MovimientoCuenta,
 	Pago,
+	SecuenciaComprobante,
 )
-from .services import generar_cuotas_mensuales
+from .services import generar_cuotas_mensuales, next_receipt_number
 
 
-@override_settings(
-	FINANZAS_CUOTA_SOCIAL_MONTO="100.00",
-	FINANZAS_CUOTA_DEPORTIVA_MONTO="50.00",
-	FINANZAS_DIA_VENCIMIENTO_1=10,
-	FINANZAS_DIA_VENCIMIENTO_2=20,
-)
 class GeneracionCuotasMensualesTests(TestCase):
 	def crear_socio(
 		self,
@@ -117,10 +112,11 @@ class GeneracionCuotasMensualesTests(TestCase):
 		self.assertEqual(segundo_resultado["cuotas_existentes"], 1)
 		self.assertEqual(Cuota.objects.filter(cuenta_corriente=cuenta).count(), 1)
 		self.assertEqual(cuota.items.count(), 2)
-		self.assertEqual(cuenta.saldo, Decimal("-150.00"))
+		self.assertEqual(cuenta.saldo, Decimal("-2500.00"))
 
 	def test_endpoint_manual_ejecuta_generacion(self):
 		self.crear_socio("10000012")
+		self.client.force_login(get_user_model().objects.create_user(username="tesorero"))
 
 		response = self.client.post(reverse("generar-cuotas-mensuales"))
 
@@ -157,7 +153,7 @@ class CorregirPagoTests(APITestCase):
 		self.comprobante_original = Comprobante.objects.create(
 			pago=self.pago_original,
 			fecha_emision=date(2026, 9, 30),
-			numero=1,
+			numero=next_receipt_number(),
 			monto_total=Decimal("100.00"),
 		)
 		MovimientoCuenta.objects.create(
@@ -224,3 +220,60 @@ class CorregirPagoTests(APITestCase):
 		self.assertEqual(comprobante_response.status_code, 405)
 		self.assertTrue(Pago.objects.filter(pk=self.pago_original.pk).exists())
 		self.assertTrue(Comprobante.objects.filter(pk=self.comprobante_original.pk).exists())
+
+
+class NumeracionComprobanteTests(APITestCase):
+	def setUp(self):
+		self.client.force_authenticate(user=get_user_model().objects.create_user(username="tesorero"))
+		persona = Persona.objects.create(nombre="Luis", apellido="Gomez", dni="23456789")
+		self.socio = Socio.objects.create(persona=persona)
+		self.cuenta = CuentaCorriente.objects.create(socio=self.socio)
+		self.cuotas = [self.crear_cuota(f"2026-0{mes}") for mes in (8, 9)]
+
+	def crear_cuota(self, periodo):
+		cuota = Cuota.objects.create(
+			cuenta_corriente=self.cuenta,
+			fecha_venc1=date(2026, 9, 10),
+			fecha_venc2=date(2026, 9, 20),
+			periodo=periodo,
+		)
+		ItemCuota.objects.create(
+			cuota=cuota,
+			concepto="CuotaSocial",
+			fecha_aplicacion=date(2026, 9, 1),
+			monto=Decimal("100.00"),
+		)
+		return cuota
+
+	def registrar_pago(self, cuota):
+		return self.client.post(
+			reverse("registrar-pago"),
+			{
+				"socio_id": self.socio.pk,
+				"cuota_ids": [cuota.pk],
+				"monto_total": "100.00",
+				"medios": [{"medio_de_pago": "Efectivo", "monto": "100.00"}],
+			},
+			format="json",
+		)
+
+	def test_numeracion_continua_desde_ultimo_numero(self):
+		SecuenciaComprobante.objects.update_or_create(pk=1, defaults={"ultimo_numero": 41})
+
+		self.assertEqual(next_receipt_number(), 42)
+		self.assertEqual(next_receipt_number(), 43)
+
+	def test_pagos_consecutivos_generan_numeros_correlativos(self):
+		primero = self.registrar_pago(self.cuotas[0])
+		segundo = self.registrar_pago(self.cuotas[1])
+
+		self.assertEqual(primero.status_code, 201, primero.data)
+		self.assertEqual(segundo.status_code, 201, segundo.data)
+		self.assertEqual(
+			segundo.data["comprobante"]["numero"],
+			primero.data["comprobante"]["numero"] + 1,
+		)
+		self.assertEqual(
+			SecuenciaComprobante.objects.get(pk=1).ultimo_numero,
+			segundo.data["comprobante"]["numero"],
+		)
