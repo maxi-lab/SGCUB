@@ -1,19 +1,10 @@
 import React from 'react'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { formatDate } from '../format'
-import { PrimaryButton, SecondaryButton, TabHeader, EmptyState, KPI } from './parts'
+import { EmptyState } from './parts'
 import useDocumentacion from '../../../hooks/useDocumentacion'
 import DocumentacionUploadModal from '../../documental/DocumentacionUploadModal'
 import DocumentacionDeleteModal from '../../documental/DocumentacionDeleteModal'
-
-const DIAS_AVISO_VENCIMIENTO = 30
-
-const getDocumentStatus = (vencimiento) => {
-  if (!vencimiento) return 'vigente'
-  const dias = (new Date(`${vencimiento}T23:59:59`) - new Date()) / 86400000
-  if (dias < 0) return 'vencido'
-  return dias <= DIAS_AVISO_VENCIMIENTO ? 'por_vencer' : 'vigente'
-}
 
 const ETIQUETA_ESTADO = {
   vigente: { label: 'Vigente / Aprobado', clase: 'bg-emerald-100 text-emerald-800', dot: 'bg-emerald-600' },
@@ -40,7 +31,6 @@ const getMediaUrl = (path) => {
 
 export default function DocumentationTab({ personaId, personaType, personaInfo }) {
   const {
-    documentos: documents,
     tipos,
     isLoading: loading,
     subirDocumento,
@@ -278,7 +268,7 @@ export default function DocumentationTab({ personaId, personaType, personaInfo }
                                   } else {
                                     window.open(url, '_blank');
                                   }
-                                } catch (err) {
+                                } catch {
                                   alert("El archivo físico ya no existe o fue eliminado del servidor.");
                                 }
                               }}
@@ -357,7 +347,7 @@ export default function DocumentationTab({ personaId, personaType, personaInfo }
                                 } else {
                                   window.open(url, '_blank');
                                 }
-                              } catch (err) {
+                              } catch {
                                 alert("El archivo físico ya no existe o fue eliminado del servidor.");
                               }
                             }}
