@@ -15,6 +15,7 @@ import useCategorias from '../hooks/useCategorias'
 import useLocalidades from '../hooks/useLocalidades'
 
 import useDocumentacion from "../hooks/useDocumentacion"
+import { buildDocumentBadges } from '../components/documental/documentBadges'
 function DocenteDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -29,15 +30,7 @@ function DocenteDetail() {
   const { docente, error } = carga
 
   const { documentosActivos: activos } = useDocumentacion(docente?.persona)
-  const badgeConfig = React.useMemo(() => {
-    const vencidos = activos.filter(d => d.status === 'vencido').length;
-    if (vencidos > 0) return { label: vencidos, tono: 'error', hideDot: true };
-    const porVencer = activos.filter(d => d.status === 'por_vencer').length;
-    if (porVencer > 0) return { label: porVencer, tono: 'alerta', hideDot: true };
-    const vigentes = activos.filter(d => d.status === 'vigente').length;
-    if (vigentes > 0) return { label: vigentes, tono: 'ok', hideDot: true };
-    return undefined;
-  }, [activos]);
+  const badgeConfig = React.useMemo(() => buildDocumentBadges(activos), [activos])
 
   const [modalBajaAbierto, setModalBajaAbierto] = useState(false)
   const [dandoDeBaja, setDandoDeBaja] = useState(false)
