@@ -34,7 +34,7 @@ from .models import (
 	Pago,
 	SecuenciaComprobante,
 )
-from .services import generar_cuotas_mensuales, next_receipt_number
+from .services import apply_surcharges, generar_cuotas_mensuales, next_receipt_number
 
 
 def crear_socio(dni, socio_inactivo=False, con_jugador=False, jugador_inactivo=False):
@@ -815,6 +815,124 @@ class ReporteMorosidadTests(APITestCase):
 		self.assertNotIn("erroresConsulta", data)
 
 
+class RecargosPorMoraTests(APITestCase):
+	def setUp(self):
+		self.client.force_authenticate(user=get_user_model().objects.create_user(username="tesorero"))
+		self.hoy = timezone.localdate()
+		persona = Persona.objects.create(nombre="Tomas", apellido="Rey", dni="89012345")
+		self.socio = Socio.objects.create(persona=persona)
+		self.cuenta = CuentaCorriente.objects.create(socio=self.socio, saldo=Decimal("-1000.00"))
+		self.configurar(valor_recargo_1="200.00", tipo_recargo_2="Porcentaje", valor_recargo_2="10.00")
+
+	def configurar(self, **valores):
+		ConfiguracionFinanciera.objects.update_or_create(pk=1, defaults=valores)
+
+	def cuota(self, dias_venc1, dias_venc2, periodo="2026-08"):
+		return crear_cuota_con_cargo(
+			self.cuenta, periodo, "1000.00",
+			venc1=self.hoy + timedelta(days=dias_venc1),
+			venc2=self.hoy + timedelta(days=dias_venc2),
+		)
+
+	def recargos(self, cuota):
+		return list(cuota.items.filter(concepto="Mora").order_by("pk"))
+
+	def test_aplica_ambos_recargos_sobre_el_valor_de_la_cuota(self):
+		cuota = self.cuota(-15, -5)
+
+		resultado = apply_surcharges(self.hoy)
+
+		recargos = self.recargos(cuota)
+		self.assertEqual([item.monto for item in recargos], [Decimal("200.00"), Decimal("100.00")])
+		self.assertIn("Recargo por primer vencimiento", recargos[0].motivo)
+		self.assertIn(cuota.fecha_venc1.strftime("%d/%m/%Y"), recargos[0].motivo)
+		self.assertIn("Recargo por segundo vencimiento", recargos[1].motivo)
+		cuota.refresh_from_db()
+		self.assertEqual(cuota.estado_cuota, EstadoCuotaChoices.VENCIDA)
+		self.assertEqual(cuota.recargos_aplicados, 2)
+		self.assertEqual(MovimientoCuenta.objects.get(cuota=cuota).monto, Decimal("1300.00"))
+		self.cuenta.refresh_from_db()
+		self.assertEqual(self.cuenta.saldo, Decimal("-1300.00"))
+		self.assertEqual(resultado["recargos_primer_vencimiento"], 1)
+		self.assertEqual(resultado["recargos_segundo_vencimiento"], 1)
+		self.assertEqual(resultado["monto_total"], Decimal("300.00"))
+
+	def test_entre_vencimientos_solo_aplica_el_primero(self):
+		cuota = self.cuota(-3, 7)
+
+		apply_surcharges(self.hoy)
+
+		self.assertEqual([item.monto for item in self.recargos(cuota)], [Decimal("200.00")])
+		cuota.refresh_from_db()
+		self.assertEqual(cuota.recargos_aplicados, 1)
+
+	def test_el_dia_del_vencimiento_todavia_no_hay_recargo(self):
+		cuota = self.cuota(0, 10)
+
+		apply_surcharges(self.hoy)
+
+		self.assertEqual(self.recargos(cuota), [])
+
+	def test_ejecutar_dos_veces_no_duplica(self):
+		cuota = self.cuota(-15, -5)
+
+		apply_surcharges(self.hoy)
+		segundo = apply_surcharges(self.hoy)
+
+		self.assertEqual(len(self.recargos(cuota)), 2)
+		self.assertEqual(segundo["cuotas_revisadas"], 0)
+
+	def test_cuota_paga_no_recibe_recargo(self):
+		cuota = self.cuota(-15, -5)
+		cuota.estado_cuota = EstadoCuotaChoices.PAGA
+		cuota.save(update_fields=["estado_cuota"])
+
+		apply_surcharges(self.hoy)
+
+		self.assertEqual(self.recargos(cuota), [])
+
+	def test_cuota_con_pago_parcial_recibe_recargo_y_aumenta_el_pendiente(self):
+		cuota = self.cuota(-15, 5)
+		self.client.post(
+			reverse("registrar-pago"),
+			{
+				"socio_id": self.socio.pk,
+				"cuota_ids": [cuota.pk],
+				"monto_total": "400.00",
+				"medios": [{"medio_de_pago": "Efectivo", "monto": "400.00"}],
+			},
+			format="json",
+		)
+
+		apply_surcharges(self.hoy)
+
+		estado = self.client.get(reverse("estado-cuenta-socio", args=[self.socio.pk])).data
+		fila = estado["cuotas"][0]
+		self.assertEqual(Decimal(str(fila["saldo_pendiente"])), Decimal("800.00"))
+		self.assertEqual(Decimal(str(estado["total_mora"])), Decimal("200.00"))
+
+	def test_recargo_en_cero_no_se_aplica_de_forma_retroactiva(self):
+		self.configurar(valor_recargo_1="0.00", valor_recargo_2="0.00")
+		cuota = self.cuota(-15, -5)
+		apply_surcharges(self.hoy)
+
+		self.configurar(valor_recargo_1="200.00", valor_recargo_2="10.00")
+		apply_surcharges(self.hoy)
+
+		self.assertEqual(self.recargos(cuota), [])
+		cuota.refresh_from_db()
+		self.assertEqual(cuota.recargos_aplicados, 2)
+		self.assertEqual(cuota.estado_cuota, EstadoCuotaChoices.VENCIDA)
+
+	def test_endpoint_manual_aplica_recargos(self):
+		self.cuota(-15, -5)
+
+		response = self.client.post(reverse("aplicar-recargos"))
+
+		self.assertEqual(response.status_code, 200)
+		self.assertEqual(response.data["recargos_primer_vencimiento"], 1)
+
+
 class NumeracionComprobanteTests(APITestCase):
 	def setUp(self):
 		self.client.force_authenticate(user=get_user_model().objects.create_user(username="tesorero"))
@@ -897,17 +1015,19 @@ class MovimientoCuotaMigrationTests(TransactionTestCase):
 			fecha="2026-08-06T12:00:00Z", monto=Decimal("800.00"),
 		)
 
-		self.migrate(self.migrate_to)
+		new_apps = self.migrate(self.migrate_to)
+		NewCuota = new_apps.get_model("finanzas", "Cuota")
+		NewMovimiento = new_apps.get_model("finanzas", "MovimientoCuenta")
 
-		cargo = MovimientoCuenta.objects.get(cuota_id=cuota.pk)
+		cargo = NewMovimiento.objects.get(cuota_id=cuota.pk)
 		self.assertEqual(cargo.tipo_movimiento, "Cargo")
 		self.assertEqual(cargo.monto, Decimal("800.00"))
 		self.assertEqual(cargo.cuenta_corriente_id, cuenta.pk)
-		self.assertEqual(Cuota.objects.get(pk=cuota.pk).fecha_creacion.date(), date(2026, 8, 1))
-		reversion = MovimientoCuenta.objects.get(pk=reversion.pk)
+		self.assertEqual(NewCuota.objects.get(pk=cuota.pk).fecha_creacion.date(), date(2026, 8, 1))
+		reversion = NewMovimiento.objects.get(pk=reversion.pk)
 		self.assertIsNone(reversion.pago_id)
 		self.assertEqual(reversion.movimiento_revertido_id, abono.pk)
-		self.assertEqual(MovimientoCuenta.objects.get(pk=abono.pk).pago_id, pago.pk)
+		self.assertEqual(NewMovimiento.objects.get(pk=abono.pk).pago_id, pago.pk)
 
 
 class ComprobantesAnuladosMigrationTests(TransactionTestCase):
@@ -918,12 +1038,15 @@ class ComprobantesAnuladosMigrationTests(TransactionTestCase):
 		executor = MigrationExecutor(connection)
 		executor.loader.build_graph()
 		executor.migrate(targets)
+		return executor.loader.project_state(targets).apps
 
 	def tearDown(self):
 		self.migrate(MigrationExecutor(connection).loader.graph.leaf_nodes())
 
 	def test_marca_anulados_y_vincula_el_reemplazo_desde_la_observacion(self):
-		self.migrate(self.migrate_from)
+		old_apps = self.migrate(self.migrate_from)
+		Pago = old_apps.get_model("finanzas", "Pago")
+		Comprobante = old_apps.get_model("finanzas", "Comprobante")
 		nuevo = Pago.objects.create(fecha=date(2026, 9, 2))
 		original = Pago.objects.create(
 			fecha=date(2026, 9, 1),
@@ -933,11 +1056,13 @@ class ComprobantesAnuladosMigrationTests(TransactionTestCase):
 		comprobante_nuevo = Comprobante.objects.create(pago=nuevo, fecha_emision=date(2026, 9, 2), numero=2, monto_total=Decimal("90.00"))
 		comprobante_original = Comprobante.objects.create(pago=original, fecha_emision=date(2026, 9, 1), numero=1, monto_total=Decimal("100.00"))
 
-		self.migrate(self.migrate_to)
+		new_apps = self.migrate(self.migrate_to)
+		NewComprobante = new_apps.get_model("finanzas", "Comprobante")
+		NewPago = new_apps.get_model("finanzas", "Pago")
 
-		comprobante_original.refresh_from_db()
-		comprobante_nuevo.refresh_from_db()
+		comprobante_original = NewComprobante.objects.get(pk=comprobante_original.pk)
+		comprobante_nuevo = NewComprobante.objects.get(pk=comprobante_nuevo.pk)
 		self.assertEqual(comprobante_original.estado, "Anulado")
 		self.assertEqual(comprobante_original.reemplazado_por_id, comprobante_nuevo.pk)
 		self.assertEqual(comprobante_nuevo.estado, "Vigente")
-		self.assertEqual(Pago.objects.get(pk=original.pk).motivo_anulacion, "Monto mal cargado")
+		self.assertEqual(NewPago.objects.get(pk=original.pk).motivo_anulacion, "Monto mal cargado")

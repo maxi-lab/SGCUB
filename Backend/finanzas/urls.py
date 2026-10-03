@@ -1,6 +1,7 @@
 from django.urls import path
 
 from .views import (
+    aplicar_recargos_manual,
     comprobante_detail,
     configuracion_financiera,
     comprobante_list,
@@ -28,6 +29,7 @@ from .views import (
 urlpatterns = [
     path("configuracion/", configuracion_financiera, name="configuracion-financiera"),
     path("cuota/generar-mensual/", generar_cuotas_mensuales_manual, name="generar-cuotas-mensuales"),
+    path("cuota/aplicar-recargos/", aplicar_recargos_manual, name="aplicar-recargos"),
     path("cuota/", cuota_list_create, name="cuota-list"),
     path("cuota/<int:pk>/", cuota_detail, name="cuota-detail"),
     path("item-cuota/", item_cuota_list_create, name="item-cuota-list"),

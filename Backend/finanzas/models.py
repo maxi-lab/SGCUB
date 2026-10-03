@@ -63,6 +63,7 @@ class Cuota(models.Model):
     fecha_venc1 = models.DateField()
     fecha_venc2 = models.DateField()
     periodo = models.CharField(max_length=20)
+    recargos_aplicados = models.PositiveSmallIntegerField(default=0)
 
     class Meta:
         db_table = "cuota"

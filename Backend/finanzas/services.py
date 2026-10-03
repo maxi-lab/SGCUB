@@ -352,3 +352,62 @@ def correct_payment(payment_id, cuota_ids, payment_methods, total, reason, user=
     for cuota in previously_covered:
         refresh_cuota_state(cuota, pending[cuota.pk])
     return original, original_receipt, replacement, receipt
+
+
+SURCHARGE_LABELS = {1: "primer", 2: "segundo"}
+
+
+def apply_cuota_surcharges(cuota_id, today, configuration):
+    with transaction.atomic():
+        account_id = MovimientoCuenta.objects.values_list("cuenta_corriente_id", flat=True).get(cuota_id=cuota_id)
+        CuentaCorriente.objects.select_for_update().get(pk=account_id)
+        cuota = Cuota.objects.select_for_update(of=("self",)).select_related("movimiento").get(pk=cuota_id)
+        if pending_amounts([cuota])[cuota.pk] <= 0:
+            return []
+
+        base_amount = net_amount(cuota.items.exclude(concepto=ConceptoItemChoices.MORA))
+        surcharges = []
+        for number, due in ((1, cuota.fecha_venc1), (2, cuota.fecha_venc2)):
+            if cuota.recargos_aplicados >= number or today <= due:
+                continue
+            amount = configuration.surcharge(number, base_amount)
+            if amount > 0:
+                surcharges.append((number, ItemCuota.objects.create(
+                    cuota=cuota,
+                    concepto=ConceptoItemChoices.MORA,
+                    fecha_aplicacion=today,
+                    monto=amount,
+                    motivo=f"Recargo por {SURCHARGE_LABELS[number]} vencimiento ({due:%d/%m/%Y})",
+                )))
+            cuota.recargos_aplicados = number
+        cuota.save(update_fields=["recargos_aplicados"])
+
+        if surcharges:
+            sync_cuota_charge(cuota)
+            cuota.movimiento.refresh_from_db(fields=["monto"])
+        refresh_cuota_state(cuota, pending_amounts([cuota])[cuota.pk], today)
+        return surcharges
+
+
+def apply_surcharges(today=None):
+    today = today or timezone.localdate()
+    configuration = ConfiguracionFinanciera.load()
+    cuota_ids = list(
+        Cuota.objects.filter(fecha_venc1__lt=today, recargos_aplicados__lt=2, movimiento__isnull=False)
+        .exclude(estado_cuota=EstadoCuotaChoices.PAGA)
+        .order_by("pk")
+        .values_list("pk", flat=True)
+    )
+    result = {
+        "fecha": today.isoformat(),
+        "cuotas_revisadas": len(cuota_ids),
+        "recargos_primer_vencimiento": 0,
+        "recargos_segundo_vencimiento": 0,
+        "monto_total": Decimal("0.00"),
+    }
+    for cuota_id in cuota_ids:
+        for number, item in apply_cuota_surcharges(cuota_id, today, configuration):
+            key = "recargos_primer_vencimiento" if number == 1 else "recargos_segundo_vencimiento"
+            result[key] += 1
+            result["monto_total"] += item.monto
+    return result

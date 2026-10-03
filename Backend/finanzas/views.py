@@ -44,6 +44,7 @@ from .services import (
 	CuotaDuplicadaError,
 	PagoInvalidoError,
 	SocioInactivoError,
+	apply_surcharges,
 	correct_payment,
 	create_cuota,
 	delete_cuota,
@@ -92,6 +93,12 @@ def cuota_list_create(request):
 @api_view(["POST"])
 def generar_cuotas_mensuales_manual(request):
 	return Response(generar_cuotas_mensuales(), status=status.HTTP_200_OK)
+
+
+@extend_schema(tags=["Finanzas/Cuota"])
+@api_view(["POST"])
+def aplicar_recargos_manual(request):
+	return Response(apply_surcharges(), status=status.HTTP_200_OK)
 
 
 @extend_schema(tags=["Finanzas/Cuota"], request=CuotaUpdateSerializer, responses=CuotaSerializer)
