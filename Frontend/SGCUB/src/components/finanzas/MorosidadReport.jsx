@@ -1,7 +1,6 @@
 import { Fragment, useState } from 'react'
 import { formatAmount, formatDni, formatNumber } from '../personas/format'
 import FinancialTab from '../personas/tabs/FinancialTab'
-import './MorosidadReport.css'
 
 const alcances = [
   { id: 'activos', titulo: 'Todos los activos', detalle: 'Incluye a todos los socios activos.' },
@@ -30,6 +29,9 @@ function MorosidadReport({
   onGenerate,
   reporte,
   generationError,
+  isExporting,
+  onExportPdf,
+  exportError,
 }) {
   const [socioExpandido, setSocioExpandido] = useState(null)
   const sociosParaElegir = sociosFiltrados
@@ -42,11 +44,9 @@ function MorosidadReport({
       : [...actuales, id])
   }
 
-  const imprimirReporte = () => window.print()
-
   return (
-    <div className="morosidad-report flex flex-col gap-5">
-      <section className="morosidad-no-print border-b border-outline-variant/40 pb-5" aria-labelledby="morosidad-config-title">
+    <div className="flex flex-col gap-5">
+      <section className="border-b border-outline-variant/40 pb-5" aria-labelledby="morosidad-config-title">
         <div className="mb-4">
           <h2 id="morosidad-config-title" className="text-lg font-bold text-on-surface">Alcance del reporte</h2>
           <p className="mt-1 text-sm text-on-surface-variant">La consulta recupera el estado de cuenta actualizado al momento de generarla.</p>
@@ -125,12 +125,14 @@ function MorosidadReport({
             <div>
               <p className="text-xs uppercase font-semibold text-primary">{reporte.alcance} · {reporte.fecha}</p>
               <h2 id="morosidad-resultados-title" className="mt-1 text-xl font-bold text-on-surface">Socios con deuda vencida</h2>
-              <p className="mt-1 text-sm text-on-surface-variant">El cálculo de mora toma como vencimiento la segunda fecha de vencimiento de cada cuota.</p>
+              <p className="mt-1 text-sm text-on-surface-variant">El cálculo de mora toma como vencimiento la primera fecha de vencimiento de cada cuota.</p>
             </div>
-            <button type="button" onClick={imprimirReporte} className="morosidad-no-print inline-flex items-center justify-center gap-2 h-10 px-4 border border-outline-variant/50 rounded-md text-on-surface font-semibold hover:bg-surface-container-low">
-              <span className="material-symbols-outlined text-[19px]" aria-hidden="true">picture_as_pdf</span>Exportar PDF
+            <button type="button" onClick={onExportPdf} disabled={isExporting} className="inline-flex items-center justify-center gap-2 h-10 px-4 border border-outline-variant/50 rounded-md text-on-surface font-semibold hover:bg-surface-container-low disabled:opacity-50 disabled:cursor-not-allowed">
+              <span className={`material-symbols-outlined text-[19px] ${isExporting ? 'animate-spin' : ''}`} aria-hidden="true">{isExporting ? 'progress_activity' : 'picture_as_pdf'}</span>
+              {isExporting ? 'Generando PDF...' : 'Exportar PDF'}
             </button>
           </div>
+          {exportError && <p className="mb-4 text-sm text-error" role="alert">{exportError}</p>}
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
             <div className="border-l-4 border-error bg-error-container/40 px-4 py-3"><p className="text-sm text-on-surface-variant">Socios morosos</p><p className="text-xl font-bold text-on-surface">{reporte.filas.length}</p></div>
@@ -156,7 +158,7 @@ function MorosidadReport({
                           <td className="px-3 py-2.5 text-right font-semibold text-error">{formatAmount(fila.monto_adeudado)}</td>
                           <td className="px-3 py-2.5 text-right tabular-nums text-on-surface">{fila.dias_mora}</td>
                         </tr>
-                        {expandido && <tr key={`${fila.socio_id}-detalle`} className="morosidad-detail bg-surface-container-low/50"><td colSpan="5" className="p-4"><FinancialTab socio={fila} /></td></tr>}
+                        {expandido && <tr key={`${fila.socio_id}-detalle`} className="bg-surface-container-low/50"><td colSpan="5" className="p-4"><FinancialTab socio={fila} /></td></tr>}
                       </Fragment>
                     )
                   })}

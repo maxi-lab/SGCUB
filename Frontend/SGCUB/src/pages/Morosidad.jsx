@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { getJugadores } from '../api/jugadores'
-import { getReporteMorosidad } from '../api/morosidad'
+import { downloadDelinquencyPdf, getReporteMorosidad } from '../api/morosidad'
 import { getSocios } from '../api/socios'
 import MorosidadReport from '../components/finanzas/MorosidadReport'
 import PageHeader from '../components/shared/PageHeader'
@@ -18,6 +18,9 @@ function Morosidad() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [reporte, setReporte] = useState(null)
   const [generationError, setGenerationError] = useState('')
+  const [reportFilters, setReportFilters] = useState(null)
+  const [isExporting, setIsExporting] = useState(false)
+  const [exportError, setExportError] = useState('')
 
   useEffect(() => {
     let activo = true
@@ -64,21 +67,38 @@ function Morosidad() {
       return
     }
 
+    const filters = {
+      alcance: scope,
+      q: scope === 'filtrados' ? busqueda.trim() : '',
+      categoria: scope === 'filtrados' ? categoriaSeleccionada : '',
+      socioIds: scope === 'manual' ? seleccionados : [],
+      socioId: scope === 'socio' ? socioIndividual : '',
+    }
+
     setGenerationError('')
+    setExportError('')
     setIsGenerating(true)
     try {
-      const resultado = await getReporteMorosidad({
-        alcance: scope,
-        q: scope === 'filtrados' ? busqueda.trim() : '',
-        categoria: scope === 'filtrados' ? categoriaSeleccionada : '',
-        socioIds: scope === 'manual' ? seleccionados : [],
-        socioId: scope === 'socio' ? socioIndividual : '',
-      })
+      const resultado = await getReporteMorosidad(filters)
       setReporte(resultado)
+      setReportFilters(filters)
     } catch (requestError) {
       setGenerationError(requestError.response?.data?.detail || 'No se pudo generar el reporte de morosidad.')
     } finally {
       setIsGenerating(false)
+    }
+  }
+
+  const exportPdf = async () => {
+    if (!reportFilters) return
+    setExportError('')
+    setIsExporting(true)
+    try {
+      await downloadDelinquencyPdf(reportFilters)
+    } catch (requestError) {
+      setExportError(requestError.response?.data?.detail || 'No se pudo generar el PDF del reporte.')
+    } finally {
+      setIsExporting(false)
     }
   }
 
@@ -105,6 +125,9 @@ function Morosidad() {
         onGenerate={generarReporte}
         reporte={reporte}
         generationError={generationError}
+        isExporting={isExporting}
+        onExportPdf={exportPdf}
+        exportError={exportError}
       />
     </div>
   )
