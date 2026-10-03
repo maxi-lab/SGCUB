@@ -12,6 +12,7 @@ from .generators import GeneradorItemsCuota
 from .models import (
     Comprobante,
     ConceptoItemChoices,
+    ConfiguracionFinanciera,
     CuentaCorriente,
     Cuota,
     EstadoComprobanteChoices,
@@ -26,8 +27,6 @@ from .models import (
     TipoMovimientoChoices,
 )
 
-FIRST_DUE_DAY = 10
-SECOND_DUE_DAY = 20
 PERIOD_FORMAT = "%Y-%m"
 
 
@@ -85,10 +84,11 @@ def lock_cuota_charge(cuota):
 
 
 @transaction.atomic
-def create_cuota(socio, period, first_due_date=None, second_due_date=None):
+def create_cuota(socio, period, first_due_date=None, second_due_date=None, configuration=None):
+    configuration = configuration or ConfiguracionFinanciera.load()
     first_day = parse_period(period)
     period = first_day.strftime(PERIOD_FORMAT)
-    items = GeneradorItemsCuota(socio, first_day).build_items()
+    items = GeneradorItemsCuota(socio, first_day, configuration).build_items()
     if not items:
         raise SocioInactivoError("El socio no está activo; no corresponde generar cuota.")
 
@@ -98,8 +98,8 @@ def create_cuota(socio, period, first_due_date=None, second_due_date=None):
 
     cuota = Cuota.objects.create(
         periodo=period,
-        fecha_venc1=first_due_date or due_date(first_day, FIRST_DUE_DAY),
-        fecha_venc2=second_due_date or due_date(first_day, SECOND_DUE_DAY),
+        fecha_venc1=first_due_date or due_date(first_day, configuration.dia_vencimiento_1),
+        fecha_venc2=second_due_date or due_date(first_day, configuration.dia_vencimiento_2),
     )
     for item in items:
         item.cuota = cuota
@@ -149,6 +149,7 @@ def generar_cuotas_mensuales(fecha=None):
         raise TypeError("La fecha de generación debe ser una fecha.")
 
     period = fecha.strftime(PERIOD_FORMAT)
+    configuration = ConfiguracionFinanciera.load()
     socios = (
         Socio.objects.filter(estado_administrativo__nombre__iexact=ESTADO_ADMINISTRATIVO_ACTIVO)
         .select_related("estado_administrativo", "jugador__estado")
@@ -165,7 +166,7 @@ def generar_cuotas_mensuales(fecha=None):
     with transaction.atomic():
         for socio in socios:
             try:
-                cuota = create_cuota(socio, period)
+                cuota = create_cuota(socio, period, configuration=configuration)
             except CuotaDuplicadaError:
                 result["cuotas_existentes"] += 1
                 continue

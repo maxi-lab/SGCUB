@@ -23,6 +23,7 @@ from padron.models import (
 from .generators import GeneradorItemsCuota
 from .models import (
 	Comprobante,
+	ConfiguracionFinanciera,
 	CuentaCorriente,
 	Cuota,
 	EstadoCuotaChoices,
@@ -106,6 +107,79 @@ class GeneradorItemsCuotaTests(TestCase):
 		socio = crear_socio("20000004", socio_inactivo=True, con_jugador=True)
 
 		self.assertEqual(self.conceptos(socio), [])
+
+
+class ConfiguracionFinancieraTests(APITestCase):
+	def setUp(self):
+		self.usuario = get_user_model().objects.create_user(username="tesorero")
+		self.client.force_authenticate(user=self.usuario)
+
+	def actualizar(self, **datos):
+		return self.client.patch(reverse("configuracion-financiera"), datos, format="json")
+
+	def test_valores_iniciales(self):
+		response = self.client.get(reverse("configuracion-financiera"))
+
+		self.assertEqual(response.status_code, 200)
+		self.assertEqual(Decimal(response.data["monto_cuota_social"]), Decimal("1000.00"))
+		self.assertEqual(Decimal(response.data["monto_cuota_deportiva"]), Decimal("1500.00"))
+		self.assertEqual(response.data["dia_vencimiento_1"], 10)
+		self.assertEqual(response.data["dia_vencimiento_2"], 20)
+		self.assertEqual(Decimal(response.data["valor_recargo_1"]), Decimal("0.00"))
+		self.assertEqual(Decimal(response.data["valor_recargo_2"]), Decimal("0.00"))
+
+	def test_las_cuotas_nuevas_usan_montos_y_vencimientos_configurados(self):
+		response = self.actualizar(
+			monto_cuota_social="1200.00",
+			monto_cuota_deportiva="1800.00",
+			dia_vencimiento_1=5,
+			dia_vencimiento_2=15,
+		)
+		self.assertEqual(response.status_code, 200, response.data)
+		socio = crear_socio("40000001", con_jugador=True)
+
+		generar_cuotas_mensuales(date(2026, 11, 1))
+
+		cuota = Cuota.objects.get(movimiento__cuenta_corriente__socio=socio)
+		self.assertEqual(cuota.fecha_venc1, date(2026, 11, 5))
+		self.assertEqual(cuota.fecha_venc2, date(2026, 11, 15))
+		self.assertEqual(cuota.movimiento.monto, Decimal("3000.00"))
+
+	def test_registra_quien_actualizo(self):
+		self.actualizar(valor_recargo_1="150.00")
+
+		configuracion = ConfiguracionFinanciera.load()
+		self.assertEqual(configuracion.usuario_actualizacion, self.usuario)
+		self.assertEqual(configuracion.valor_recargo_1, Decimal("150.00"))
+
+	def test_validaciones(self):
+		casos = [
+			({"dia_vencimiento_1": 20, "dia_vencimiento_2": 10}, "dia_vencimiento_2"),
+			({"dia_vencimiento_1": 0}, "dia_vencimiento_1"),
+			({"dia_vencimiento_2": 32}, "dia_vencimiento_2"),
+			({"monto_cuota_social": "0.00"}, "monto_cuota_social"),
+			({"valor_recargo_1": "-1.00"}, "valor_recargo_1"),
+			({"tipo_recargo_2": "Porcentaje", "valor_recargo_2": "120.00"}, "valor_recargo_2"),
+			({"tipo_recargo_1": "Otro"}, "tipo_recargo_1"),
+		]
+		for datos, campo in casos:
+			with self.subTest(datos=datos):
+				response = self.actualizar(**datos)
+				self.assertEqual(response.status_code, 400)
+				self.assertIn(campo, response.data)
+
+	def test_calculo_de_recargos_fijo_y_porcentual(self):
+		self.actualizar(
+			tipo_recargo_1="MontoFijo",
+			valor_recargo_1="200.00",
+			tipo_recargo_2="Porcentaje",
+			valor_recargo_2="10.00",
+		)
+		configuracion = ConfiguracionFinanciera.load()
+
+		self.assertEqual(configuracion.surcharge(1, Decimal("2500.00")), Decimal("200.00"))
+		self.assertEqual(configuracion.surcharge(2, Decimal("2500.00")), Decimal("250.00"))
+		self.assertEqual(configuracion.surcharge(2, Decimal("1333.33")), Decimal("133.33"))
 
 
 class GeneracionCuotasMensualesTests(TestCase):

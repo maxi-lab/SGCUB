@@ -4,6 +4,7 @@ from rest_framework import serializers
 
 from .models import (
     Comprobante,
+    ConfiguracionFinanciera,
     CuentaCorriente,
     Cuota,
     Imputacion,
@@ -13,6 +14,7 @@ from .models import (
     Pago,
     EstadoCuotaChoices,
     MedioDePagoChoices,
+    TipoRecargoChoices,
 )
 from .services import net_amount, parse_period, pending_amounts
 
@@ -362,3 +364,32 @@ class ImputacionSerializer(serializers.ModelSerializer):
         model = Imputacion
         fields = "__all__"
         read_only_fields = ["imputacion_id"]
+
+
+class ConfiguracionFinancieraSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ConfiguracionFinanciera
+        exclude = ["configuracion_financiera_id"]
+        read_only_fields = ["fecha_actualizacion", "usuario_actualizacion"]
+        extra_kwargs = {
+            "monto_cuota_social": {"min_value": Decimal("0.01")},
+            "monto_cuota_deportiva": {"min_value": Decimal("0.01")},
+            "dia_vencimiento_1": {"min_value": 1, "max_value": 31},
+            "dia_vencimiento_2": {"min_value": 1, "max_value": 31},
+            "valor_recargo_1": {"min_value": Decimal("0.00")},
+            "valor_recargo_2": {"min_value": Decimal("0.00")},
+        }
+
+    def validate(self, attrs):
+        def current(field):
+            return attrs.get(field, getattr(self.instance, field, None))
+
+        errors = {}
+        if current("dia_vencimiento_2") < current("dia_vencimiento_1"):
+            errors["dia_vencimiento_2"] = "El segundo vencimiento no puede ser anterior al primero."
+        for number in (1, 2):
+            if current(f"tipo_recargo_{number}") == TipoRecargoChoices.PORCENTAJE and current(f"valor_recargo_{number}") > 100:
+                errors[f"valor_recargo_{number}"] = "El porcentaje de recargo no puede superar el 100%."
+        if errors:
+            raise serializers.ValidationError(errors)
+        return attrs

@@ -1,25 +1,21 @@
-from decimal import Decimal
-
 from padron.models import ESTADO_ADMINISTRATIVO_ACTIVO, ESTADO_DEPORTIVO_ACTIVO
 
-from .models import ConceptoItemChoices, ItemCuota
-
-SOCIAL_FEE_AMOUNT = Decimal("1000.00")
-SPORTS_FEE_AMOUNT = Decimal("1500.00")
+from .models import ConceptoItemChoices, ConfiguracionFinanciera, ItemCuota
 
 
 class GeneradorItemsCuota:
-    def __init__(self, socio, application_date):
+    def __init__(self, socio, application_date, configuration=None):
         self.socio = socio
         self.application_date = application_date
+        self.configuration = configuration or ConfiguracionFinanciera.load()
 
     def build_items(self):
         if not self._is_member_active():
             return []
 
-        items = [self._item(ConceptoItemChoices.CUOTA_SOCIAL, SOCIAL_FEE_AMOUNT)]
+        items = [self._item(ConceptoItemChoices.CUOTA_SOCIAL, self.configuration.monto_cuota_social)]
         if self._is_player_active():
-            items.append(self._item(ConceptoItemChoices.CUOTA_DEPORTIVA, SPORTS_FEE_AMOUNT))
+            items.append(self._item(ConceptoItemChoices.CUOTA_DEPORTIVA, self.configuration.monto_cuota_deportiva))
         items.extend(self._benefit_items(items))
         return items
 

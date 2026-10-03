@@ -41,7 +41,7 @@ function AddCuotaModal({ opened, onClose, onSubmit, formulario, onChange, loadin
           </Group>
 
           <Text size="sm" c="dimmed">
-            Los ítems de la cuota se calculan automáticamente según el socio. Si no se indican vencimientos, se usan los días 10 y 20 del período.
+            Los ítems de la cuota se calculan automáticamente según el socio. Si no se indican vencimientos, se usan los días configurados para el período.
           </Text>
 
           {error && (

@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.conf import settings
 from django.db import models
 from django.utils import timezone
@@ -38,6 +40,11 @@ class MedioDePagoChoices(models.TextChoices):
 class TipoMovimientoChoices(models.TextChoices):
     ABONO = "Abono", "Abono"
     CARGO = "Cargo", "Cargo"
+
+
+class TipoRecargoChoices(models.TextChoices):
+    MONTO_FIJO = "MontoFijo", "Monto fijo"
+    PORCENTAJE = "Porcentaje", "Porcentaje"
 
 
 class EstadoCuentaCorrienteChoices(models.TextChoices):
@@ -274,3 +281,51 @@ class Imputacion(models.Model):
     def __str__(self):
         return f"Imputación {self.imputacion_id}"
 
+
+class ConfiguracionFinanciera(models.Model):
+    configuracion_financiera_id = models.AutoField(primary_key=True)
+    monto_cuota_social = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("1000.00"))
+    monto_cuota_deportiva = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("1500.00"))
+    dia_vencimiento_1 = models.PositiveSmallIntegerField(default=10)
+    dia_vencimiento_2 = models.PositiveSmallIntegerField(default=20)
+    tipo_recargo_1 = models.CharField(
+        max_length=20,
+        choices=TipoRecargoChoices.choices,
+        default=TipoRecargoChoices.MONTO_FIJO,
+    )
+    valor_recargo_1 = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0.00"))
+    tipo_recargo_2 = models.CharField(
+        max_length=20,
+        choices=TipoRecargoChoices.choices,
+        default=TipoRecargoChoices.MONTO_FIJO,
+    )
+    valor_recargo_2 = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0.00"))
+    fecha_actualizacion = models.DateTimeField(auto_now=True)
+    usuario_actualizacion = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="configuraciones_financieras",
+        null=True,
+        blank=True,
+    )
+
+    class Meta:
+        db_table = "configuracion_financiera"
+
+    def __str__(self):
+        return "Configuración financiera"
+
+    @classmethod
+    def load(cls):
+        configuration, _ = cls.objects.get_or_create(pk=1)
+        return configuration
+
+    def surcharge(self, due_number, base_amount):
+        kind, value = (
+            (self.tipo_recargo_1, self.valor_recargo_1)
+            if due_number == 1
+            else (self.tipo_recargo_2, self.valor_recargo_2)
+        )
+        if kind == TipoRecargoChoices.PORCENTAJE:
+            return (base_amount * value / Decimal("100")).quantize(Decimal("0.01"))
+        return value

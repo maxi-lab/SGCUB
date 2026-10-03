@@ -2,6 +2,7 @@ from django.urls import path
 
 from .views import (
     comprobante_detail,
+    configuracion_financiera,
     comprobante_list,
     cuenta_corriente_detail,
     cuenta_corriente_list_create,
@@ -25,6 +26,7 @@ from .views import (
 )
 
 urlpatterns = [
+    path("configuracion/", configuracion_financiera, name="configuracion-financiera"),
     path("cuota/generar-mensual/", generar_cuotas_mensuales_manual, name="generar-cuotas-mensuales"),
     path("cuota/", cuota_list_create, name="cuota-list"),
     path("cuota/<int:pk>/", cuota_detail, name="cuota-detail"),

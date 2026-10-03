@@ -12,6 +12,7 @@ from padron.models import Socio
 
 from .models import (
 	Comprobante,
+	ConfiguracionFinanciera,
 	CuentaCorriente,
 	Cuota,
 	EstadoCuotaChoices,
@@ -22,6 +23,7 @@ from .models import (
 	Pago,
 )
 from .serializers import (
+	ConfiguracionFinancieraSerializer,
 	CorreccionPagoSerializer,
 	ComprobanteSerializer,
 	CuentaCorrienteSerializer,
@@ -433,3 +435,17 @@ def imputacion_list(request):
 @api_view(["GET"])
 def imputacion_detail(request, pk):
 	return Response(ImputacionSerializer(get_object_or_404(Imputacion, pk=pk)).data)
+
+
+@extend_schema(tags=["Finanzas/Configuracion"], request=ConfiguracionFinancieraSerializer, responses=ConfiguracionFinancieraSerializer)
+@api_view(["GET", "PUT", "PATCH"])
+def configuracion_financiera(request):
+	configuracion = ConfiguracionFinanciera.load()
+	if request.method == "GET":
+		return Response(ConfiguracionFinancieraSerializer(configuracion).data)
+
+	serializer = ConfiguracionFinancieraSerializer(configuracion, data=request.data, partial=request.method == "PATCH")
+	if not serializer.is_valid():
+		return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+	usuario = request.user if request.user.is_authenticated else None
+	return Response(ConfiguracionFinancieraSerializer(serializer.save(usuario_actualizacion=usuario)).data)
