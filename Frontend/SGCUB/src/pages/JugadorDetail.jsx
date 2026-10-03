@@ -15,6 +15,7 @@ import { isActiveStatus, formatDni, formatDate, formatNumber, getErrorMessage } 
 import useFinancialStatus from '../hooks/useEstadoFinanciero'
 import useLocalidades from '../hooks/useLocalidades'
 import useDocumentacion from "../hooks/useDocumentacion"
+import { buildDocumentBadges } from '../components/documental/documentBadges'
 
 const getContacts = (player) => (player.vinculos_familiares ?? []).map((c) => ({
   vinculo_familiar_id: c.vinculo_familiar_id,
@@ -44,15 +45,7 @@ function JugadorDetail() {
   const { localidades } = useLocalidades()
   const financiero = useFinancialStatus(jugador?.socio?.socio_id)
   const { documentosActivos: activos } = useDocumentacion(jugador?.socio?.persona)
-  const badgeConfig = React.useMemo(() => {
-    const vencidos = activos.filter(d => d.status === 'vencido').length;
-    if (vencidos > 0) return { label: vencidos, tono: 'error', hideDot: true };
-    const porVencer = activos.filter(d => d.status === 'por_vencer').length;
-    if (porVencer > 0) return { label: porVencer, tono: 'alerta', hideDot: true };
-    const vigentes = activos.filter(d => d.status === 'vigente').length;
-    if (vigentes > 0) return { label: vigentes, tono: 'ok', hideDot: true };
-    return undefined;
-  }, [activos]);
+  const badgeConfig = React.useMemo(() => buildDocumentBadges(activos), [activos])
 
 
   const [modalBajaAbierto, setModalBajaAbierto] = useState(false)

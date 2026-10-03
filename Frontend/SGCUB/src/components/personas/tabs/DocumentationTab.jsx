@@ -14,6 +14,16 @@ const EMPTY_UPLOAD_FORM = {
   fecha_vencimiento: '',
 }
 
+const SAVE_ERROR_MESSAGE = 'No se pudo guardar el documento.'
+
+const getSaveErrorMessage = (requestError) => {
+  const data = requestError.response?.data
+  if (!data) return requestError.response ? SAVE_ERROR_MESSAGE : 'No se pudo conectar con el servidor.'
+  if (typeof data === 'string') return SAVE_ERROR_MESSAGE
+  if (data.detail) return data.detail
+  return Object.values(data).flat().join(' ') || SAVE_ERROR_MESSAGE
+}
+
 export default function DocumentationTab({ personaId, personaType, personaInfo }) {
   const {
     tipos,
@@ -35,6 +45,7 @@ export default function DocumentationTab({ personaId, personaType, personaInfo }
   const [docToEdit, setDocToEdit] = useState(null)
 
   const [uploadForm, setUploadForm] = useState(EMPTY_UPLOAD_FORM)
+  const [saveError, setSaveError] = useState(null)
 
   const tiposFiltrados = tipos.filter(t => {
     const isDocenteType = ['Antecedentes Penales', 'CV', 'DNI'].includes(t.nombre)
@@ -60,6 +71,7 @@ export default function DocumentationTab({ personaId, personaType, personaInfo }
       fecha_emision: doc.fecha_emision ? doc.fecha_emision.split('T')[0] : '',
       fecha_vencimiento: doc.fecha_vencimiento ? doc.fecha_vencimiento.split('T')[0] : '',
     })
+    setSaveError(null)
     setUploadModalOpen(true)
   }
 
@@ -67,6 +79,7 @@ export default function DocumentationTab({ personaId, personaType, personaInfo }
     setIsEditing(false)
     setDocToEdit(null)
     setUploadForm(EMPTY_UPLOAD_FORM)
+    setSaveError(null)
     setUploadModalOpen(true)
   }
 
@@ -94,17 +107,18 @@ export default function DocumentationTab({ personaId, personaType, personaInfo }
 
   const handleUploadSubmit = async (e) => {
     e.preventDefault()
+    setSaveError(null)
     try {
       const formData = new FormData();
       formData.append('persona', personaId);
       formData.append('tipo_documento', uploadForm.tipo_documento);
       
-      if (uploadForm.fecha_emision) {
-        formData.append('fecha_emision', `${uploadForm.fecha_emision}T00:00:00`);
+      const appendDate = (field) => {
+        if (uploadForm[field]) formData.append(field, `${uploadForm[field]}T00:00:00`);
+        else if (isEditing) formData.append(field, '');
       }
-      if (uploadForm.fecha_vencimiento) {
-        formData.append('fecha_vencimiento', `${uploadForm.fecha_vencimiento}T00:00:00`);
-      }
+      appendDate('fecha_emision');
+      appendDate('fecha_vencimiento');
       if (uploadForm.archivo) {
         formData.append('archivoUrl', uploadForm.archivo);
       } else if (isEditing && uploadForm.borrar_archivo) {
@@ -122,6 +136,7 @@ export default function DocumentationTab({ personaId, personaType, personaInfo }
       setDocToEdit(null)
     } catch (error) {
       console.error('Error uploading document:', error)
+      setSaveError(getSaveErrorMessage(error))
     }
   }
 
@@ -175,7 +190,7 @@ export default function DocumentationTab({ personaId, personaType, personaInfo }
 
       {documentosHistoricos.length > 0 && (
         <PersonaDocumentsTable
-          title="Historial de Documentación Vencida"
+          title="Historial de Documentación"
           documents={documentosHistoricos}
           getTypeName={getNombreTipo}
           onDelete={handleDeleteClick}
@@ -191,6 +206,7 @@ export default function DocumentationTab({ personaId, personaType, personaInfo }
         onChange={handleUploadChange} 
         tipos={tiposFiltrados} 
         isEditing={isEditing}
+        error={saveError}
       />
 
       <DocumentacionDeleteModal 
