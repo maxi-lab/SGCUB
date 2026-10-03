@@ -4,7 +4,8 @@ export default function DocumentacionDeleteModal({
   isOpen, 
   onClose, 
   onConfirm, 
-  document 
+  document,
+  typeName
 }) {
   useEffect(() => {
     if (isOpen) {
@@ -31,7 +32,7 @@ export default function DocumentacionDeleteModal({
           <span className="material-symbols-outlined text-[28px]">warning</span>
         </div>
         <div>
-          <h3 className="font-headline-sm text-headline-sm text-on-surface">¿Eliminar {document.nombre}?</h3>
+          <h3 className="font-headline-sm text-headline-sm text-on-surface">¿Eliminar {typeName}?</h3>
           <p className="font-body-md text-body-md text-on-surface-variant mt-space-xs">
             Esta acción dará de baja el documento del legajo digital y no se puede deshacer.
           </p>

@@ -247,8 +247,7 @@ export default function DocumentationTab({ personaId, personaType, personaInfo }
                             <span className="material-symbols-outlined text-[22px]">policy</span>
                           </div>
                           <div>
-                            <p className="font-title-md text-title-md text-on-surface">{document.nombre}</p>
-                            <p className="font-body-sm text-body-sm text-outline">{tipoNombre}</p>
+                            <p className="font-title-md text-title-md text-on-surface">{tipoNombre}</p>
                           </div>
                         </div>
                       </td>
@@ -331,8 +330,7 @@ export default function DocumentationTab({ personaId, personaType, personaInfo }
                 {historicos.map((document) => (
                   <tr key={document.id_documento} className="hover:bg-surface-container-low/50 transition-colors opacity-75">
                     <td className="py-space-md px-space-lg">
-                      <div className="font-medium text-on-surface">{document.nombre}</div>
-                      <div className="font-label-sm text-label-sm text-outline mt-0.5">{getNombreTipo(document.tipo_documento)}</div>
+                      <div className="font-medium text-on-surface">{getNombreTipo(document.tipo_documento)}</div>
                     </td>
                     <td className="py-space-md px-space-lg">
                       <div className="flex flex-col gap-1">
@@ -397,6 +395,7 @@ export default function DocumentationTab({ personaId, personaType, personaInfo }
         onClose={() => setDeleteModalOpen(false)} 
         onConfirm={confirmDelete} 
         document={docToDelete} 
+        typeName={docToDelete ? getNombreTipo(docToDelete.tipo_documento) : ''}
       />
     </div>
   )

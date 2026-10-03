@@ -38,10 +38,10 @@ const TONES = {
   },
 }
 
-const matchesSearch = (doc, search) => {
+const matchesSearch = (doc, search, getTypeName) => {
   const text = search.toLowerCase()
   return (doc.persona_nombre_completo || '').toLowerCase().includes(text) ||
-    (doc.nombre || '').toLowerCase().includes(text)
+    getTypeName(doc.tipo_documento).toLowerCase().includes(text)
 }
 
 const matchesFilters = (doc, category, docType) =>
@@ -64,7 +64,7 @@ export default function DocumentAlertTable({ title, icon, tone = 'warning', docu
   const [limit, setLimit] = useState(PAGE_SIZE)
   const style = TONES[tone] ?? TONES.warning
 
-  const filteredRows = rows.filter(doc => matchesSearch(doc, search) && matchesFilters(doc, category, docType))
+  const filteredRows = rows.filter(doc => matchesSearch(doc, search, getTypeName) && matchesFilters(doc, category, docType))
   const { ordenadas: sortedRows, orden: sort, ordenarPor: sortBy } = useOrdenTabla(filteredRows, SORT_VALUES, INITIAL_SORT)
   const visibleRows = sortedRows.slice(0, limit)
   const openProfile = (doc) => navigate(`${doc.url_perfil}?tab=documentacion`)
@@ -127,8 +127,7 @@ export default function DocumentAlertTable({ title, icon, tone = 'warning', docu
                   </div>
                 </td>
                 <td className="py-space-md px-space-md">
-                  <span className={`font-medium ${style.document}`}>{doc.nombre}</span>
-                  <span className="block font-label-sm text-label-sm text-outline">{getTypeName(doc.tipo_documento)}</span>
+                  <span className={`font-medium ${style.document}`}>{getTypeName(doc.tipo_documento)}</span>
                 </td>
                 <td className="py-space-md px-space-md whitespace-nowrap">
                   <span className="block font-medium text-on-surface">{doc.dueDateLabel}</span>
