@@ -36,7 +36,7 @@ def cuota_account(cuota):
     return movement.cuenta_corriente if movement else None
 
 
-class MedioCorreccionPagoSerializer(serializers.Serializer):
+class MedioPagoSerializer(serializers.Serializer):
     medio_de_pago = serializers.ChoiceField(choices=MedioDePagoChoices.choices)
     monto = serializers.DecimalField(
         max_digits=10,
@@ -56,7 +56,7 @@ class CorreccionPagoSerializer(serializers.Serializer):
         decimal_places=2,
         min_value=Decimal("0.01"),
     )
-    medios = MedioCorreccionPagoSerializer(many=True, allow_empty=False)
+    medios = MedioPagoSerializer(many=True, allow_empty=False)
 
     def validate_cuota_ids(self, value):
         if len(value) != len(set(value)):
@@ -72,6 +72,32 @@ class CorreccionPagoSerializer(serializers.Serializer):
         return attrs
 
 
+class RegistroPagoSerializer(serializers.Serializer):
+    socio_id = serializers.IntegerField(min_value=1)
+    cuota_ids = serializers.ListField(
+        child=serializers.IntegerField(min_value=1),
+        allow_empty=False,
+    )
+    monto_total = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        min_value=Decimal("0.01"),
+    )
+    medios = MedioPagoSerializer(many=True, allow_empty=False)
+    observacion = serializers.CharField(max_length=200, required=False, allow_blank=True, default="")
+
+    def validate_cuota_ids(self, value):
+        if len(value) != len(set(value)):
+            raise serializers.ValidationError("No se deben repetir cuotas.")
+        return value
+
+    def validate(self, attrs):
+        total_medios = sum((medio["monto"] for medio in attrs["medios"]), Decimal("0.00"))
+        if total_medios != attrs["monto_total"]:
+            raise serializers.ValidationError({
+                "medios": "La suma de los medios debe coincidir con el monto total."
+            })
+        return attrs
 
 
 class CuotaSerializer(serializers.ModelSerializer):

@@ -3,17 +3,24 @@ from datetime import date, datetime
 from decimal import Decimal
 
 from django.db import transaction
+from django.db.models import Sum
 from django.utils import timezone
 
 from padron.models import ESTADO_ADMINISTRATIVO_ACTIVO, Socio
 
 from .generators import GeneradorItemsCuota
 from .models import (
+    Comprobante,
     ConceptoItemChoices,
     CuentaCorriente,
     Cuota,
+    EstadoCuotaChoices,
+    EstadoPagoChoices,
+    Imputacion,
     ItemCuota,
+    ItemPago,
     MovimientoCuenta,
+    Pago,
     SecuenciaComprobante,
     TipoMovimientoChoices,
 )
@@ -28,6 +35,10 @@ class CuotaDuplicadaError(Exception):
 
 
 class SocioInactivoError(Exception):
+    pass
+
+
+class PagoInvalidoError(Exception):
     pass
 
 
@@ -156,3 +167,108 @@ def generar_cuotas_mensuales(fecha=None):
             result["items_deportivos"] += concepts.count(ConceptoItemChoices.CUOTA_DEPORTIVA)
 
     return result
+
+
+def pending_amounts(cuotas, ignored_origin=None):
+    cuota_ids = [cuota.pk for cuota in cuotas]
+    imputations = Imputacion.objects.filter(movimiento_destino__cuota__in=cuota_ids)
+    imputed_cuota_ids = set(imputations.values_list("movimiento_destino__cuota", flat=True))
+    active = imputations.filter(movimiento_origen__reversion__isnull=True)
+    if ignored_origin is not None:
+        active = active.exclude(movimiento_origen=ignored_origin)
+    applied = dict(
+        active.values("movimiento_destino__cuota")
+        .annotate(total=Sum("monto_aplicado"))
+        .values_list("movimiento_destino__cuota", "total")
+    )
+
+    pending = {}
+    for cuota in cuotas:
+        if cuota.estado_cuota == EstadoCuotaChoices.PAGA and cuota.pk not in imputed_cuota_ids:
+            pending[cuota.pk] = Decimal("0.00")
+        else:
+            pending[cuota.pk] = cuota.movimiento.monto - applied.get(cuota.pk, Decimal("0.00"))
+    return pending
+
+
+def refresh_cuota_state(cuota, pending, today=None):
+    today = today or timezone.localdate()
+    if pending <= 0:
+        state = EstadoCuotaChoices.PAGA
+    elif today > cuota.fecha_venc1:
+        state = EstadoCuotaChoices.VENCIDA
+    else:
+        state = EstadoCuotaChoices.EN_FECHA
+    if cuota.estado_cuota != state:
+        cuota.estado_cuota = state
+        cuota.save(update_fields=["estado_cuota"])
+
+
+def apply_payment(payment_movement, cuotas, amount):
+    pending = pending_amounts(cuotas)
+    remaining = amount
+    today = timezone.localdate()
+    imputations = []
+    for cuota in sorted(cuotas, key=lambda cuota: (cuota.periodo, cuota.pk)):
+        applied = min(remaining, max(pending[cuota.pk], Decimal("0.00")))
+        if applied > 0:
+            imputations.append(Imputacion.objects.create(
+                movimiento_origen=payment_movement,
+                movimiento_destino=cuota.movimiento,
+                fecha=timezone.now(),
+                monto_aplicado=applied,
+            ))
+            remaining -= applied
+        refresh_cuota_state(cuota, pending[cuota.pk] - applied, today)
+    return imputations
+
+
+def lock_account_cuotas(account, cuota_ids):
+    cuotas = list(
+        Cuota.objects.select_for_update(of=("self",))
+        .filter(movimiento__cuenta_corriente=account, cuota_id__in=cuota_ids)
+        .select_related("movimiento")
+    )
+    if len(cuotas) != len(set(cuota_ids)):
+        raise PagoInvalidoError("Una o más cuotas no pertenecen a este socio.")
+    return cuotas
+
+
+@transaction.atomic
+def register_payment(socio_id, cuota_ids, payment_methods, total, note="", user=None):
+    account = CuentaCorriente.objects.select_for_update().get(socio_id=socio_id)
+    cuotas = lock_account_cuotas(account, cuota_ids)
+    pending = pending_amounts(cuotas)
+    if any(amount <= 0 for amount in pending.values()):
+        raise PagoInvalidoError("No se pueden pagar cuotas ya saldadas.")
+    if total > sum(pending.values(), Decimal("0.00")):
+        raise PagoInvalidoError("El pago supera el saldo pendiente de las cuotas seleccionadas.")
+
+    payment = Pago.objects.create(
+        usuario=user,
+        estado_pago=EstadoPagoChoices.ACREDITADO,
+        fecha=timezone.localdate(),
+        observacion=note,
+    )
+    ItemPago.objects.bulk_create([
+        ItemPago(pago=payment, medio_de_pago=method["medio_de_pago"], monto=method["monto"])
+        for method in payment_methods
+    ])
+    receipt = Comprobante.objects.create(
+        pago=payment,
+        fecha_emision=timezone.localdate(),
+        numero=next_receipt_number(),
+        monto_total=total,
+    )
+    movement = MovimientoCuenta.objects.create(
+        cuenta_corriente=account,
+        pago=payment,
+        tipo_movimiento=TipoMovimientoChoices.ABONO,
+        fecha=timezone.now(),
+        monto=total,
+        concepto="Pago de cuotas",
+    )
+    account.saldo += total
+    account.save(update_fields=["saldo"])
+    apply_payment(movement, cuotas, total)
+    return payment, receipt

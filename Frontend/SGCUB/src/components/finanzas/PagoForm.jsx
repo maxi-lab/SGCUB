@@ -12,6 +12,14 @@ const MEDIOS = [
 
 const filaInicial = () => ({ medio: '', monto: '' })
 
+const mensajesDeError = (data) => {
+  if (!data) return []
+  if (typeof data === 'string') return [data]
+  if (Array.isArray(data)) return data.flatMap(mensajesDeError)
+  if (typeof data === 'object') return Object.values(data).flatMap(mensajesDeError)
+  return []
+}
+
 function PagoForm({ socio, cuenta, onCancel, onSuccess }) {
   const cuotasPendientes = useMemo(
     () => (cuenta?.cuotas ?? []).filter((cuota) => cuota.estado_cuota !== 'Paga'),
@@ -79,7 +87,7 @@ function PagoForm({ socio, cuenta, onCancel, onSuccess }) {
       setGuardado(true)
       onSuccess?.(respuesta)
     } catch (error) {
-      setErrorRegistro(error.response?.data?.detail || 'No se pudo registrar el pago.')
+      setErrorRegistro(mensajesDeError(error.response?.data).join(' ') || 'No se pudo registrar el pago.')
     } finally {
       setGuardando(false)
     }

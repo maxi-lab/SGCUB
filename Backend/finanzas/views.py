@@ -32,6 +32,7 @@ from .serializers import (
 	CuotaCreateSerializer,
 	CuotaSerializer,
 	CuotaUpdateSerializer,
+	RegistroPagoSerializer,
 	ImputacionSerializer,
 	ItemPagoSerializer,
 	ItemCuotaSerializer,
@@ -42,12 +43,17 @@ from .serializers import (
 )
 from .services import (
 	CuotaDuplicadaError,
+	PagoInvalidoError,
 	SocioInactivoError,
+	apply_payment,
 	create_cuota,
 	delete_cuota,
 	generar_cuotas_mensuales,
+	lock_account_cuotas,
 	net_amount,
 	next_receipt_number,
+	pending_amounts,
+	register_payment,
 	sync_cuota_charge,
 )
 
@@ -258,20 +264,14 @@ def corregir_pago(request, pk):
 		cuenta = CuentaCorriente.objects.select_for_update().get(
 			pk=movimiento_original.cuenta_corriente_id
 		)
-		cuotas = list(
-			Cuota.objects.select_for_update(of=("self",))
-			.filter(movimiento__cuenta_corriente=cuenta, cuota_id__in=cuota_ids)
-			.prefetch_related("items")
-		)
-		if len(cuotas) != len(cuota_ids):
+		try:
+			cuotas = lock_account_cuotas(cuenta, cuota_ids)
+		except PagoInvalidoError:
 			return Response({"detail": "Una o más cuotas no pertenecen al socio del pago original."}, status=status.HTTP_400_BAD_REQUEST)
 
-		monto_cuotas = sum(
-			(net_amount(cuota.items.all()) for cuota in cuotas),
-			Decimal("0.00"),
-		)
-		if monto_total > monto_cuotas:
-			return Response({"detail": "El pago corregido supera el monto de las cuotas seleccionadas."}, status=status.HTTP_400_BAD_REQUEST)
+		pendiente = pending_amounts(cuotas, ignored_origin=movimiento_original)
+		if monto_total > sum(pendiente.values(), Decimal("0.00")):
+			return Response({"detail": "El pago corregido supera el saldo pendiente de las cuotas seleccionadas."}, status=status.HTTP_400_BAD_REQUEST)
 
 		pago_nuevo = Pago.objects.create(
 			usuario=usuario_root,
@@ -302,7 +302,7 @@ def corregir_pago(request, pk):
 			monto=monto_original,
 			concepto=f"Reversión del pago #{pago_original.pk}. Sustituido por #{pago_nuevo.pk}. Motivo: {motivo}"[:200],
 		)
-		MovimientoCuenta.objects.create(
+		movimiento_nuevo = MovimientoCuenta.objects.create(
 			cuenta_corriente=cuenta,
 			pago=pago_nuevo,
 			tipo_movimiento=TipoMovimientoChoices.ABONO,
@@ -317,13 +317,7 @@ def corregir_pago(request, pk):
 		pago_original.observacion = f"Anulado. Sustituido por pago #{pago_nuevo.pk}. Motivo: {motivo}"[:200]
 		pago_original.save(update_fields=["estado_pago", "observacion"])
 
-		restante = monto_total
-		for cuota in cuotas:
-			monto_cuota = net_amount(cuota.items.all())
-			if restante >= monto_cuota:
-				cuota.estado_cuota = EstadoCuotaChoices.PAGA
-				cuota.save(update_fields=["estado_cuota"])
-				restante -= monto_cuota
+		apply_payment(movimiento_nuevo, cuotas, monto_total)
 
 	return Response({
 		"pago_original": PagoSerializer(pago_original).data,
@@ -336,88 +330,27 @@ def corregir_pago(request, pk):
 	}, status=status.HTTP_201_CREATED)
 
 
-@extend_schema(tags=["Finanzas/Pago"], request=None, responses=ComprobanteSerializer)
+@extend_schema(tags=["Finanzas/Pago"], request=RegistroPagoSerializer, responses=ComprobanteSerializer)
 @api_view(["POST"])
 def registrar_pago(request):
-	data = request.data
-	cuota_ids = data.get("cuota_ids", [])
-	medios = data.get("medios", [])
+	serializer = RegistroPagoSerializer(data=request.data)
+	if not serializer.is_valid():
+		return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-	if not isinstance(cuota_ids, list) or not cuota_ids:
-		return Response({"detail": "Debe seleccionar al menos una cuota."}, status=status.HTTP_400_BAD_REQUEST)
-	if not isinstance(medios, list) or not medios:
-		return Response({"detail": "Debe informar al menos un medio de pago."}, status=status.HTTP_400_BAD_REQUEST)
-
+	data = serializer.validated_data
 	try:
-		monto_total = Decimal(str(data.get("monto_total"))).quantize(Decimal("0.01"))
-		montos = [Decimal(str(medio.get("monto"))).quantize(Decimal("0.01")) for medio in medios]
-	except (InvalidOperation, TypeError, AttributeError):
-		return Response({"detail": "Los importes deben ser números válidos."}, status=status.HTTP_400_BAD_REQUEST)
-
-	if monto_total <= 0 or any(monto <= 0 for monto in montos):
-		return Response({"detail": "Los importes deben ser mayores a cero."}, status=status.HTTP_400_BAD_REQUEST)
-	if sum(montos, Decimal("0.00")) != monto_total:
-		return Response({"detail": "La suma de los medios no coincide con el monto total."}, status=status.HTTP_400_BAD_REQUEST)
-
-	medios_validos = {value for value, _ in MedioDePagoChoices.choices}
-	if any(medio.get("medio_de_pago") not in medios_validos for medio in medios):
-		return Response({"detail": "El medio de pago informado no es válido."}, status=status.HTTP_400_BAD_REQUEST)
-
-	with transaction.atomic():
-		cuenta = get_object_or_404(
-			CuentaCorriente.objects.select_for_update(),
-			socio_id=data.get("socio_id"),
+		pago, comprobante = register_payment(
+			data["socio_id"],
+			data["cuota_ids"],
+			data["medios"],
+			data["monto_total"],
+			data["observacion"],
+			request.user if request.user.is_authenticated else None,
 		)
-		cuotas = list(
-			Cuota.objects.select_for_update(of=("self",))
-			.filter(movimiento__cuenta_corriente=cuenta, cuota_id__in=cuota_ids)
-			.prefetch_related("items")
-		)
-		if len(cuotas) != len(set(cuota_ids)):
-			return Response({"detail": "Una o más cuotas no pertenecen a este socio."}, status=status.HTTP_400_BAD_REQUEST)
-		if any(cuota.estado_cuota == EstadoCuotaChoices.PAGA for cuota in cuotas):
-			return Response({"detail": "No se pueden pagar cuotas ya saldadas."}, status=status.HTTP_400_BAD_REQUEST)
-
-		monto_cuotas = sum(
-			(net_amount(cuota.items.all()) for cuota in cuotas),
-			Decimal("0.00"),
-		)
-		if monto_total > monto_cuotas:
-			return Response({"detail": "El pago supera el saldo de las cuotas seleccionadas."}, status=status.HTTP_400_BAD_REQUEST)
-
-		pago = Pago.objects.create(
-			usuario=request.user if request.user.is_authenticated else None,
-			estado_pago="Acreditado",
-			fecha=timezone.localdate(),
-			observacion=data.get("observacion", ""),
-		)
-		for medio, monto in zip(medios, montos):
-			ItemPago.objects.create(pago=pago, medio_de_pago=medio["medio_de_pago"], monto=monto)
-
-		comprobante = Comprobante.objects.create(
-			pago=pago,
-			fecha_emision=timezone.localdate(),
-			numero=next_receipt_number(),
-			monto_total=monto_total,
-		)
-		MovimientoCuenta.objects.create(
-			cuenta_corriente=cuenta,
-			pago=pago,
-			tipo_movimiento="Abono",
-			fecha=timezone.now(),
-			monto=monto_total,
-			concepto="Pago de cuotas",
-		)
-		cuenta.saldo += monto_total
-		cuenta.save(update_fields=["saldo"])
-
-		restante = monto_total
-		for cuota in cuotas:
-			monto_cuota = net_amount(cuota.items.all())
-			if restante >= monto_cuota:
-				cuota.estado_cuota = EstadoCuotaChoices.PAGA
-				cuota.save(update_fields=["estado_cuota"])
-				restante -= monto_cuota
+	except CuentaCorriente.DoesNotExist:
+		return Response({"detail": "El socio no tiene cuenta corriente."}, status=status.HTTP_404_NOT_FOUND)
+	except PagoInvalidoError as error:
+		return Response({"detail": str(error)}, status=status.HTTP_400_BAD_REQUEST)
 
 	return Response({
 		"pago": PagoSerializer(pago).data,

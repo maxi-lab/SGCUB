@@ -24,6 +24,7 @@ from .models import (
 	CuentaCorriente,
 	Cuota,
 	EstadoCuotaChoices,
+	Imputacion,
 	ItemCuota,
 	ItemPago,
 	MovimientoCuenta,
@@ -340,6 +341,9 @@ class CorregirPagoTests(APITestCase):
 			"Abono",
 		)
 		self.assertEqual(Cuota.objects.get(pk=self.cuota_corregida.pk).estado_cuota, EstadoCuotaChoices.PAGA)
+		imputacion = Imputacion.objects.get(movimiento_origen__pago_id=response.data["pago"]["pago_id"])
+		self.assertEqual(imputacion.movimiento_destino.cuota_id, self.cuota_corregida.pk)
+		self.assertEqual(imputacion.monto_aplicado, Decimal("50.00"))
 
 	def test_no_permite_borrar_pago_ni_comprobante_original(self):
 		pago_response = self.client.delete(reverse("pago-detail", args=[self.pago_original.pk]))
@@ -349,6 +353,126 @@ class CorregirPagoTests(APITestCase):
 		self.assertEqual(comprobante_response.status_code, 405)
 		self.assertTrue(Pago.objects.filter(pk=self.pago_original.pk).exists())
 		self.assertTrue(Comprobante.objects.filter(pk=self.comprobante_original.pk).exists())
+
+
+class RegistroPagoTests(APITestCase):
+	def setUp(self):
+		self.client.force_authenticate(user=get_user_model().objects.create_user(username="tesorero"))
+		persona = Persona.objects.create(nombre="Juan", apellido="Paz", dni="56789012")
+		self.socio = Socio.objects.create(persona=persona)
+		self.cuenta = CuentaCorriente.objects.create(socio=self.socio, saldo=Decimal("-2000.00"))
+		self.septiembre = crear_cuota_con_cargo(self.cuenta, "2026-09", "1000.00")
+		self.agosto = crear_cuota_con_cargo(self.cuenta, "2026-08", "1000.00")
+
+	def pagar(self, cuotas, monto, **extra):
+		datos = {
+			"socio_id": self.socio.pk,
+			"cuota_ids": [cuota.pk for cuota in cuotas],
+			"monto_total": monto,
+			"medios": [{"medio_de_pago": "Efectivo", "monto": monto}],
+		}
+		datos.update(extra)
+		return self.client.post(reverse("registrar-pago"), datos, format="json")
+
+	def aplicado(self, cuota):
+		return sum(
+			Imputacion.objects.filter(movimiento_destino__cuota=cuota).values_list("monto_aplicado", flat=True),
+			Decimal("0.00"),
+		)
+
+	def test_pago_parcial_imputa_y_deja_la_cuota_pendiente(self):
+		response = self.pagar([self.agosto], "400.00")
+
+		self.assertEqual(response.status_code, 201, response.data)
+		self.agosto.refresh_from_db()
+		self.assertNotEqual(self.agosto.estado_cuota, EstadoCuotaChoices.PAGA)
+		self.assertEqual(self.aplicado(self.agosto), Decimal("400.00"))
+		self.cuenta.refresh_from_db()
+		self.assertEqual(self.cuenta.saldo, Decimal("-1600.00"))
+
+	def test_segundo_pago_no_puede_superar_el_saldo_pendiente(self):
+		self.pagar([self.agosto], "400.00")
+
+		excedido = self.pagar([self.agosto], "700.00")
+		completo = self.pagar([self.agosto], "600.00")
+
+		self.assertEqual(excedido.status_code, 400)
+		self.assertEqual(completo.status_code, 201, completo.data)
+		self.agosto.refresh_from_db()
+		self.assertEqual(self.agosto.estado_cuota, EstadoCuotaChoices.PAGA)
+		self.assertEqual(self.aplicado(self.agosto), Decimal("1000.00"))
+
+	def test_imputa_primero_la_cuota_mas_antigua(self):
+		response = self.pagar([self.septiembre, self.agosto], "1500.00")
+
+		self.assertEqual(response.status_code, 201, response.data)
+		self.agosto.refresh_from_db()
+		self.septiembre.refresh_from_db()
+		self.assertEqual(self.agosto.estado_cuota, EstadoCuotaChoices.PAGA)
+		self.assertEqual(self.aplicado(self.agosto), Decimal("1000.00"))
+		self.assertEqual(self.aplicado(self.septiembre), Decimal("500.00"))
+		self.assertNotEqual(self.septiembre.estado_cuota, EstadoCuotaChoices.PAGA)
+
+	def test_no_permite_pagar_una_cuota_saldada(self):
+		self.pagar([self.agosto], "1000.00")
+
+		response = self.pagar([self.agosto], "100.00")
+
+		self.assertEqual(response.status_code, 400)
+		self.assertEqual(Pago.objects.count(), 1)
+
+	def test_no_permite_pagar_cuotas_de_otro_socio(self):
+		otra_cuenta = CuentaCorriente.objects.create(
+			socio=Socio.objects.create(persona=Persona.objects.create(nombre="Otro", apellido="Socio", dni="67890123")),
+		)
+		ajena = crear_cuota_con_cargo(otra_cuenta, "2026-08", "1000.00")
+
+		response = self.pagar([ajena], "100.00")
+
+		self.assertEqual(response.status_code, 400)
+		self.assertFalse(Pago.objects.exists())
+
+	def test_campos_obligatorios_devuelven_errores_por_campo(self):
+		response = self.client.post(reverse("registrar-pago"), {}, format="json")
+
+		self.assertEqual(response.status_code, 400)
+		for campo in ("socio_id", "cuota_ids", "monto_total", "medios"):
+			self.assertIn(campo, response.data)
+
+	def test_suma_de_medios_debe_coincidir_con_el_total(self):
+		response = self.pagar(
+			[self.agosto],
+			"500.00",
+			medios=[{"medio_de_pago": "Efectivo", "monto": "300.00"}],
+		)
+
+		self.assertEqual(response.status_code, 400)
+		self.assertIn("medios", response.data)
+		self.assertFalse(Pago.objects.exists())
+
+	def test_correccion_sobre_la_misma_cuota_ignora_el_pago_original(self):
+		original = self.pagar([self.agosto], "1000.00")
+		get_user_model().objects.create_user(username="root")
+
+		response = self.client.post(
+			reverse("corregir-pago", args=[original.data["pago"]["pago_id"]]),
+			{
+				"motivo": "Monto mal cargado",
+				"cuota_ids": [self.agosto.pk],
+				"monto_total": "800.00",
+				"medios": [{"medio_de_pago": "Transferencia", "monto": "800.00"}],
+			},
+			format="json",
+		)
+
+		self.assertEqual(response.status_code, 201, response.data)
+		self.agosto.refresh_from_db()
+		self.assertNotEqual(self.agosto.estado_cuota, EstadoCuotaChoices.PAGA)
+		activo = Imputacion.objects.filter(
+			movimiento_destino__cuota=self.agosto,
+			movimiento_origen__reversion__isnull=True,
+		)
+		self.assertEqual(sum(activo.values_list("monto_aplicado", flat=True)), Decimal("800.00"))
 
 
 class NumeracionComprobanteTests(APITestCase):
