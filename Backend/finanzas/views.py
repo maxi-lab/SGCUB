@@ -2,6 +2,7 @@ from decimal import Decimal
 
 from django.db import transaction
 from django.db.models import Q
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import status
@@ -23,6 +24,7 @@ from .models import (
 	MovimientoCuenta,
 	Pago,
 )
+from .receipts import receipt_filename, render_receipt_pdf
 from .serializers import (
 	BecaSerializer,
 	BeneficioSerializer,
@@ -282,6 +284,21 @@ def comprobante_detail(request, pk):
 		pk=pk,
 	)
 	return Response(ComprobanteDetalleSerializer(comprobante).data)
+
+
+@extend_schema(tags=["Finanzas/Comprobante"], responses={(200, "application/pdf"): bytes})
+@api_view(["GET"])
+def comprobante_pdf(request, pk):
+	comprobante = get_object_or_404(
+		Comprobante.objects.select_related(
+			"pago__movimiento__cuenta_corriente__socio__persona",
+			"reemplazado_por",
+		),
+		pk=pk,
+	)
+	response = HttpResponse(render_receipt_pdf(comprobante), content_type="application/pdf")
+	response["Content-Disposition"] = f'attachment; filename="{receipt_filename(comprobante)}"'
+	return response
 
 
 @extend_schema(tags=["Finanzas/CuentaCorriente"], request=CuentaCorrienteSerializer, responses=CuentaCorrienteSerializer)

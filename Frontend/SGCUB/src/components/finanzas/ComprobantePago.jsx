@@ -1,5 +1,6 @@
 import { formatAmount, formatDate, formatDni } from '../personas/format'
 import { SecondaryButton } from '../personas/tabs/parts'
+import DescargarComprobanteButton from './DescargarComprobanteButton'
 import DesgloseComprobante from './DesgloseComprobante'
 
 function ComprobantePago({ socio, detalle, medios, montoTotal, observacion, numero, fecha: fechaEmision, onBack }) {
@@ -33,7 +34,10 @@ function ComprobantePago({ socio, detalle, medios, montoTotal, observacion, nume
         : <p className="p-4 bg-surface-container-low rounded-lg text-on-surface-variant">El pago quedó registrado, pero no se pudo cargar el desglose. Podés consultarlo desde el listado de comprobantes.</p>}
 
       {observacion && <div className="p-4 bg-surface-container-low rounded-lg"><p className="text-sm text-on-surface-variant">Observación</p><p className="text-on-surface">{observacion}</p></div>}
-      <div className="flex justify-end"><SecondaryButton icon="arrow_back" onClick={onBack}>Volver al estado de cuenta</SecondaryButton></div>
+      <div className="flex flex-col sm:flex-row sm:justify-end gap-3">
+        <DescargarComprobanteButton comprobanteId={detalle?.comprobante_id} />
+        <SecondaryButton icon="arrow_back" onClick={onBack}>Volver al estado de cuenta</SecondaryButton>
+      </div>
     </div>
   )
 }

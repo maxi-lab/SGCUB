@@ -40,6 +40,7 @@ from .models import (
 	Pago,
 	SecuenciaComprobante,
 )
+from .receipts import format_amount
 from .services import apply_surcharges, generar_cuotas_mensuales, next_receipt_number, sync_cuota_charge
 
 
@@ -938,7 +939,7 @@ class BecasEnGeneracionDeCuotasTests(TestCase):
 		self.assertEqual(len(consultas_becas), 1)
 
 
-class DesgloseComprobanteTests(APITestCase):
+class ComprobanteTestBase(APITestCase):
 	def setUp(self):
 		self.client.force_authenticate(user=get_user_model().objects.create_user(username="tesorero"))
 		self.socio = crear_socio("80000001", con_jugador=True)
@@ -979,6 +980,8 @@ class DesgloseComprobanteTests(APITestCase):
 	def desglose(self, detalle):
 		return [(linea["concepto"], Decimal(str(linea["monto"]))) for linea in detalle["desglose"]]
 
+
+class DesgloseComprobanteTests(ComprobanteTestBase):
 	def test_pago_completo_con_beca_como_linea_negativa(self):
 		self.asignar_beca("500.00")
 
@@ -1072,6 +1075,79 @@ class DesgloseComprobanteTests(APITestCase):
 		self.assertFalse(Pago.objects.exists())
 		self.assertFalse(Imputacion.objects.exists())
 		self.assertEqual(CuentaCorriente.objects.get(socio=self.socio).saldo, Decimal("-2500.00"))
+
+
+class ComprobantePdfTests(ComprobanteTestBase):
+	def descargar(self, numero):
+		comprobante = Comprobante.objects.get(numero=numero)
+		return self.client.get(reverse("comprobante-pdf", args=[comprobante.pk]))
+
+	def test_descarga_el_recibo_x_con_los_datos_obligatorios(self):
+		self.asignar_beca("500.00")
+		detalle = self.pagar("2000.00")
+
+		response = self.descargar(detalle["numero"])
+
+		self.assertEqual(response.status_code, 200)
+		self.assertEqual(response["Content-Type"], "application/pdf")
+		self.assertEqual(
+			response["Content-Disposition"],
+			f'attachment; filename="comprobante-X-{detalle["numero"]:08d}.pdf"',
+		)
+		contenido = response.content
+		self.assertTrue(contenido.startswith(b"%PDF"))
+		for texto in (
+			b"RECIBO X",
+			f"X {detalle['numero']:08d}".encode(),
+			self.socio.persona.dni.encode(),
+			b"Prueba, Socio",
+			b"2026-10",
+			b"$ 1.000,00",
+			b"$ 1.500,00",
+			b"-$ 500,00",
+			b"$ 2.000,00",
+			b"Efectivo",
+		):
+			with self.subTest(texto=texto):
+				self.assertIn(texto, contenido)
+		self.assertNotIn(b"ANULADO", contenido)
+
+	def test_recibo_anulado_indica_su_reemplazo(self):
+		original = self.pagar("1000.00")
+		pago_id = Comprobante.objects.get(numero=original["numero"]).pago_id
+		correccion = self.client.post(
+			reverse("corregir-pago", args=[pago_id]),
+			{
+				"motivo": "Monto mal cargado",
+				"cuota_ids": [self.cuota.pk],
+				"monto_total": "1200.00",
+				"medios": [{"medio_de_pago": "Transferencia", "monto": "1200.00"}],
+			},
+			format="json",
+		)
+
+		contenido = self.descargar(original["numero"]).content
+
+		self.assertIn(b"ANULADO", contenido)
+		self.assertIn(f"X {correccion.data['comprobante']['numero']:08d}".encode(), contenido)
+
+	def test_el_frontend_puede_leer_el_nombre_del_archivo(self):
+		detalle = self.pagar("100.00")
+		comprobante = Comprobante.objects.get(numero=detalle["numero"])
+
+		response = self.client.get(reverse("comprobante-pdf", args=[comprobante.pk]), HTTP_ORIGIN="http://localhost:5173")
+
+		self.assertIn("Content-Disposition", response["Access-Control-Expose-Headers"])
+
+	def test_comprobante_inexistente_devuelve_404(self):
+		response = self.client.get(reverse("comprobante-pdf", args=[999999]))
+
+		self.assertEqual(response.status_code, 404)
+
+	def test_formato_de_importes(self):
+		self.assertEqual(format_amount(Decimal("1234567.5")), "$ 1.234.567,50")
+		self.assertEqual(format_amount(Decimal("0")), "$ 0,00")
+		self.assertEqual(format_amount(Decimal("-500")), "-$ 500,00")
 
 
 class ProteccionRegistrosFinancierosTests(PagoTestBase):

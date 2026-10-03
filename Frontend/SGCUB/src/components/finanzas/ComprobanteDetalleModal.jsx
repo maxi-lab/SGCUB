@@ -1,5 +1,6 @@
 import { Modal } from '@mantine/core'
 import { formatAmount, formatDate } from '../personas/format'
+import DescargarComprobanteButton from './DescargarComprobanteButton'
 import DesgloseComprobante from './DesgloseComprobante'
 
 function ComprobanteDetalleModal({ comprobante, detalle, loading, error, opened, onClose, onCorrect }) {
@@ -36,6 +37,7 @@ function ComprobanteDetalleModal({ comprobante, detalle, loading, error, opened,
               {detalle?.reemplazado_por_numero && <p className="mt-2 text-sm text-on-surface-variant">Reemplazado por el comprobante #{detalle.reemplazado_por_numero}</p>}
               {detalle?.reemplaza_a_numero && <p className="mt-2 text-sm text-on-surface-variant">Reemplaza al comprobante #{detalle.reemplaza_a_numero}</p>}
             </div>
+            <DescargarComprobanteButton comprobanteId={comprobante.comprobante_id} />
             {pago && pago.estado_pago !== 'Anulado' && onCorrect && (
               <div className="pt-3 border-t border-outline-variant/30">
                 <button type="button" onClick={() => onCorrect(pago)} className="inline-flex items-center gap-2 h-10 px-4 border border-primary/40 rounded-md font-semibold text-primary hover:bg-primary/5">
