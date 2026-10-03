@@ -1,4 +1,5 @@
 import useDocumentacion from '../hooks/useDocumentacion'
+import StatCard from '../components/shared/StatCard'
 import DocumentAlertTable from '../components/documental/DocumentAlertTable'
 import { parseDueDate } from '../components/documental/dueDate'
 
@@ -43,57 +44,10 @@ export default function DocumentacionDashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-space-md">
-        {/* Vencidos KPI */}
-        <div className="md:col-span-4 bg-surface-container-lowest p-space-lg rounded-xl shadow-sm relative overflow-hidden flex flex-col justify-between">
-          <div className="flex items-start justify-between">
-            <div className="flex flex-col">
-              <span className="font-label-sm text-label-sm text-error uppercase tracking-wider font-semibold">Alerta Crítica</span>
-              <span className="font-headline-sm text-headline-sm text-on-surface mt-1">Documentación Vencida</span>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-error-container text-error flex items-center justify-center shadow-sm">
-              <span className="material-symbols-outlined text-[22px]">gpp_bad</span>
-            </div>
-          </div>
-          <div className="my-space-md flex items-baseline gap-space-xs">
-            <span className="font-display-lg text-display-lg text-error leading-none">{expiredDocs.length}</span>
-            <span className="font-label-lg text-label-lg text-error font-medium">inhabilitados</span>
-          </div>
-        </div>
-
-        {/* Proximos KPI */}
-        <div className="md:col-span-4 bg-surface-container-lowest p-space-lg rounded-xl shadow-sm relative overflow-hidden flex flex-col justify-between">
-          <div className="flex items-start justify-between">
-            <div className="flex flex-col">
-              <span className="font-label-sm text-label-sm text-secondary uppercase tracking-wider font-semibold">Prevención Activa</span>
-              <span className="font-headline-sm text-headline-sm text-on-surface mt-1">Próxima a Vencer</span>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-secondary-fixed text-on-secondary-fixed flex items-center justify-center shadow-sm">
-              <span className="material-symbols-outlined text-[22px]">notification_important</span>
-            </div>
-          </div>
-          <div className="my-space-md flex items-baseline gap-space-xs">
-            <span className="font-display-lg text-display-lg text-secondary leading-none">{upcomingDocs.length}</span>
-            <span className="font-label-lg text-label-lg text-secondary font-medium">a vencer (próx. 30 días)</span>
-          </div>
-        </div>
-
-        {/* Total KPI */}
-        <div className="md:col-span-4 bg-surface-container-lowest p-space-lg rounded-xl shadow-sm relative overflow-hidden flex flex-col justify-between">
-          <div className="flex items-start justify-between">
-            <div className="flex flex-col">
-              <span className="font-label-sm text-label-sm text-outline uppercase tracking-wider font-semibold">Cobertura Total</span>
-              <span className="font-headline-sm text-headline-sm text-on-surface mt-1">Total Vigentes al Día</span>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-surface-container-high text-primary flex items-center justify-center shadow-sm">
-              <span className="material-symbols-outlined text-[22px]">verified_user</span>
-            </div>
-          </div>
-          <div className="my-space-md flex items-baseline gap-space-xs">
-            <span className="font-display-lg text-display-lg text-on-surface leading-none">{validCount}</span>
-            <span className="font-label-lg text-label-lg text-on-surface-variant"> activos</span>
-          </div>
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <StatCard size="lg" eyebrow="Alerta Crítica" label="Documentación Vencida" value={expiredDocs.length} caption="inhabilitados" icon="gpp_bad" tone="error" />
+        <StatCard size="lg" eyebrow="Prevención Activa" label="Próxima a Vencer" value={upcomingDocs.length} caption="a vencer (próx. 30 días)" icon="notification_important" tone="warning" />
+        <StatCard size="lg" eyebrow="Cobertura Total" label="Total Vigentes al Día" value={validCount} caption="activos" icon="verified_user" tone="neutral" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-space-lg items-start">
