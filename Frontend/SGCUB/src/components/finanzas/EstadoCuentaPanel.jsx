@@ -142,7 +142,7 @@ function EstadoCuentaPanel({ socio, onRegisterPayment, enableBenefits = false })
       {enableBenefits && cuotaSeleccionada && (
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-surface-container-low border border-outline-variant/30 rounded-lg">
           <p className="text-sm text-on-surface-variant">Cuota seleccionada: <strong className="text-on-surface">{cuotaSeleccionada.periodo}</strong> · {formatAmount(cuotaSeleccionada.monto_total)} · Pendiente {formatAmount(Number(cuotaSeleccionada.saldo_pendiente ?? 0))}</p>
-          <button type="button" onClick={() => setModalBeneficio(true)} disabled={estadoNormalizado(cuotaSeleccionada.estado_cuota) === 'paga'} className="inline-flex items-center justify-center gap-2 h-10 px-4 bg-primary text-on-primary rounded-md font-semibold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed">
+          <button type="button" onClick={() => setModalBeneficio(true)} disabled={estadoNormalizado(cuotaSeleccionada.estado_cuota) === 'paga' || Number(cuotaSeleccionada.monto_pagado ?? 0) > 0} className="inline-flex items-center justify-center gap-2 h-10 px-4 bg-primary text-on-primary rounded-md font-semibold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed">
             <span className="material-symbols-outlined text-lg">redeem</span>Asignar beca o descuento
           </button>
         </div>

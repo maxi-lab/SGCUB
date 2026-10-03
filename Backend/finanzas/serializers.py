@@ -248,7 +248,12 @@ class CuentaCorrienteSerializer(serializers.ModelSerializer):
     class Meta:
         model = CuentaCorriente
         fields = "__all__"
-        read_only_fields = ["cuenta_corriente_id"]
+        read_only_fields = ["cuenta_corriente_id", "saldo"]
+
+    def validate_socio(self, value):
+        if self.instance is not None and value != self.instance.socio:
+            raise serializers.ValidationError("No se puede cambiar el socio de una cuenta corriente.")
+        return value
 
 
 class CuentaCorrienteEstadoSerializer(serializers.ModelSerializer):

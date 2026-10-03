@@ -42,6 +42,10 @@ class PagoInvalidoError(Exception):
     pass
 
 
+class CuotaConPagosError(Exception):
+    pass
+
+
 def next_receipt_number():
     sequence, _ = SecuenciaComprobante.objects.select_for_update().get_or_create(pk=1)
     sequence.ultimo_numero += 1
@@ -114,6 +118,11 @@ def create_cuota(socio, period, first_due_date=None, second_due_date=None):
     return cuota
 
 
+def ensure_cuota_without_payments(cuota):
+    if Imputacion.objects.filter(movimiento_destino__cuota=cuota).exists():
+        raise CuotaConPagosError("La cuota tiene pagos aplicados y no puede modificarse.")
+
+
 @transaction.atomic
 def sync_cuota_charge(cuota):
     account, movement = lock_cuota_charge(cuota)
@@ -127,6 +136,7 @@ def sync_cuota_charge(cuota):
 @transaction.atomic
 def delete_cuota(cuota):
     account, movement = lock_cuota_charge(cuota)
+    ensure_cuota_without_payments(cuota)
     account.saldo += movement.monto
     account.save(update_fields=["saldo"])
     cuota.delete()

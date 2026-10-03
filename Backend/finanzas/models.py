@@ -115,7 +115,7 @@ class ItemPago(models.Model):
     )
     pago = models.ForeignKey(
         Pago,
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name="items_pago",
     )
     monto = models.DecimalField(max_digits=10, decimal_places=2)
@@ -131,7 +131,7 @@ class Comprobante(models.Model):
     comprobante_id = models.AutoField(primary_key=True)
     pago = models.OneToOneField(
         Pago,
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name="comprobante",
     )
     fecha_emision = models.DateField()
@@ -160,7 +160,7 @@ class CuentaCorriente(models.Model):
     cuenta_corriente_id = models.AutoField(primary_key=True)
     socio = models.OneToOneField(
         "padron.Socio",
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name="cuenta_corriente",
     )
     saldo = models.DecimalField(max_digits=12, decimal_places=2, default=0)
@@ -185,7 +185,7 @@ class MovimientoCuenta(models.Model):
     movimiento_cuenta_id = models.AutoField(primary_key=True)
     cuenta_corriente = models.ForeignKey(
         CuentaCorriente,
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name="movimientos",
     )
     pago = models.OneToOneField(
@@ -239,12 +239,12 @@ class Imputacion(models.Model):
     imputacion_id = models.AutoField(primary_key=True)
     movimiento_origen = models.ForeignKey(
         MovimientoCuenta,
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name="imputaciones_origen",
     )
     movimiento_destino = models.ForeignKey(
         MovimientoCuenta,
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name="imputaciones_destino",
     )
     fecha = models.DateTimeField()

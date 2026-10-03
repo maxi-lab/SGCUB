@@ -42,12 +42,14 @@ from .serializers import (
 	ComprobanteDetalleSerializer,
 )
 from .services import (
+	CuotaConPagosError,
 	CuotaDuplicadaError,
 	PagoInvalidoError,
 	SocioInactivoError,
 	apply_payment,
 	create_cuota,
 	delete_cuota,
+	ensure_cuota_without_payments,
 	generar_cuotas_mensuales,
 	lock_account_cuotas,
 	next_receipt_number,
@@ -57,54 +59,14 @@ from .services import (
 )
 
 
-def _list_create(request, model, serializer_class, queryset=None):
-	if request.method == "GET":
-		objects = queryset if queryset is not None else model.objects.all()
-		return Response(serializer_class(objects, many=True).data)
-
-	serializer = serializer_class(data=request.data)
-	if serializer.is_valid():
-		return Response(
-			serializer_class(serializer.save()).data,
-			status=status.HTTP_201_CREATED,
-		)
-	return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-def _detail(request, model, serializer_class, pk, queryset=None):
-	objects = queryset if queryset is not None else model.objects.all()
-	instance = get_object_or_404(objects, pk=pk)
-
-	if request.method == "GET":
-		return Response(serializer_class(instance).data)
-
-	if request.method in ("PUT", "PATCH"):
-		serializer = serializer_class(
-			instance,
-			data=request.data,
-			partial=request.method == "PATCH",
-		)
-		if serializer.is_valid():
-			return Response(serializer_class(serializer.save()).data)
-		return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-	instance.delete()
-	return Response(status=status.HTTP_204_NO_CONTENT)
+def _cuota_con_pagos(error):
+	return Response({"detail": str(error)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 def _cuotas_queryset():
 	return Cuota.objects.select_related(
 		"movimiento__cuenta_corriente__socio__persona",
 	).prefetch_related("items")
-
-
-@extend_schema(tags=["Finanzas/EstadoCuota"])
-@api_view(["GET", "POST"])
-def estado_cuota_list_create(request):
-	return Response([
-		{"estado_cuota_id": value, "nombre": label}
-		for value, label in EstadoCuotaChoices.choices
-	])
 
 
 @extend_schema(tags=["Finanzas/Cuota"], request=CuotaCreateSerializer, responses=CuotaSerializer)
@@ -143,9 +105,13 @@ def cuota_detail(request, pk):
 	if request.method == "GET":
 		return Response(CuotaSerializer(cuota).data)
 
-	if request.method == "DELETE":
-		delete_cuota(cuota)
-		return Response(status=status.HTTP_204_NO_CONTENT)
+	try:
+		if request.method == "DELETE":
+			delete_cuota(cuota)
+			return Response(status=status.HTTP_204_NO_CONTENT)
+		ensure_cuota_without_payments(cuota)
+	except CuotaConPagosError as error:
+		return _cuota_con_pagos(error)
 
 	serializer = CuotaUpdateSerializer(cuota, data=request.data, partial=request.method == "PATCH")
 	if not serializer.is_valid():
@@ -164,9 +130,13 @@ def item_cuota_list_create(request):
 	if not serializer.is_valid():
 		return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-	with transaction.atomic():
-		item = serializer.save()
-		sync_cuota_charge(item.cuota)
+	try:
+		with transaction.atomic():
+			ensure_cuota_without_payments(serializer.validated_data["cuota"])
+			item = serializer.save()
+			sync_cuota_charge(item.cuota)
+	except CuotaConPagosError as error:
+		return _cuota_con_pagos(error)
 	return Response(ItemCuotaSerializer(item).data, status=status.HTTP_201_CREATED)
 
 
@@ -178,29 +148,34 @@ def item_cuota_detail(request, pk):
 		return Response(ItemCuotaSerializer(item).data)
 
 	previous_cuota = item.cuota
-	with transaction.atomic():
-		if request.method == "DELETE":
-			item.delete()
-			sync_cuota_charge(previous_cuota)
-			return Response(status=status.HTTP_204_NO_CONTENT)
+	try:
+		with transaction.atomic():
+			ensure_cuota_without_payments(previous_cuota)
+			if request.method == "DELETE":
+				item.delete()
+				sync_cuota_charge(previous_cuota)
+				return Response(status=status.HTTP_204_NO_CONTENT)
 
-		serializer = ItemCuotaSerializer(item, data=request.data, partial=request.method == "PATCH")
-		if not serializer.is_valid():
-			return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-		item = serializer.save()
-		sync_cuota_charge(previous_cuota)
-		if item.cuota_id != previous_cuota.pk:
-			sync_cuota_charge(item.cuota)
+			serializer = ItemCuotaSerializer(item, data=request.data, partial=request.method == "PATCH")
+			if not serializer.is_valid():
+				return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+			ensure_cuota_without_payments(serializer.validated_data.get("cuota", previous_cuota))
+			item = serializer.save()
+			sync_cuota_charge(previous_cuota)
+			if item.cuota_id != previous_cuota.pk:
+				sync_cuota_charge(item.cuota)
+	except CuotaConPagosError as error:
+		return _cuota_con_pagos(error)
 	return Response(ItemCuotaSerializer(item).data)
 
 
-@extend_schema(tags=["Finanzas/Pago"], request=PagoSerializer, responses=PagoSerializer)
-@api_view(["GET", "POST"])
-def pago_list_create(request):
-	return _list_create(request, Pago, PagoSerializer)
+@extend_schema(tags=["Finanzas/Pago"], responses=PagoSerializer)
+@api_view(["GET"])
+def pago_list(request):
+	return Response(PagoSerializer(Pago.objects.order_by("pk"), many=True).data)
 
 
-@extend_schema(tags=["Finanzas/Pago"], request=PagoSerializer, responses=PagoSerializer)
+@extend_schema(tags=["Finanzas/Pago"], responses=PagoSerializer)
 @api_view(["GET"])
 def pago_detail(request, pk):
 	pago = get_object_or_404(Pago, pk=pk)
@@ -358,25 +333,25 @@ def registrar_pago(request):
 	}, status=status.HTTP_201_CREATED)
 
 
-@extend_schema(tags=["Finanzas/ItemPago"], request=ItemPagoSerializer, responses=ItemPagoSerializer)
-@api_view(["GET", "POST"])
-def item_pago_list_create(request):
-	return _list_create(request, ItemPago, ItemPagoSerializer)
+@extend_schema(tags=["Finanzas/ItemPago"], responses=ItemPagoSerializer)
+@api_view(["GET"])
+def item_pago_list(request):
+	return Response(ItemPagoSerializer(ItemPago.objects.order_by("pk"), many=True).data)
 
 
-@extend_schema(tags=["Finanzas/ItemPago"], request=ItemPagoSerializer, responses=ItemPagoSerializer)
-@api_view(["GET", "PUT", "PATCH", "DELETE"])
+@extend_schema(tags=["Finanzas/ItemPago"], responses=ItemPagoSerializer)
+@api_view(["GET"])
 def item_pago_detail(request, pk):
-	return _detail(request, ItemPago, ItemPagoSerializer, pk)
+	return Response(ItemPagoSerializer(get_object_or_404(ItemPago, pk=pk)).data)
 
 
-@extend_schema(tags=["Finanzas/Comprobante"], request=ComprobanteSerializer, responses=ComprobanteSerializer)
-@api_view(["GET", "POST"])
-def comprobante_list_create(request):
-	return _list_create(request, Comprobante, ComprobanteSerializer)
+@extend_schema(tags=["Finanzas/Comprobante"], responses=ComprobanteSerializer)
+@api_view(["GET"])
+def comprobante_list(request):
+	return Response(ComprobanteSerializer(Comprobante.objects.order_by("pk"), many=True).data)
 
 
-@extend_schema(tags=["Finanzas/Comprobante"], request=ComprobanteSerializer, responses=ComprobanteSerializer)
+@extend_schema(tags=["Finanzas/Comprobante"], responses=ComprobanteDetalleSerializer)
 @api_view(["GET"])
 def comprobante_detail(request, pk):
 	comprobante = get_object_or_404(
@@ -388,30 +363,30 @@ def comprobante_detail(request, pk):
 	return Response(ComprobanteDetalleSerializer(comprobante).data)
 
 
-
-
-
 @extend_schema(tags=["Finanzas/CuentaCorriente"], request=CuentaCorrienteSerializer, responses=CuentaCorrienteSerializer)
 @api_view(["GET", "POST"])
 def cuenta_corriente_list_create(request):
-	return _list_create(
-		request,
-		CuentaCorriente,
-		CuentaCorrienteSerializer,
-		CuentaCorriente.objects.select_related("socio"),
-	)
+	if request.method == "GET":
+		cuentas = CuentaCorriente.objects.select_related("socio").order_by("pk")
+		return Response(CuentaCorrienteSerializer(cuentas, many=True).data)
+
+	serializer = CuentaCorrienteSerializer(data=request.data)
+	if not serializer.is_valid():
+		return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+	return Response(CuentaCorrienteSerializer(serializer.save()).data, status=status.HTTP_201_CREATED)
 
 
 @extend_schema(tags=["Finanzas/CuentaCorriente"], request=CuentaCorrienteSerializer, responses=CuentaCorrienteSerializer)
-@api_view(["GET", "PUT", "PATCH", "DELETE"])
+@api_view(["GET", "PUT", "PATCH"])
 def cuenta_corriente_detail(request, pk):
-	return _detail(
-		request,
-		CuentaCorriente,
-		CuentaCorrienteSerializer,
-		pk,
-		CuentaCorriente.objects.select_related("socio"),
-	)
+	cuenta = get_object_or_404(CuentaCorriente.objects.select_related("socio"), pk=pk)
+	if request.method == "GET":
+		return Response(CuentaCorrienteSerializer(cuenta).data)
+
+	serializer = CuentaCorrienteSerializer(cuenta, data=request.data, partial=request.method == "PATCH")
+	if not serializer.is_valid():
+		return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+	return Response(CuentaCorrienteSerializer(serializer.save()).data)
 
 
 @extend_schema(tags=["Finanzas/EstadoCuenta"], responses=CuentaCorrienteEstadoSerializer)
@@ -530,25 +505,25 @@ def reporte_morosidad(request):
 	})
 
 
-@extend_schema(tags=["Finanzas/MovimientoCuenta"], request=MovimientoCuentaSerializer, responses=MovimientoCuentaSerializer)
-@api_view(["GET", "POST"])
-def movimiento_cuenta_list_create(request):
-	return _list_create(request, MovimientoCuenta, MovimientoCuentaSerializer)
+@extend_schema(tags=["Finanzas/MovimientoCuenta"], responses=MovimientoCuentaSerializer)
+@api_view(["GET"])
+def movimiento_cuenta_list(request):
+	return Response(MovimientoCuentaSerializer(MovimientoCuenta.objects.order_by("pk"), many=True).data)
 
 
-@extend_schema(tags=["Finanzas/MovimientoCuenta"], request=MovimientoCuentaSerializer, responses=MovimientoCuentaSerializer)
-@api_view(["GET", "PUT", "PATCH", "DELETE"])
+@extend_schema(tags=["Finanzas/MovimientoCuenta"], responses=MovimientoCuentaSerializer)
+@api_view(["GET"])
 def movimiento_cuenta_detail(request, pk):
-	return _detail(request, MovimientoCuenta, MovimientoCuentaSerializer, pk)
+	return Response(MovimientoCuentaSerializer(get_object_or_404(MovimientoCuenta, pk=pk)).data)
 
 
-@extend_schema(tags=["Finanzas/Imputacion"], request=ImputacionSerializer, responses=ImputacionSerializer)
-@api_view(["GET", "POST"])
-def imputacion_list_create(request):
-	return _list_create(request, Imputacion, ImputacionSerializer)
+@extend_schema(tags=["Finanzas/Imputacion"], responses=ImputacionSerializer)
+@api_view(["GET"])
+def imputacion_list(request):
+	return Response(ImputacionSerializer(Imputacion.objects.order_by("pk"), many=True).data)
 
 
-@extend_schema(tags=["Finanzas/Imputacion"], request=ImputacionSerializer, responses=ImputacionSerializer)
-@api_view(["GET", "PUT", "PATCH", "DELETE"])
+@extend_schema(tags=["Finanzas/Imputacion"], responses=ImputacionSerializer)
+@api_view(["GET"])
 def imputacion_detail(request, pk):
-	return _detail(request, Imputacion, ImputacionSerializer, pk)
+	return Response(ImputacionSerializer(get_object_or_404(Imputacion, pk=pk)).data)

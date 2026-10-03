@@ -3,6 +3,7 @@ from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.db import connection
+from django.db.models import ProtectedError
 from django.db.migrations.executor import MigrationExecutor
 from django.test import TestCase, TransactionTestCase
 from django.urls import reverse
@@ -507,6 +508,98 @@ class EstadoCuentaPendienteTests(PagoTestBase):
 		cuotas = {cuota["cuota_id"]: cuota for cuota in response.data}
 		self.assertEqual(Decimal(str(cuotas[self.agosto.pk]["saldo_pendiente"])), Decimal("750.00"))
 		self.assertEqual(Decimal(str(cuotas[self.agosto.pk]["monto_pagado"])), Decimal("250.00"))
+
+
+class ProteccionRegistrosFinancierosTests(PagoTestBase):
+	def setUp(self):
+		super().setUp()
+		respuesta = self.pagar([self.agosto], "400.00")
+		self.pago = Pago.objects.get(pk=respuesta.data["pago"]["pago_id"])
+		self.movimiento = self.pago.movimiento
+		self.imputacion = Imputacion.objects.get(movimiento_origen=self.movimiento)
+		self.item_pago = self.pago.items_pago.get()
+
+	def test_pagos_comprobantes_movimientos_e_imputaciones_son_de_solo_lectura(self):
+		escrituras = [
+			("post", reverse("pago-list")),
+			("post", reverse("item-pago-list")),
+			("patch", reverse("item-pago-detail", args=[self.item_pago.pk])),
+			("delete", reverse("item-pago-detail", args=[self.item_pago.pk])),
+			("post", reverse("comprobante-list")),
+			("post", reverse("movimiento-cuenta-list")),
+			("patch", reverse("movimiento-cuenta-detail", args=[self.movimiento.pk])),
+			("delete", reverse("movimiento-cuenta-detail", args=[self.movimiento.pk])),
+			("post", reverse("imputacion-list")),
+			("delete", reverse("imputacion-detail", args=[self.imputacion.pk])),
+			("delete", reverse("cuenta-corriente-detail", args=[self.cuenta.pk])),
+		]
+		for metodo, url in escrituras:
+			with self.subTest(metodo=metodo, url=url):
+				self.assertEqual(getattr(self.client, metodo)(url, {}, format="json").status_code, 405)
+
+		self.assertEqual(self.client.get(reverse("pago-list")).status_code, 200)
+		self.assertEqual(self.client.get(reverse("imputacion-list")).status_code, 200)
+		self.assertTrue(MovimientoCuenta.objects.filter(pk=self.movimiento.pk).exists())
+
+	def test_saldo_de_la_cuenta_no_se_edita_a_mano(self):
+		response = self.client.patch(
+			reverse("cuenta-corriente-detail", args=[self.cuenta.pk]),
+			{"saldo": "999999.00", "estado_cuenta_corriente": "Inactivo"},
+			format="json",
+		)
+
+		self.assertEqual(response.status_code, 200, response.data)
+		self.cuenta.refresh_from_db()
+		self.assertEqual(self.cuenta.saldo, Decimal("-1600.00"))
+		self.assertEqual(self.cuenta.estado_cuenta_corriente, "Inactivo")
+
+	def test_cuota_con_pagos_no_se_edita_ni_se_elimina(self):
+		edicion = self.client.patch(
+			reverse("cuota-detail", args=[self.agosto.pk]),
+			{"fecha_venc1": "2026-08-15"},
+			format="json",
+		)
+		baja = self.client.delete(reverse("cuota-detail", args=[self.agosto.pk]))
+		nuevo_item = self.client.post(
+			reverse("item-cuota-list"),
+			{"cuota": self.agosto.pk, "concepto": "Otro", "fecha_aplicacion": "2026-08-01", "monto": "10.00"},
+			format="json",
+		)
+		item = self.agosto.items.get()
+		baja_item = self.client.delete(reverse("item-cuota-detail", args=[item.pk]))
+
+		for response in (edicion, baja, nuevo_item, baja_item):
+			self.assertEqual(response.status_code, 400)
+		self.assertTrue(Cuota.objects.filter(pk=self.agosto.pk).exists())
+		self.assertEqual(self.agosto.items.count(), 1)
+		self.assertEqual(MovimientoCuenta.objects.get(cuota=self.agosto).monto, Decimal("1000.00"))
+
+	def test_no_se_puede_mover_un_item_a_una_cuota_con_pagos(self):
+		item = self.septiembre.items.get()
+
+		response = self.client.patch(
+			reverse("item-cuota-detail", args=[item.pk]),
+			{"cuota": self.agosto.pk},
+			format="json",
+		)
+
+		self.assertEqual(response.status_code, 400)
+		item.refresh_from_db()
+		self.assertEqual(item.cuota_id, self.septiembre.pk)
+
+	def test_cuota_sin_pagos_sigue_pudiendo_eliminarse(self):
+		response = self.client.delete(reverse("cuota-detail", args=[self.septiembre.pk]))
+
+		self.assertEqual(response.status_code, 204)
+		self.assertFalse(Cuota.objects.filter(pk=self.septiembre.pk).exists())
+
+	def test_la_base_impide_borrar_pagos_y_movimientos(self):
+		with self.assertRaises(ProtectedError):
+			self.pago.delete()
+		with self.assertRaises(ProtectedError):
+			self.movimiento.delete()
+		with self.assertRaises(ProtectedError):
+			self.cuenta.delete()
 
 
 class ReporteMorosidadTests(APITestCase):
