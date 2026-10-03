@@ -291,6 +291,23 @@ class Imputacion(models.Model):
         return f"Imputación {self.imputacion_id}"
 
 
+class DetalleImputacion(models.Model):
+    detalle_imputacion_id = models.AutoField(primary_key=True)
+    imputacion = models.ForeignKey(
+        Imputacion,
+        on_delete=models.PROTECT,
+        related_name="detalles",
+    )
+    concepto = models.CharField(max_length=40, choices=ConceptoItemChoices.choices)
+    monto = models.DecimalField(max_digits=10, decimal_places=2)
+
+    class Meta:
+        db_table = "detalle_imputacion"
+
+    def __str__(self):
+        return f"{self.concepto} - {self.monto}"
+
+
 class ConfiguracionFinanciera(models.Model):
     configuracion_financiera_id = models.AutoField(primary_key=True)
     monto_cuota_social = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("1000.00"))

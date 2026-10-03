@@ -40,7 +40,7 @@ from .models import (
 	Pago,
 	SecuenciaComprobante,
 )
-from .services import apply_surcharges, generar_cuotas_mensuales, next_receipt_number
+from .services import apply_surcharges, generar_cuotas_mensuales, next_receipt_number, sync_cuota_charge
 
 
 def crear_socio(dni, socio_inactivo=False, con_jugador=False, jugador_inactivo=False):
@@ -938,6 +938,142 @@ class BecasEnGeneracionDeCuotasTests(TestCase):
 		self.assertEqual(len(consultas_becas), 1)
 
 
+class DesgloseComprobanteTests(APITestCase):
+	def setUp(self):
+		self.client.force_authenticate(user=get_user_model().objects.create_user(username="tesorero"))
+		self.socio = crear_socio("80000001", con_jugador=True)
+		self.cuota = self.generar("2026-10")
+
+	def generar(self, periodo):
+		response = self.client.post(reverse("cuota-list"), {"socio_id": self.socio.pk, "periodo": periodo}, format="json")
+		return Cuota.objects.get(pk=response.data["cuota_id"])
+
+	def agregar_mora(self, cuota, monto):
+		ItemCuota.objects.create(cuota=cuota, concepto="Mora", fecha_aplicacion=date(2026, 10, 11), monto=Decimal(monto))
+		sync_cuota_charge(cuota)
+
+	def asignar_beca(self, monto):
+		return self.client.post(
+			reverse("cuota-beneficio", args=[self.cuota.pk]),
+			{
+				"tipo": "Beca", "modalidad": "MontoFijo", "valor": monto, "concepto": "CuotaDeportiva",
+				"fecha_aplicacion": "2026-10-01", "fecha_fin": "2026-12-31", "motivo": "Beca deportiva",
+			},
+			format="json",
+		)
+
+	def pagar(self, monto, cuotas=None):
+		response = self.client.post(
+			reverse("registrar-pago"),
+			{
+				"socio_id": self.socio.pk,
+				"cuota_ids": [cuota.pk for cuota in (cuotas or [self.cuota])],
+				"monto_total": monto,
+				"medios": [{"medio_de_pago": "Efectivo", "monto": monto}],
+			},
+			format="json",
+		)
+		self.assertEqual(response.status_code, 201, response.data)
+		return self.client.get(reverse("comprobante-detail", args=[response.data["comprobante"]["comprobante_id"]])).data
+
+	def desglose(self, detalle):
+		return [(linea["concepto"], Decimal(str(linea["monto"]))) for linea in detalle["desglose"]]
+
+	def test_pago_completo_con_beca_como_linea_negativa(self):
+		self.asignar_beca("500.00")
+
+		detalle = self.pagar("2000.00")
+
+		self.assertEqual(detalle["tipo"], "X")
+		self.assertEqual(self.desglose(detalle), [
+			("CuotaSocial", Decimal("1000.00")),
+			("CuotaDeportiva", Decimal("1500.00")),
+			("Beca", Decimal("-500.00")),
+		])
+		self.assertEqual([periodo["periodo"] for periodo in detalle["periodos"]], ["2026-10"])
+		self.assertEqual(detalle["desglose"][0]["concepto_nombre"], "Cuota Social")
+
+	def test_pagos_parciales_cancelan_primero_mora_luego_social_y_deportiva(self):
+		self.agregar_mora(self.cuota, "200.00")
+
+		primero = self.pagar("400.00")
+		segundo = self.pagar("1000.00")
+		tercero = self.pagar("1300.00")
+
+		self.assertEqual(self.desglose(primero), [("Mora", Decimal("200.00")), ("CuotaSocial", Decimal("200.00"))])
+		self.assertEqual(self.desglose(segundo), [("CuotaSocial", Decimal("800.00")), ("CuotaDeportiva", Decimal("200.00"))])
+		self.assertEqual(self.desglose(tercero), [("CuotaDeportiva", Decimal("1300.00"))])
+
+	def test_la_beca_figura_en_el_primer_pago_parcial(self):
+		self.asignar_beca("500.00")
+
+		primero = self.pagar("400.00")
+		segundo = self.pagar("1600.00")
+
+		self.assertEqual(self.desglose(primero), [("CuotaSocial", Decimal("900.00")), ("Beca", Decimal("-500.00"))])
+		self.assertEqual(self.desglose(segundo), [("CuotaSocial", Decimal("100.00")), ("CuotaDeportiva", Decimal("1500.00"))])
+
+	def test_un_recargo_posterior_no_altera_comprobantes_ya_emitidos(self):
+		primero = self.pagar("400.00")
+		self.agregar_mora(self.cuota, "200.00")
+
+		segundo = self.pagar("600.00")
+		primero_releido = self.client.get(reverse("comprobante-detail", args=[Comprobante.objects.get(numero=primero["numero"]).pk])).data
+
+		self.assertEqual(self.desglose(primero_releido), [("CuotaSocial", Decimal("400.00"))])
+		self.assertEqual(self.desglose(segundo), [("Mora", Decimal("200.00")), ("CuotaSocial", Decimal("400.00"))])
+
+	def test_pago_de_varias_cuotas_lista_los_periodos_y_suma_el_desglose(self):
+		noviembre = self.generar("2026-11")
+
+		detalle = self.pagar("3000.00", [noviembre, self.cuota])
+
+		self.assertEqual(
+			[(periodo["periodo"], Decimal(str(periodo["monto_aplicado"]))) for periodo in detalle["periodos"]],
+			[("2026-10", Decimal("2500.00")), ("2026-11", Decimal("500.00"))],
+		)
+		self.assertEqual(self.desglose(detalle), [("CuotaSocial", Decimal("1500.00")), ("CuotaDeportiva", Decimal("1500.00"))])
+
+	def test_correccion_recalcula_el_desglose_sin_el_pago_original(self):
+		original = self.pagar("1000.00")
+		pago_id = Comprobante.objects.get(numero=original["numero"]).pago_id
+
+		response = self.client.post(
+			reverse("corregir-pago", args=[pago_id]),
+			{
+				"motivo": "Monto mal cargado",
+				"cuota_ids": [self.cuota.pk],
+				"monto_total": "1200.00",
+				"medios": [{"medio_de_pago": "Transferencia", "monto": "1200.00"}],
+			},
+			format="json",
+		)
+
+		self.assertEqual(response.status_code, 201, response.data)
+		detalle = self.client.get(reverse("comprobante-detail", args=[response.data["comprobante"]["comprobante_id"]])).data
+		self.assertEqual(self.desglose(detalle), [("CuotaSocial", Decimal("1000.00")), ("CuotaDeportiva", Decimal("200.00"))])
+
+	def test_comprobante_incompleto_bloquea_y_revierte_el_pago(self):
+		Socio.objects.filter(pk=self.socio.pk).update(numero_socio=None)
+
+		response = self.client.post(
+			reverse("registrar-pago"),
+			{
+				"socio_id": self.socio.pk,
+				"cuota_ids": [self.cuota.pk],
+				"monto_total": "100.00",
+				"medios": [{"medio_de_pago": "Efectivo", "monto": "100.00"}],
+			},
+			format="json",
+		)
+
+		self.assertEqual(response.status_code, 400)
+		self.assertIn("número de socio", response.data["detail"])
+		self.assertFalse(Pago.objects.exists())
+		self.assertFalse(Imputacion.objects.exists())
+		self.assertEqual(CuentaCorriente.objects.get(socio=self.socio).saldo, Decimal("-2500.00"))
+
+
 class ProteccionRegistrosFinancierosTests(PagoTestBase):
 	def setUp(self):
 		super().setUp()
@@ -1390,3 +1526,46 @@ class ComprobantesAnuladosMigrationTests(TransactionTestCase):
 		self.assertEqual(comprobante_original.reemplazado_por_id, comprobante_nuevo.pk)
 		self.assertEqual(comprobante_nuevo.estado, "Vigente")
 		self.assertEqual(NewPago.objects.get(pk=original.pk).motivo_anulacion, "Monto mal cargado")
+
+
+class DetalleImputacionMigrationTests(TransactionTestCase):
+	migrate_from = [("finanzas", "0021_detalle_imputacion")]
+	migrate_to = [("finanzas", "0022_backfill_detalle_imputacion")]
+
+	def migrate(self, targets):
+		executor = MigrationExecutor(connection)
+		executor.loader.build_graph()
+		executor.migrate(targets)
+		return executor.loader.project_state(targets).apps
+
+	def tearDown(self):
+		self.migrate(MigrationExecutor(connection).loader.graph.leaf_nodes())
+
+	def test_genera_el_desglose_de_imputaciones_existentes(self):
+		old_apps = self.migrate(self.migrate_from)
+		OldCuota = old_apps.get_model("finanzas", "Cuota")
+		OldItemCuota = old_apps.get_model("finanzas", "ItemCuota")
+		OldPago = old_apps.get_model("finanzas", "Pago")
+		OldMovimiento = old_apps.get_model("finanzas", "MovimientoCuenta")
+		OldImputacion = old_apps.get_model("finanzas", "Imputacion")
+
+		persona = Persona.objects.create(nombre="Ana", apellido="Sur", dni="91234567")
+		cuenta = CuentaCorriente.objects.create(socio=Socio.objects.create(persona=persona))
+		cuota = OldCuota.objects.create(fecha_venc1=date(2026, 10, 10), fecha_venc2=date(2026, 10, 20), periodo="2026-10")
+		for concepto, monto in (("CuotaSocial", "1000.00"), ("CuotaDeportiva", "1500.00"), ("Mora", "200.00")):
+			OldItemCuota.objects.create(cuota=cuota, concepto=concepto, fecha_aplicacion=date(2026, 10, 1), monto=Decimal(monto))
+		cargo = OldMovimiento.objects.create(cuenta_corriente_id=cuenta.pk, cuota=cuota, tipo_movimiento="Cargo", fecha="2026-10-01T12:00:00Z", monto=Decimal("2700.00"))
+		imputaciones = []
+		for dia, monto in ((5, "400.00"), (6, "1000.00")):
+			pago = OldPago.objects.create(fecha=date(2026, 10, dia))
+			abono = OldMovimiento.objects.create(cuenta_corriente_id=cuenta.pk, pago=pago, tipo_movimiento="Abono", fecha=f"2026-10-0{dia}T12:00:00Z", monto=Decimal(monto))
+			imputaciones.append(OldImputacion.objects.create(movimiento_origen=abono, movimiento_destino=cargo, fecha=f"2026-10-0{dia}T12:00:00Z", monto_aplicado=Decimal(monto)))
+
+		new_apps = self.migrate(self.migrate_to)
+		NewDetalle = new_apps.get_model("finanzas", "DetalleImputacion")
+
+		def detalle(imputacion):
+			return sorted(NewDetalle.objects.filter(imputacion_id=imputacion.pk).values_list("concepto", "monto"))
+
+		self.assertEqual(detalle(imputaciones[0]), [("CuotaSocial", Decimal("200.00")), ("Mora", Decimal("200.00"))])
+		self.assertEqual(detalle(imputaciones[1]), [("CuotaDeportiva", Decimal("200.00")), ("CuotaSocial", Decimal("800.00"))])

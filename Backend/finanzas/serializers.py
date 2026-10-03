@@ -18,7 +18,7 @@ from .models import (
     MedioDePagoChoices,
     ModalidadMontoChoices,
 )
-from .services import BENEFIT_DISCOUNT, BENEFIT_SCHOLARSHIP, net_amount, parse_period, pending_amounts
+from .services import BENEFIT_DISCOUNT, BENEFIT_SCHOLARSHIP, net_amount, parse_period, pending_amounts, receipt_detail
 
 
 def monto_total_cuota(cuota):
@@ -246,6 +246,16 @@ class ComprobanteDetalleSerializer(ComprobanteSerializer):
     def get_reemplaza_a_numero(self, obj):
         replaced = getattr(obj, "reemplaza_a", None)
         return replaced.numero if replaced else None
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        detail = receipt_detail(instance)
+        data.update({
+            "tipo": detail["tipo"],
+            "periodos": detail["periodos"],
+            "desglose": detail["desglose"],
+        })
+        return data
 
     def get_pago_detalle(self, obj):
         pago = obj.pago

@@ -3,6 +3,7 @@ import { formatAmount, formatDate } from '../personas/format'
 import { PrimaryButton, SecondaryButton } from '../personas/tabs/parts'
 import ComprobantePago from './ComprobantePago'
 import { registrarPago } from '../../api/pagos'
+import { getComprobante } from '../../api/comprobantes'
 
 const MEDIOS = [
   { value: 'Efectivo', label: 'Efectivo' },
@@ -76,8 +77,9 @@ function PagoForm({ socio, cuenta, onCancel, onSuccess }) {
         medios: medios.map((medio) => ({ medio_de_pago: medio.medio, monto: Number(medio.monto) })),
         observacion,
       })
+      const detalle = await getComprobante(respuesta.comprobante?.comprobante_id).catch(() => null)
       setComprobante({
-        cuotas: cuotasPendientes.filter((cuota) => cuotasSeleccionadas.includes(cuota.cuota_id)),
+        detalle,
         medios: medios.map((medio) => ({ ...medio, monto: Number(medio.monto), medio: MEDIOS.find((opcion) => opcion.value === medio.medio)?.label ?? medio.medio })),
         montoTotal: Number(montoTotal),
         observacion,

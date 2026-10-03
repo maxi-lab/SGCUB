@@ -8,6 +8,7 @@ from django.utils import timezone
 
 from padron.models import ESTADO_ADMINISTRATIVO_ACTIVO, Socio
 
+from .allocation import allocate_payment, charge_order, concept_totals
 from .generators import GeneradorItemsCuota, benefit_reason, scholarships_for_period
 from .models import (
     Beca,
@@ -16,6 +17,7 @@ from .models import (
     ConfiguracionFinanciera,
     CuentaCorriente,
     Cuota,
+    DetalleImputacion,
     EstadoComprobanteChoices,
     EstadoCuotaChoices,
     EstadoPagoChoices,
@@ -49,6 +51,10 @@ class CuotaConPagosError(Exception):
 
 
 class BeneficioInvalidoError(Exception):
+    pass
+
+
+class ComprobanteInvalidoError(Exception):
     pass
 
 
@@ -228,6 +234,24 @@ def refresh_cuota_state(cuota, pending, today=None):
         cuota.save(update_fields=["estado_cuota"])
 
 
+def active_allocations(cuota):
+    allocated = {}
+    details = DetalleImputacion.objects.filter(
+        imputacion__movimiento_destino__cuota=cuota,
+        imputacion__movimiento_origen__reversion__isnull=True,
+    ).values_list("concepto", "monto")
+    for concept, amount in details:
+        allocated[concept] = allocated.get(concept, Decimal("0.00")) + amount
+    return allocated
+
+
+def imputation_lines(cuota, amount):
+    charges, discounts = concept_totals(
+        cuota.items.values_list("concepto", "monto", "es_descuento")
+    )
+    return allocate_payment(charges, discounts, active_allocations(cuota), amount)
+
+
 def apply_payment(payment_movement, cuotas, amount):
     pending = pending_amounts(cuotas)
     remaining = amount
@@ -236,15 +260,108 @@ def apply_payment(payment_movement, cuotas, amount):
     for cuota in sorted(cuotas, key=lambda cuota: (cuota.periodo, cuota.pk)):
         applied = min(remaining, max(pending[cuota.pk], Decimal("0.00")))
         if applied > 0:
-            imputations.append(Imputacion.objects.create(
+            lines = imputation_lines(cuota, applied)
+            imputation = Imputacion.objects.create(
                 movimiento_origen=payment_movement,
                 movimiento_destino=cuota.movimiento,
                 fecha=timezone.now(),
                 monto_aplicado=applied,
-            ))
+            )
+            DetalleImputacion.objects.bulk_create([
+                DetalleImputacion(imputacion=imputation, concepto=concept, monto=line_amount)
+                for concept, line_amount in lines.items()
+            ])
+            imputations.append(imputation)
             remaining -= applied
         refresh_cuota_state(cuota, pending[cuota.pk] - applied, today)
     return imputations
+
+
+RECEIPT_TYPE = "X"
+DISCOUNT_CONCEPTS = (ConceptoItemChoices.BECA, ConceptoItemChoices.DESCUENTO_UNICO)
+
+
+def detail_lines(totals):
+    ordered = sorted(totals.items(), key=lambda pair: (pair[0] in DISCOUNT_CONCEPTS, charge_order(pair[0])))
+    return [
+        {"concepto": concept, "concepto_nombre": ConceptoItemChoices(concept).label, "monto": amount}
+        for concept, amount in ordered
+    ]
+
+
+def receipt_detail(receipt):
+    payment = receipt.pago
+    movement = getattr(payment, "movimiento", None)
+    socio = movement.cuenta_corriente.socio if movement else None
+    imputations = (
+        Imputacion.objects.filter(movimiento_origen=movement)
+        .select_related("movimiento_destino__cuota")
+        .prefetch_related("detalles")
+        .order_by("movimiento_destino__cuota__periodo", "pk")
+        if movement else []
+    )
+
+    periods, breakdown = [], {}
+    for imputation in imputations:
+        totals = {}
+        for detail in imputation.detalles.all():
+            totals[detail.concepto] = totals.get(detail.concepto, Decimal("0.00")) + detail.monto
+            breakdown[detail.concepto] = breakdown.get(detail.concepto, Decimal("0.00")) + detail.monto
+        cuota = imputation.movimiento_destino.cuota
+        periods.append({
+            "cuota_id": cuota.pk,
+            "periodo": cuota.periodo,
+            "monto_aplicado": imputation.monto_aplicado,
+            "detalle": detail_lines(totals),
+        })
+
+    return {
+        "tipo": RECEIPT_TYPE,
+        "numero": receipt.numero,
+        "fecha_emision": receipt.fecha_emision,
+        "estado": receipt.estado,
+        "monto_total": receipt.monto_total,
+        "socio": {
+            "socio_id": socio.socio_id,
+            "numero_socio": socio.numero_socio,
+            "nombre": socio.persona.nombre,
+            "apellido": socio.persona.apellido,
+            "dni": socio.persona.dni,
+        } if socio else None,
+        "periodos": periods,
+        "desglose": detail_lines(breakdown),
+        "medios": [
+            {"medio_de_pago": item.medio_de_pago, "monto": item.monto}
+            for item in payment.items_pago.order_by("pk")
+        ],
+    }
+
+
+def validate_receipt(receipt):
+    detail = receipt_detail(receipt)
+    socio = detail["socio"] or {}
+    missing = [
+        label for label, value in (
+            ("fecha", detail["fecha_emision"]),
+            ("número de comprobante", detail["numero"]),
+            ("nombre del socio", socio.get("nombre")),
+            ("apellido del socio", socio.get("apellido")),
+            ("DNI del socio", socio.get("dni")),
+            ("número de socio", socio.get("numero_socio")),
+            ("períodos abonados", detail["periodos"]),
+            ("medios de pago", detail["medios"]),
+        )
+        if not value
+    ]
+    if missing:
+        raise ComprobanteInvalidoError(f"No se puede emitir el comprobante: falta {', '.join(missing)}.")
+
+    total = detail["monto_total"]
+    if sum((line["monto"] for line in detail["desglose"]), Decimal("0.00")) != total:
+        raise ComprobanteInvalidoError("No se puede emitir el comprobante: el desglose no coincide con el total abonado.")
+    if sum((method["monto"] for method in detail["medios"]), Decimal("0.00")) != total:
+        raise ComprobanteInvalidoError("No se puede emitir el comprobante: los medios de pago no coinciden con el total abonado.")
+    return detail
 
 
 def lock_account_cuotas(account, cuota_ids):
@@ -303,6 +420,7 @@ def register_payment(socio_id, cuota_ids, payment_methods, total, note="", user=
     account.saldo += total
     account.save(update_fields=["saldo"])
     apply_payment(movement, cuotas, total)
+    validate_receipt(receipt)
     return payment, receipt
 
 
@@ -363,6 +481,7 @@ def correct_payment(payment_id, cuota_ids, payment_methods, total, reason, user=
     pending = pending_amounts(previously_covered)
     for cuota in previously_covered:
         refresh_cuota_state(cuota, pending[cuota.pk])
+    validate_receipt(receipt)
     return original, original_receipt, replacement, receipt
 
 

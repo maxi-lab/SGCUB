@@ -44,6 +44,7 @@ from .serializers import (
 )
 from .services import (
 	BeneficioInvalidoError,
+	ComprobanteInvalidoError,
 	CuotaConPagosError,
 	CuotaDuplicadaError,
 	PagoInvalidoError,
@@ -209,7 +210,7 @@ def corregir_pago(request, pk):
 		)
 	except Pago.DoesNotExist:
 		return Response({"detail": "El pago no existe."}, status=status.HTTP_404_NOT_FOUND)
-	except PagoInvalidoError as error:
+	except (PagoInvalidoError, ComprobanteInvalidoError) as error:
 		return Response({"detail": str(error)}, status=status.HTTP_400_BAD_REQUEST)
 
 	return Response({
@@ -242,7 +243,7 @@ def registrar_pago(request):
 		)
 	except CuentaCorriente.DoesNotExist:
 		return Response({"detail": "El socio no tiene cuenta corriente."}, status=status.HTTP_404_NOT_FOUND)
-	except PagoInvalidoError as error:
+	except (PagoInvalidoError, ComprobanteInvalidoError) as error:
 		return Response({"detail": str(error)}, status=status.HTTP_400_BAD_REQUEST)
 
 	return Response({
