@@ -175,7 +175,7 @@ export default function DocumentationTab({ personaId, personaType, personaInfo }
 
       {documentosHistoricos.length > 0 && (
         <PersonaDocumentsTable
-          title="Historial de Documentación Vencida"
+          title="Historial de Documentación"
           documents={documentosHistoricos}
           getTypeName={getNombreTipo}
           onDelete={handleDeleteClick}
