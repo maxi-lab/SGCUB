@@ -3,12 +3,12 @@ from datetime import date, datetime
 from decimal import Decimal
 
 from django.db import transaction
-from django.db.models import Sum
+from django.db.models import Prefetch, Sum
 from django.utils import timezone
 
 from padron.models import ESTADO_ADMINISTRATIVO_ACTIVO, Socio
 
-from .generators import GeneradorItemsCuota
+from .generators import GeneradorItemsCuota, benefit_reason, scholarships_for_period
 from .models import (
     Beca,
     Comprobante,
@@ -122,6 +122,8 @@ def create_cuota(socio, period, first_due_date=None, second_due_date=None, confi
     )
     account.saldo -= amount
     account.save(update_fields=["saldo"])
+    if amount <= 0:
+        refresh_cuota_state(cuota, amount)
     return cuota
 
 
@@ -159,6 +161,11 @@ def generar_cuotas_mensuales(fecha=None):
     socios = (
         Socio.objects.filter(estado_administrativo__nombre__iexact=ESTADO_ADMINISTRATIVO_ACTIVO)
         .select_related("estado_administrativo", "jugador__estado")
+        .prefetch_related(Prefetch(
+            "becas",
+            queryset=scholarships_for_period(parse_period(period)),
+            to_attr="becas_del_periodo",
+        ))
         .order_by("pk")
     )
     result = {
@@ -452,10 +459,6 @@ def benefit_amount(mode, value, base):
     if mode == ModalidadMontoChoices.PORCENTAJE:
         return (base * value / Decimal("100")).quantize(Decimal("0.01"))
     return value
-
-
-def benefit_reason(concept, reason):
-    return f"{ConceptoItemChoices(concept).label}: {reason}"[:200]
 
 
 @transaction.atomic

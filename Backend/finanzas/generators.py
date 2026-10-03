@@ -1,6 +1,22 @@
+from calendar import monthrange
+from decimal import Decimal
+
 from padron.models import ESTADO_ADMINISTRATIVO_ACTIVO, ESTADO_DEPORTIVO_ACTIVO
 
-from .models import ConceptoItemChoices, ConfiguracionFinanciera, ItemCuota
+from .models import Beca, ConceptoItemChoices, ConfiguracionFinanciera, ItemCuota
+
+
+def benefit_reason(concept, reason):
+    return f"{ConceptoItemChoices(concept).label}: {reason}"[:200]
+
+
+def period_bounds(first_day):
+    return first_day, first_day.replace(day=monthrange(first_day.year, first_day.month)[1])
+
+
+def scholarships_for_period(first_day):
+    start, end = period_bounds(first_day)
+    return Beca.objects.filter(fecha_aplicacion__lte=end, fecha_fin__gte=start).order_by("fecha_aplicacion", "pk")
 
 
 class GeneradorItemsCuota:
@@ -27,13 +43,35 @@ class GeneradorItemsCuota:
         return player is not None and player.estado.nombre.casefold() == ESTADO_DEPORTIVO_ACTIVO.casefold()
 
     def _benefit_items(self, items):
-        return []
+        available = sum((item.monto for item in items), Decimal("0.00"))
+        base = available
+        benefits = []
+        for scholarship in self._scholarships():
+            amount = min(scholarship.discount_for(base), available)
+            if amount <= 0:
+                continue
+            benefits.append(self._item(
+                ConceptoItemChoices.BECA,
+                amount,
+                is_discount=True,
+                reason=benefit_reason(scholarship.concepto, scholarship.motivo),
+                scholarship=scholarship,
+            ))
+            available -= amount
+        return benefits
 
-    def _item(self, concept, amount, is_discount=False, reason=""):
+    def _scholarships(self):
+        prefetched = getattr(self.socio, "becas_del_periodo", None)
+        if prefetched is not None:
+            return prefetched
+        return scholarships_for_period(self.application_date).filter(socio=self.socio)
+
+    def _item(self, concept, amount, is_discount=False, reason="", scholarship=None):
         return ItemCuota(
             concepto=concept,
             es_descuento=is_discount,
             fecha_aplicacion=self.application_date,
             monto=amount,
             motivo=reason,
+            beca=scholarship,
         )

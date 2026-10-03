@@ -7,6 +7,7 @@ from django.db import IntegrityError, connection, transaction
 from django.db.models import ProtectedError
 from django.db.migrations.executor import MigrationExecutor
 from django.test import TestCase, TransactionTestCase
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.module_loading import import_string
@@ -834,6 +835,107 @@ class BeneficioCuotaTests(APITestCase):
 
 		self.assertEqual(response.status_code, 200)
 		self.assertEqual([beca["socio"] for beca in response.data], [self.socio.pk])
+
+
+class BecasEnGeneracionDeCuotasTests(TestCase):
+	def setUp(self):
+		self.socio = crear_socio("70000001", con_jugador=True)
+
+	def beca(self, alta, fin, **valores):
+		valores.setdefault("motivo", "Rendimiento deportivo")
+		return Beca.objects.create(socio=self.socio, fecha_aplicacion=alta, fecha_fin=fin, **valores)
+
+	def cuota(self, periodo):
+		return Cuota.objects.get(movimiento__cuenta_corriente__socio=self.socio, periodo=periodo)
+
+	def descuentos(self, cuota):
+		return list(cuota.items.filter(es_descuento=True).values_list("monto", flat=True))
+
+	def test_beca_vigente_descuenta_en_la_cuota_generada(self):
+		beca = self.beca(date(2026, 10, 1), date(2026, 12, 31), porcentaje=Decimal("50"), concepto="CuotaDeportiva")
+
+		generar_cuotas_mensuales(date(2026, 11, 1))
+
+		cuota = self.cuota("2026-11")
+		item = cuota.items.get(concepto="Beca")
+		self.assertEqual(item.beca, beca)
+		self.assertEqual(item.monto, Decimal("1250.00"))
+		self.assertEqual(item.motivo, "Cuota Deportiva: Rendimiento deportivo")
+		self.assertEqual(cuota.movimiento.monto, Decimal("1250.00"))
+		self.assertEqual(CuentaCorriente.objects.get(socio=self.socio).saldo, Decimal("-1250.00"))
+
+	def test_beca_finalizada_deja_de_aplicarse_y_conserva_el_historial(self):
+		self.beca(date(2026, 10, 1), date(2026, 11, 30), monto=Decimal("500.00"))
+
+		generar_cuotas_mensuales(date(2026, 11, 1))
+		generar_cuotas_mensuales(date(2026, 12, 1))
+
+		self.assertEqual(self.descuentos(self.cuota("2026-11")), [Decimal("500.00")])
+		self.assertEqual(self.descuentos(self.cuota("2026-12")), [])
+		self.assertEqual(self.cuota("2026-12").movimiento.monto, Decimal("2500.00"))
+
+	def test_beca_que_empieza_a_mitad_de_mes_cubre_ese_periodo(self):
+		self.beca(date(2026, 11, 20), date(2027, 3, 31), monto=Decimal("300.00"))
+
+		generar_cuotas_mensuales(date(2026, 10, 1))
+		generar_cuotas_mensuales(date(2026, 11, 1))
+
+		self.assertEqual(self.descuentos(self.cuota("2026-10")), [])
+		self.assertEqual(self.descuentos(self.cuota("2026-11")), [Decimal("300.00")])
+
+	def test_monto_fijo_mayor_a_la_cuota_se_topea_y_la_cuota_queda_paga(self):
+		jugador = self.socio.jugador
+		jugador.deactivate()
+		self.socio = Socio.objects.get(pk=self.socio.pk)
+		self.beca(date(2026, 10, 1), date(2026, 12, 31), monto=Decimal("1200.00"))
+
+		generar_cuotas_mensuales(date(2026, 11, 1))
+
+		cuota = self.cuota("2026-11")
+		self.assertEqual(self.descuentos(cuota), [Decimal("1000.00")])
+		self.assertEqual(cuota.movimiento.monto, Decimal("0.00"))
+		self.assertEqual(cuota.estado_cuota, EstadoCuotaChoices.PAGA)
+
+	def test_varias_becas_nunca_dejan_la_cuota_en_negativo(self):
+		self.beca(date(2026, 10, 1), date(2026, 12, 31), porcentaje=Decimal("80"))
+		self.beca(date(2026, 10, 1), date(2026, 12, 31), monto=Decimal("1000.00"))
+
+		generar_cuotas_mensuales(date(2026, 11, 1))
+
+		cuota = self.cuota("2026-11")
+		self.assertEqual(self.descuentos(cuota), [Decimal("2000.00"), Decimal("500.00")])
+		self.assertEqual(cuota.movimiento.monto, Decimal("0.00"))
+
+	def test_becas_de_otro_socio_no_se_aplican(self):
+		otro = crear_socio("70000002")
+		Beca.objects.create(socio=otro, monto=Decimal("400.00"), fecha_aplicacion=date(2026, 10, 1), fecha_fin=date(2026, 12, 31), motivo="Otro")
+
+		generar_cuotas_mensuales(date(2026, 11, 1))
+
+		self.assertEqual(self.descuentos(self.cuota("2026-11")), [])
+		otra_cuota = Cuota.objects.get(movimiento__cuenta_corriente__socio=otro, periodo="2026-11")
+		self.assertEqual(self.descuentos(otra_cuota), [Decimal("400.00")])
+
+	def test_alta_manual_de_cuota_tambien_aplica_la_beca(self):
+		self.beca(date(2026, 10, 1), date(2026, 12, 31), monto=Decimal("700.00"))
+		cliente = self.client_class()
+		cliente.force_login(get_user_model().objects.create_user(username="tesorero"))
+
+		response = cliente.post(reverse("cuota-list"), {"socio_id": self.socio.pk, "periodo": "2026-12"}, content_type="application/json")
+
+		self.assertEqual(response.status_code, 201)
+		self.assertEqual(self.descuentos(self.cuota("2026-12")), [Decimal("700.00")])
+
+	def test_la_generacion_mensual_consulta_las_becas_una_sola_vez(self):
+		for dni in ("70000003", "70000004", "70000005"):
+			crear_socio(dni)
+		Beca.objects.create(socio=self.socio, monto=Decimal("100.00"), fecha_aplicacion=date(2026, 10, 1), fecha_fin=date(2026, 12, 31), motivo="Uno")
+
+		with CaptureQueriesContext(connection) as consultas:
+			generar_cuotas_mensuales(date(2026, 11, 1))
+
+		consultas_becas = [q["sql"] for q in consultas.captured_queries if '"beca"' in q["sql"] and q["sql"].lstrip().upper().startswith("SELECT")]
+		self.assertEqual(len(consultas_becas), 1)
 
 
 class ProteccionRegistrosFinancierosTests(PagoTestBase):
