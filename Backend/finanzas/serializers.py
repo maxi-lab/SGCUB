@@ -105,7 +105,6 @@ class RegistroPagoSerializer(serializers.Serializer):
 
 
 class CuotaSerializer(serializers.ModelSerializer):
-    cuenta_corriente = serializers.SerializerMethodField()
     socio = serializers.SerializerMethodField()
     items = serializers.SerializerMethodField()
     monto_total = serializers.SerializerMethodField()
@@ -116,7 +115,6 @@ class CuotaSerializer(serializers.ModelSerializer):
         model = Cuota
         fields = [
             "cuota_id",
-            "cuenta_corriente",
             "socio",
             "estado_cuota",
             "fecha_creacion",
@@ -129,10 +127,6 @@ class CuotaSerializer(serializers.ModelSerializer):
             "saldo_pendiente",
         ]
         read_only_fields = fields
-
-    def get_cuenta_corriente(self, obj):
-        account = cuota_account(obj)
-        return account.cuenta_corriente_id if account else None
 
     def get_socio(self, obj):
         account = cuota_account(obj)
