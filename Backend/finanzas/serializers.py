@@ -14,7 +14,7 @@ from .models import (
     EstadoCuotaChoices,
     MedioDePagoChoices,
 )
-from .services import net_amount, parse_period
+from .services import net_amount, parse_period, pending_amounts
 
 
 def monto_total_cuota(cuota):
@@ -105,6 +105,8 @@ class CuotaSerializer(serializers.ModelSerializer):
     socio = serializers.SerializerMethodField()
     items = serializers.SerializerMethodField()
     monto_total = serializers.SerializerMethodField()
+    monto_pagado = serializers.SerializerMethodField()
+    saldo_pendiente = serializers.SerializerMethodField()
 
     class Meta:
         model = Cuota
@@ -119,6 +121,8 @@ class CuotaSerializer(serializers.ModelSerializer):
             "periodo",
             "items",
             "monto_total",
+            "monto_pagado",
+            "saldo_pendiente",
         ]
         read_only_fields = fields
 
@@ -135,6 +139,20 @@ class CuotaSerializer(serializers.ModelSerializer):
 
     def get_monto_total(self, obj):
         return monto_total_cuota(obj)
+
+    def get_monto_pagado(self, obj):
+        return monto_total_cuota(obj) - self._pending(obj)
+
+    def get_saldo_pendiente(self, obj):
+        return self._pending(obj)
+
+    def _pending(self, obj):
+        pending = self.context.get("pending")
+        if pending is not None and obj.pk in pending:
+            return pending[obj.pk]
+        if getattr(obj, "movimiento", None) is None:
+            return monto_total_cuota(obj)
+        return pending_amounts([obj])[obj.pk]
 
 
 def validate_due_dates(attrs, instance=None):
@@ -234,6 +252,7 @@ class CuentaCorrienteSerializer(serializers.ModelSerializer):
 
 
 class CuentaCorrienteEstadoSerializer(serializers.ModelSerializer):
+    socio = serializers.SerializerMethodField()
     cuotas = serializers.SerializerMethodField()
     cuotas_generadas = serializers.SerializerMethodField()
     cuotas_pagas = serializers.SerializerMethodField()
@@ -252,9 +271,12 @@ class CuentaCorrienteEstadoSerializer(serializers.ModelSerializer):
             "cuotas_generadas",
             "cuotas_pagas",
             "cuotas_impagas",
+            "total_pagado",
             "total_adeudado",
             "total_mora",
         ]
+
+    total_pagado = serializers.SerializerMethodField()
 
     def _account_cuotas(self, obj):
         cache = self.__dict__.setdefault("_cuotas_cache", {})
@@ -266,8 +288,21 @@ class CuentaCorrienteEstadoSerializer(serializers.ModelSerializer):
             )
         return cache[obj.pk]
 
+    def _account_pending(self, obj):
+        cache = self.__dict__.setdefault("_pending_cache", {})
+        if obj.pk not in cache:
+            cache[obj.pk] = pending_amounts(self._account_cuotas(obj))
+        return cache[obj.pk]
+
+    def get_socio(self, obj):
+        return socio_data(obj.socio)
+
     def get_cuotas(self, obj):
-        return CuotaSerializer(self._account_cuotas(obj), many=True).data
+        return CuotaSerializer(
+            self._account_cuotas(obj),
+            many=True,
+            context={"pending": self._account_pending(obj)},
+        ).data
 
     def get_cuotas_generadas(self, obj):
         return len(self._account_cuotas(obj))
@@ -278,11 +313,15 @@ class CuentaCorrienteEstadoSerializer(serializers.ModelSerializer):
     def get_cuotas_impagas(self, obj):
         return sum(1 for cuota in self._account_cuotas(obj) if cuota.estado_cuota != EstadoCuotaChoices.PAGA)
 
-    def get_total_adeudado(self, obj):
+    def get_total_pagado(self, obj):
+        pending = self._account_pending(obj)
         return sum(
-            (monto_total_cuota(cuota) for cuota in self._account_cuotas(obj) if cuota.estado_cuota != EstadoCuotaChoices.PAGA),
+            (monto_total_cuota(cuota) - pending[cuota.pk] for cuota in self._account_cuotas(obj)),
             Decimal("0.00"),
         )
+
+    def get_total_adeudado(self, obj):
+        return sum(self._account_pending(obj).values(), Decimal("0.00"))
 
     def get_total_mora(self, obj):
         return sum(

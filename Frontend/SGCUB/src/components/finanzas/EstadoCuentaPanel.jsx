@@ -93,13 +93,15 @@ function EstadoCuentaPanel({ socio, onRegisterPayment, enableBenefits = false })
         <EmptyState icon="receipt_long" title="Sin cuotas generadas" description="La cuenta corriente no tiene cuotas registradas." />
       ) : (
         <div className="overflow-x-auto border border-outline-variant/30 rounded-xl bg-surface-container-lowest shadow-sm">
-          <table className="w-full text-left border-collapse min-w-[760px]">
+          <table className="w-full text-left border-collapse min-w-[960px]">
             <thead>
               <tr className="bg-surface-container-low/70 border-b border-outline-variant/30 text-on-surface-variant text-sm uppercase tracking-wider">
                 <th className="py-3 px-4 font-semibold">Período</th>
                 <th className="py-3 px-4 font-semibold">Vencimientos</th>
                 <th className="py-3 px-4 font-semibold">Conceptos</th>
                 <th className="py-3 px-4 font-semibold text-right">Importe</th>
+                <th className="py-3 px-4 font-semibold text-right">Pagado</th>
+                <th className="py-3 px-4 font-semibold text-right">Pendiente</th>
                 <th className="py-3 px-4 font-semibold text-center">Estado</th>
               </tr>
             </thead>
@@ -126,6 +128,8 @@ function EstadoCuentaPanel({ socio, onRegisterPayment, enableBenefits = false })
                     <td className="py-3.5 px-4 text-on-surface-variant">{formatDate(cuota.fecha_venc1)} / {formatDate(cuota.fecha_venc2)}</td>
                     <td className="py-3.5 px-4 text-on-surface-variant">{conceptosDe(cuota)}</td>
                     <td className="py-3.5 px-4 text-right font-semibold text-on-surface">{formatAmount(montoCuota(cuota))}</td>
+                    <td className="py-3.5 px-4 text-right text-on-surface-variant">{formatAmount(Number(cuota.monto_pagado ?? 0))}</td>
+                    <td className="py-3.5 px-4 text-right font-semibold text-on-surface">{formatAmount(Number(cuota.saldo_pendiente ?? 0))}</td>
                     <td className="py-3.5 px-4 text-center"><span className={`inline-flex items-center px-2.5 py-1 rounded-full text-sm font-semibold border ${paga ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-error-container text-on-error-container border-error/20'}`}>{estado}</span></td>
                   </tr>
                 )
@@ -137,7 +141,7 @@ function EstadoCuentaPanel({ socio, onRegisterPayment, enableBenefits = false })
 
       {enableBenefits && cuotaSeleccionada && (
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-surface-container-low border border-outline-variant/30 rounded-lg">
-          <p className="text-sm text-on-surface-variant">Cuota seleccionada: <strong className="text-on-surface">{cuotaSeleccionada.periodo}</strong> · {formatAmount(cuotaSeleccionada.monto_total)}</p>
+          <p className="text-sm text-on-surface-variant">Cuota seleccionada: <strong className="text-on-surface">{cuotaSeleccionada.periodo}</strong> · {formatAmount(cuotaSeleccionada.monto_total)} · Pendiente {formatAmount(Number(cuotaSeleccionada.saldo_pendiente ?? 0))}</p>
           <button type="button" onClick={() => setModalBeneficio(true)} disabled={estadoNormalizado(cuotaSeleccionada.estado_cuota) === 'paga'} className="inline-flex items-center justify-center gap-2 h-10 px-4 bg-primary text-on-primary rounded-md font-semibold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed">
             <span className="material-symbols-outlined text-lg">redeem</span>Asignar beca o descuento
           </button>

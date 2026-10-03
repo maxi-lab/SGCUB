@@ -22,7 +22,7 @@ const mensajesDeError = (data) => {
 
 function PagoForm({ socio, cuenta, onCancel, onSuccess }) {
   const cuotasPendientes = useMemo(
-    () => (cuenta?.cuotas ?? []).filter((cuota) => cuota.estado_cuota !== 'Paga'),
+    () => (cuenta?.cuotas ?? []).filter((cuota) => Number(cuota.saldo_pendiente ?? 0) > 0),
     [cuenta],
   )
   const [cuotasSeleccionadas, setCuotasSeleccionadas] = useState([])
@@ -38,7 +38,7 @@ function PagoForm({ socio, cuenta, onCancel, onSuccess }) {
   const montoMedios = medios.reduce((total, medio) => total + Number(medio.monto || 0), 0)
   const montoSeleccionado = cuotasPendientes
     .filter((cuota) => cuotasSeleccionadas.includes(cuota.cuota_id))
-    .reduce((total, cuota) => total + Number(cuota.monto_total || 0), 0)
+    .reduce((total, cuota) => total + Number(cuota.saldo_pendiente || 0), 0)
 
   const cambiarMedio = (index, campo, valor) => {
     setMedios((actuales) => actuales.map((medio, posicion) => (
@@ -110,7 +110,7 @@ function PagoForm({ socio, cuenta, onCancel, onSuccess }) {
         <legend className="text-lg font-bold text-on-surface">Cuotas a saldar</legend>
         <p className="text-sm text-on-surface-variant">Podés seleccionar una o varias cuotas y registrar un pago parcial.</p>
         <div className="border border-outline-variant/30 rounded-xl overflow-hidden divide-y divide-outline-variant/20">
-          {cuotasPendientes.map((cuota) => <label key={cuota.cuota_id} className="flex items-center gap-3 p-3 hover:bg-surface-container-low cursor-pointer"><input type="checkbox" checked={cuotasSeleccionadas.includes(cuota.cuota_id)} onChange={(event) => setCuotasSeleccionadas((actuales) => event.target.checked ? [...actuales, cuota.cuota_id] : actuales.filter((id) => id !== cuota.cuota_id))} className="h-4 w-4 accent-primary" /><span className="flex-1"><strong className="block text-on-surface">Período {cuota.periodo}</strong><span className="text-sm text-on-surface-variant">Vence {formatDate(cuota.fecha_venc1)} · {formatAmount(cuota.monto_total)}</span></span></label>)}
+          {cuotasPendientes.map((cuota) => <label key={cuota.cuota_id} className="flex items-center gap-3 p-3 hover:bg-surface-container-low cursor-pointer"><input type="checkbox" checked={cuotasSeleccionadas.includes(cuota.cuota_id)} onChange={(event) => setCuotasSeleccionadas((actuales) => event.target.checked ? [...actuales, cuota.cuota_id] : actuales.filter((id) => id !== cuota.cuota_id))} className="h-4 w-4 accent-primary" /><span className="flex-1"><strong className="block text-on-surface">Período {cuota.periodo}</strong><span className="text-sm text-on-surface-variant">Vence {formatDate(cuota.fecha_venc1)} · Pendiente {formatAmount(Number(cuota.saldo_pendiente ?? 0))} de {formatAmount(cuota.monto_total)}</span></span></label>)}
         </div>
         {errores.cuotas && <p className="text-sm text-error" role="alert">{errores.cuotas}</p>}
       </fieldset>

@@ -355,7 +355,7 @@ class CorregirPagoTests(APITestCase):
 		self.assertTrue(Comprobante.objects.filter(pk=self.comprobante_original.pk).exists())
 
 
-class RegistroPagoTests(APITestCase):
+class PagoTestBase(APITestCase):
 	def setUp(self):
 		self.client.force_authenticate(user=get_user_model().objects.create_user(username="tesorero"))
 		persona = Persona.objects.create(nombre="Juan", apellido="Paz", dni="56789012")
@@ -380,6 +380,8 @@ class RegistroPagoTests(APITestCase):
 			Decimal("0.00"),
 		)
 
+
+class RegistroPagoTests(PagoTestBase):
 	def test_pago_parcial_imputa_y_deja_la_cuota_pendiente(self):
 		response = self.pagar([self.agosto], "400.00")
 
@@ -473,6 +475,37 @@ class RegistroPagoTests(APITestCase):
 			movimiento_origen__reversion__isnull=True,
 		)
 		self.assertEqual(sum(activo.values_list("monto_aplicado", flat=True)), Decimal("800.00"))
+
+
+class EstadoCuentaPendienteTests(PagoTestBase):
+	def test_estado_de_cuenta_refleja_pagos_parciales(self):
+		self.pagar([self.agosto], "400.00")
+
+		response = self.client.get(reverse("estado-cuenta-socio", args=[self.socio.pk]))
+
+		self.assertEqual(response.status_code, 200)
+		cuotas = {cuota["periodo"]: cuota for cuota in response.data["cuotas"]}
+		self.assertEqual(Decimal(str(cuotas["2026-08"]["monto_pagado"])), Decimal("400.00"))
+		self.assertEqual(Decimal(str(cuotas["2026-08"]["saldo_pendiente"])), Decimal("600.00"))
+		self.assertEqual(Decimal(str(cuotas["2026-09"]["saldo_pendiente"])), Decimal("1000.00"))
+		self.assertEqual(Decimal(str(response.data["total_pagado"])), Decimal("400.00"))
+		self.assertEqual(Decimal(str(response.data["total_adeudado"])), Decimal("1600.00"))
+
+	def test_estado_de_cuenta_incluye_datos_del_socio(self):
+		response = self.client.get(reverse("estado-cuenta-socio", args=[self.socio.pk]))
+
+		self.assertEqual(response.data["socio"]["socio_id"], self.socio.pk)
+		self.assertEqual(response.data["socio"]["dni"], "56789012")
+		self.assertEqual(response.data["socio"]["apellido"], "Paz")
+
+	def test_listado_de_cuotas_informa_saldo_pendiente(self):
+		self.pagar([self.agosto], "250.00")
+
+		response = self.client.get(reverse("cuota-list"))
+
+		cuotas = {cuota["cuota_id"]: cuota for cuota in response.data}
+		self.assertEqual(Decimal(str(cuotas[self.agosto.pk]["saldo_pendiente"])), Decimal("750.00"))
+		self.assertEqual(Decimal(str(cuotas[self.agosto.pk]["monto_pagado"])), Decimal("250.00"))
 
 
 class NumeracionComprobanteTests(APITestCase):

@@ -112,7 +112,8 @@ def estado_cuota_list_create(request):
 @api_view(["GET", "POST"])
 def cuota_list_create(request):
 	if request.method == "GET":
-		return Response(CuotaSerializer(_cuotas_queryset().order_by("pk"), many=True).data)
+		cuotas = list(_cuotas_queryset().order_by("pk"))
+		return Response(CuotaSerializer(cuotas, many=True, context={"pending": pending_amounts(cuotas)}).data)
 
 	serializer = CuotaCreateSerializer(data=request.data)
 	if not serializer.is_valid():
@@ -417,7 +418,10 @@ def cuenta_corriente_detail(request, pk):
 @extend_schema(tags=["Finanzas/EstadoCuenta"], responses=CuentaCorrienteEstadoSerializer)
 @api_view(["GET"])
 def estado_cuenta_socio(request, socio_id):
-	cuenta = get_object_or_404(CuentaCorriente, socio_id=socio_id)
+	cuenta = get_object_or_404(
+		CuentaCorriente.objects.select_related("socio__persona"),
+		socio_id=socio_id,
+	)
 	return Response(CuentaCorrienteEstadoSerializer(cuenta).data)
 
 
