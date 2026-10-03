@@ -1,6 +1,7 @@
 export const formatDate = (date) => {
   if (!date) return '—'
-  const parts = String(date).split('-')
+  const dateOnly = String(date).split('T')[0]
+  const parts = dateOnly.split('-')
   return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : date
 }
 

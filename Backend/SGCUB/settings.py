@@ -45,9 +45,11 @@ INSTALLED_APPS = [
     'corsheaders',
     'padron',
     'finanzas',
+    'documental',
     'django_q',
     'drf_spectacular',
     'usuarios',
+    'django_cleanup.apps.CleanupConfig',
 ]
 Q_CLUSTER = {
     'name': 'django_q_cluster',
@@ -200,3 +202,8 @@ SPECTACULAR_SETTINGS = {
     'COMPONENT_SPLIT_REQUEST': True, # Separar esquemas de Request y Response para mayor claridad3
     "SORT_OPERATIONS": True,  # ordena alfabéticamente los tags/operaciones
 }
+
+# Media files
+import os
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.environ.get('MEDIA_ROOT', os.path.join(BASE_DIR, 'media'))

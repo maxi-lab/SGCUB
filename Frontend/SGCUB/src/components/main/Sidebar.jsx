@@ -12,6 +12,25 @@ export default function Sidebar({ collapsed, onToggle }) {
   const { hasPermission } = useAuth();
   const showAdminSection = hasPermission(PERMISSIONS.manageUsers) || hasPermission(PERMISSIONS.manageAutomations);
 
+  const [alertas, setAlertas] = useState(null);
+
+  useEffect(() => {
+    const fetchAlertas = async () => {
+      try {
+        const { getAlertasCount } = await import('../../api/documentacion');
+        const data = await getAlertasCount();
+        setAlertas(data);
+      } catch (err) {
+        console.error('Error fetching alertas count:', err);
+      }
+    };
+    
+    fetchAlertas();
+
+    window.addEventListener('documentacionCambiada', fetchAlertas);
+    return () => window.removeEventListener('documentacionCambiada', fetchAlertas);
+  }, []);
+
   const [contrayendo, setContrayendo] = useState(false);
   const [collapsedAnterior, setCollapsedAnterior] = useState(collapsed);
   if (collapsed !== collapsedAnterior) {
@@ -120,9 +139,11 @@ export default function Sidebar({ collapsed, onToggle }) {
                 <span className="app-sidebar-label font-body-md text-body-md">Documental</span>
               </div>
 
-              {/* Aca el uno habria que cambiarlo por un valor real o eliminar la notificacion */}
-              
-              <span className="bg-error-container text-on-error-container px-1.5 py-0.5 rounded-full font-label-sm text-label-sm font-semibold">8</span>
+              {alertas && (alertas.vencidos > 0 || alertas.proximos > 0) && (
+                <span className={`${alertas.vencidos > 0 ? 'bg-error-container text-on-error-container' : 'bg-secondary-container text-on-secondary-container'} px-1.5 py-0.5 rounded-full font-label-sm text-label-sm font-semibold`}>
+                  {alertas.vencidos > 0 ? alertas.vencidos : alertas.proximos}
+                </span>
+              )}
             </NavLink>
             
             <NavLink to="/padron/categorias" className={({ isActive }) => `app-sidebar-link flex items-center justify-between px-space-sm py-2 rounded text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors ${isActive ? 'app-sidebar-link--active' : ''}`}>

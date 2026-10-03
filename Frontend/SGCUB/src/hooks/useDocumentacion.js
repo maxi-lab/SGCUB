@@ -1,0 +1,149 @@
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import { getDocumentos, createDocumento, deleteDocumento, getTiposDocumento, getEstadosDocumento, updateDocumento } from '../api/documentacion'
+
+export default function useDocumentacion(personaId = null, fetchAll = false) {
+  const [documentos, setDocumentos] = useState([])
+  const [tipos, setTipos] = useState([])
+  const [estados, setEstados] = useState([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState(null)
+
+  const { documentosActivos, documentosHistoricos } = useMemo(() => {
+    if (!documentos || documentos.length === 0) return { documentosActivos: [], documentosHistoricos: [] };
+
+    const DIAS_AVISO = 30;
+    const docsWithStatus = documentos.map(d => {
+      let status = 'vigente';
+      if (d.fecha_vencimiento) {
+        const dias = (new Date(`${d.fecha_vencimiento.split('T')[0]}T23:59:59`) - new Date()) / 86400000;
+        if (dias < 0) status = 'vencido';
+        else if (dias <= DIAS_AVISO) status = 'por_vencer';
+      }
+      return { ...d, status };
+    });
+
+    const docsGrouped = {};
+    docsWithStatus.forEach(d => {
+      const key = `${d.persona}_${d.tipo_documento}`;
+      if (!docsGrouped[key]) docsGrouped[key] = [];
+      docsGrouped[key].push(d);
+    });
+
+    const activos = [];
+    const historicos = [];
+
+    Object.values(docsGrouped).forEach(grupo => {
+      if (grupo.length === 1) {
+        activos.push(grupo[0]);
+      } else {
+        const hayVigentes = grupo.some(d => d.status !== 'vencido');
+        if (hayVigentes) {
+          grupo.forEach(d => {
+            if (d.status === 'vencido') historicos.push(d);
+            else activos.push(d);
+          });
+        } else {
+          // Sort descending by date (newest first)
+          const sorted = [...grupo].sort((a,b) => new Date(b.fecha_vencimiento) - new Date(a.fecha_vencimiento));
+          activos.push(sorted[0]);
+          for (let i = 1; i < sorted.length; i++) historicos.push(sorted[i]);
+        }
+      }
+    });
+
+    return { documentosActivos: activos, documentosHistoricos: historicos };
+  }, [documentos]);
+
+  const cargarDatos = useCallback(async () => {
+    if (!fetchAll && !personaId) {
+      setIsLoading(true);
+      return;
+    }
+
+    setIsLoading(true)
+    setError(null)
+    try {
+      const [docsData, tiposData, estadosData] = await Promise.all([
+        getDocumentos(fetchAll ? '' : personaId),
+        getTiposDocumento(),
+        getEstadosDocumento()
+      ])
+      setDocumentos(docsData)
+      setTipos(tiposData)
+      setEstados(estadosData)
+    } catch (err) {
+      setError(err)
+      console.error('Error cargando documentación:', err)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [personaId])
+
+  useEffect(() => {
+    cargarDatos()
+  }, [cargarDatos])
+
+  const notifyChange = () => {
+    window.dispatchEvent(new CustomEvent('documentacionCambiada'))
+  }
+
+  const subirDocumento = async (documentData) => {
+    try {
+      await createDocumento(documentData)
+      await cargarDatos()
+      notifyChange()
+    } catch (err) {
+      console.error('Error subiendo documento:', err)
+      throw err
+    }
+  }
+
+  const actualizarDocumento = async (id, documentData) => {
+    try {
+      await updateDocumento(id, documentData)
+      await cargarDatos()
+      notifyChange()
+    } catch (err) {
+      console.error('Error actualizando documento:', err)
+      throw err
+    }
+  }
+
+  const borrarDocumento = async (id) => {
+    try {
+      await deleteDocumento(id)
+      await cargarDatos()
+      notifyChange()
+    } catch (err) {
+      console.error('Error eliminando documento:', err)
+      throw err
+    }
+  }
+
+  // Utilidad para obtener nombre del tipo / estado (opcional)
+  const getNombreTipo = (id) => {
+    const t = tipos.find(x => String(x.id_tipo_documento) === String(id))
+    return t ? t.nombre : '—'
+  }
+
+  const getNombreEstado = (id) => {
+    const e = estados.find(x => String(x.id_estado_documento) === String(id))
+    return e ? e.nombre : '—'
+  }
+
+  return {
+    documentos,
+    tipos,
+    estados,
+    isLoading,
+    error,
+    cargarDatos,
+    subirDocumento,
+    actualizarDocumento,
+    borrarDocumento,
+    getNombreTipo,
+    getNombreEstado,
+    documentosActivos,
+    documentosHistoricos
+  }
+}
