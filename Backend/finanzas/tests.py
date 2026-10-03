@@ -40,7 +40,7 @@ from .models import (
 	Pago,
 	SecuenciaComprobante,
 )
-from .receipts import format_amount
+from .pdf_utils import format_amount
 from .services import apply_surcharges, generar_cuotas_mensuales, next_receipt_number, sync_cuota_charge
 
 

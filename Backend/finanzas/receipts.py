@@ -4,19 +4,11 @@ from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
-from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
 
 from .models import EstadoComprobanteChoices, MedioDePagoChoices
+from .pdf_utils import CLUB_NAME, format_amount, table
 from .services import receipt_detail
-
-CLUB_NAME = "Club Universitario de Berisso"
-BORDER = colors.HexColor("#c4c7c5")
-HEADER_BACKGROUND = colors.HexColor("#eef1f4")
-
-
-def format_amount(value):
-    formatted = f"{abs(value):,.2f}".replace(",", "_").replace(".", ",").replace("_", ".")
-    return f"{'-' if value < 0 else ''}$ {formatted}"
 
 
 def format_receipt_number(receipt_type, number):
@@ -25,26 +17,6 @@ def format_receipt_number(receipt_type, number):
 
 def receipt_filename(receipt):
     return f"comprobante-{receipt_detail(receipt)['tipo']}-{receipt.numero:08d}.pdf"
-
-
-def table(rows, column_widths, total_row=False):
-    content = Table(rows, colWidths=column_widths, hAlign="LEFT")
-    style = [
-        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-        ("BACKGROUND", (0, 0), (-1, 0), HEADER_BACKGROUND),
-        ("GRID", (0, 0), (-1, -1), 0.5, BORDER),
-        ("ALIGN", (-1, 0), (-1, -1), "RIGHT"),
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("TOPPADDING", (0, 0), (-1, -1), 5),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
-    ]
-    if total_row:
-        style += [
-            ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
-            ("BACKGROUND", (0, -1), (-1, -1), HEADER_BACKGROUND),
-        ]
-    content.setStyle(TableStyle(style))
-    return content
 
 
 def render_receipt_pdf(receipt):
