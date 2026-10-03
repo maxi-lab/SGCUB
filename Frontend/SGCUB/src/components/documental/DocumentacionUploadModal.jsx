@@ -7,7 +7,6 @@ export default function DocumentacionUploadModal({
   form, 
   onChange, 
   tipos, 
-  estados,
   isEditing
 }) {
   const fileInputRef = useRef(null)
@@ -43,24 +42,11 @@ export default function DocumentacionUploadModal({
         <h3 className="font-headline-sm text-headline-sm text-on-surface">{isEditing ? 'Editar documentación' : 'Cargar nueva documentación'}</h3>
         <form onSubmit={onSubmit} className="flex flex-col gap-4">
           <div>
-            <label className="block text-label-sm text-outline uppercase mb-1">Nombre del Documento</label>
-            <input required type="text" name="nombre" value={form.nombre} onChange={onChange} className="w-full h-10 px-3 rounded-lg bg-surface-container-low border-none focus:ring-2 focus:ring-primary-container outline-none" />
-          </div>
-          <div>
             <label className="block text-label-sm text-outline uppercase mb-1">Tipo de Documento</label>
             <select required name="tipo_documento" value={form.tipo_documento} onChange={onChange} className="w-full h-10 px-3 rounded-lg bg-surface-container-low border-none cursor-pointer focus:ring-2 focus:ring-primary-container outline-none">
               <option value="">Seleccione...</option>
               {tipos.map(t => (
                 <option key={t.id_tipo_documento} value={t.id_tipo_documento}>{t.nombre}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-label-sm text-outline uppercase mb-1">Estado</label>
-            <select required name="estado_documento" value={form.estado_documento} onChange={onChange} className="w-full h-10 px-3 rounded-lg bg-surface-container-low border-none cursor-pointer focus:ring-2 focus:ring-primary-container outline-none">
-              <option value="">Seleccione...</option>
-              {estados.map(e => (
-                <option key={e.id_estado_documento} value={e.id_estado_documento}>{e.nombre}</option>
               ))}
             </select>
           </div>

@@ -21,6 +21,15 @@ const ETIQUETA_ESTADO = {
   vencido: { label: 'Vencido', clase: 'bg-error-container text-error', dot: 'bg-error' },
 }
 
+const EMPTY_UPLOAD_FORM = {
+  tipo_documento: '',
+  archivo: null,
+  archivoUrl_existing: null,
+  borrar_archivo: false,
+  fecha_emision: '',
+  fecha_vencimiento: '',
+}
+
 const getMediaUrl = (path) => {
   if (!path) return '';
   if (path.startsWith('http')) return path;
@@ -33,7 +42,6 @@ export default function DocumentationTab({ personaId, personaType, personaInfo }
   const {
     documentos: documents,
     tipos,
-    estados,
     isLoading: loading,
     subirDocumento,
     actualizarDocumento,
@@ -52,16 +60,7 @@ export default function DocumentationTab({ personaId, personaType, personaInfo }
   const [docToEdit, setDocToEdit] = useState(null)
 
   // Upload form state
-  const [uploadForm, setUploadForm] = useState({
-    tipo_documento: '',
-    estado_documento: '',
-    nombre: '',
-    archivo: null,
-    archivoUrl_existing: null,
-    borrar_archivo: false,
-    fecha_emision: '',
-    fecha_vencimiento: '',
-  })
+  const [uploadForm, setUploadForm] = useState(EMPTY_UPLOAD_FORM)
 
   // Filter tipos
   const tiposFiltrados = tipos.filter(t => {
@@ -83,8 +82,6 @@ export default function DocumentationTab({ personaId, personaType, personaInfo }
     setDocToEdit(doc)
     setUploadForm({
       tipo_documento: doc.tipo_documento || '',
-      estado_documento: doc.estado_documento || '',
-      nombre: doc.nombre || '',
       archivo: null,
       archivoUrl_existing: doc.archivoUrl || null,
       borrar_archivo: false,
@@ -97,16 +94,7 @@ export default function DocumentationTab({ personaId, personaType, personaInfo }
   const handleNewClick = () => {
     setIsEditing(false)
     setDocToEdit(null)
-    setUploadForm({
-      tipo_documento: '',
-      estado_documento: '',
-      nombre: '',
-      archivo: null,
-      archivoUrl_existing: null,
-      borrar_archivo: false,
-      fecha_emision: '',
-      fecha_vencimiento: '',
-    })
+    setUploadForm(EMPTY_UPLOAD_FORM)
     setUploadModalOpen(true)
   }
 
@@ -137,9 +125,7 @@ export default function DocumentationTab({ personaId, personaType, personaInfo }
     try {
       const formData = new FormData();
       formData.append('persona', personaId);
-      formData.append('nombre', uploadForm.nombre);
       formData.append('tipo_documento', uploadForm.tipo_documento);
-      formData.append('estado_documento', uploadForm.estado_documento);
       
       if (uploadForm.fecha_emision) {
         formData.append('fecha_emision', `${uploadForm.fecha_emision}T00:00:00`);
@@ -159,9 +145,7 @@ export default function DocumentationTab({ personaId, personaType, personaInfo }
         await subirDocumento(formData)
       }
       setUploadModalOpen(false)
-      setUploadForm({
-        tipo_documento: '', estado_documento: '', nombre: '', archivo: null, archivoUrl_existing: null, borrar_archivo: false, fecha_emision: '', fecha_vencimiento: ''
-      })
+      setUploadForm(EMPTY_UPLOAD_FORM)
       setIsEditing(false)
       setDocToEdit(null)
     } catch (error) {
@@ -405,7 +389,6 @@ export default function DocumentationTab({ personaId, personaType, personaInfo }
         form={uploadForm} 
         onChange={handleUploadChange} 
         tipos={tiposFiltrados} 
-        estados={estados} 
         isEditing={isEditing}
       />
 
