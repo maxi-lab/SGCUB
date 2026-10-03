@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import FilterSelect from '../shared/FilterSelect'
 import SortableHeader from '../shared/SortableHeader'
 import useOrdenTabla from '../../hooks/useOrdenTabla'
 
@@ -12,6 +13,9 @@ const SORT_VALUES = {
 }
 const INITIAL_SORT = { columna: 'dueDate', direccion: 'asc' }
 const HEADER_CLASS = 'py-space-sm px-space-md font-semibold'
+const SELECT_CLASS = 'bg-surface-container-low text-on-surface text-body-sm font-body-sm rounded-lg focus:outline-none focus:bg-surface-container-lowest cursor-pointer'
+const ALL = 'all'
+const compareText = new Intl.Collator('es', { sensitivity: 'base' }).compare
 
 const TONES = {
   warning: {
@@ -40,13 +44,27 @@ const matchesSearch = (doc, search) => {
     (doc.nombre || '').toLowerCase().includes(text)
 }
 
+const matchesFilters = (doc, category, docType) =>
+  (category === ALL || doc.categoria_nombre === category) &&
+  (docType === ALL || String(doc.tipo_documento) === docType)
+
+const getCategoryOptions = (rows) =>
+  [...new Set(rows.map(doc => doc.categoria_nombre).filter(Boolean))].sort(compareText)
+
+const getTypeOptions = (rows, getTypeName) =>
+  [...new Set(rows.map(doc => String(doc.tipo_documento)))]
+    .map(id => ({ id, name: getTypeName(id) }))
+    .sort((a, b) => compareText(a.name, b.name))
+
 export default function DocumentAlertTable({ title, icon, tone = 'warning', documentHeader, dateHeader, rows, getBadgeLabel, getTypeName, emptyMessage }) {
   const navigate = useNavigate()
   const [search, setSearch] = useState('')
+  const [category, setCategory] = useState(ALL)
+  const [docType, setDocType] = useState(ALL)
   const [limit, setLimit] = useState(PAGE_SIZE)
   const style = TONES[tone] ?? TONES.warning
 
-  const filteredRows = rows.filter(doc => matchesSearch(doc, search))
+  const filteredRows = rows.filter(doc => matchesSearch(doc, search) && matchesFilters(doc, category, docType))
   const { ordenadas: sortedRows, orden: sort, ordenarPor: sortBy } = useOrdenTabla(filteredRows, SORT_VALUES, INITIAL_SORT)
   const visibleRows = sortedRows.slice(0, limit)
   const openProfile = (doc) => navigate(`${doc.url_perfil}?tab=documentacion`)
@@ -63,15 +81,25 @@ export default function DocumentAlertTable({ title, icon, tone = 'warning', docu
             <span className={`font-label-sm text-label-sm px-2 py-0.5 rounded-full font-bold ${style.count}`}>{rows.length}</span>
           </div>
         </div>
-        <div className="relative w-full">
-          <span className="material-symbols-outlined absolute left-3 top-2.5 text-outline text-[18px]">search</span>
-          <input
-            className="w-full h-9 pl-9 pr-4 bg-surface-container-low text-on-surface placeholder:text-outline text-body-sm font-body-sm rounded-lg focus:outline-none focus:bg-surface-container-lowest transition-all"
-            placeholder="Filtrar por jugador o documento..."
-            type="text"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
+        <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2">
+          <div className="relative w-full sm:flex-1 sm:min-w-[12rem]">
+            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[18px]">search</span>
+            <input
+              className="w-full h-10 pl-9 pr-4 bg-surface-container-low text-on-surface placeholder:text-outline text-body-sm font-body-sm rounded-lg focus:outline-none focus:bg-surface-container-lowest transition-all"
+              placeholder="Filtrar por jugador o documento..."
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+          </div>
+          <FilterSelect className={SELECT_CLASS} value={category} onChange={e => setCategory(e.target.value)} aria-label="Filtrar por categoría">
+            <option value={ALL}>Categoría: Todas</option>
+            {getCategoryOptions(rows).map(name => <option key={name} value={name}>{name}</option>)}
+          </FilterSelect>
+          <FilterSelect className={SELECT_CLASS} value={docType} onChange={e => setDocType(e.target.value)} aria-label="Filtrar por tipo de documento">
+            <option value={ALL}>Tipo: Todos</option>
+            {getTypeOptions(rows, getTypeName).map(type => <option key={type.id} value={type.id}>{type.name}</option>)}
+          </FilterSelect>
         </div>
       </div>
       <div className="overflow-x-auto">
@@ -111,7 +139,7 @@ export default function DocumentAlertTable({ title, icon, tone = 'warning', docu
               </tr>
             ))}
             {visibleRows.length === 0 && (
-              <tr><td colSpan={3} className="p-4 text-center text-outline">{emptyMessage}</td></tr>
+              <tr><td colSpan={3} className="p-4 text-center text-outline">{rows.length === 0 ? emptyMessage : 'No hay documentos que coincidan con los filtros'}</td></tr>
             )}
           </tbody>
         </table>
