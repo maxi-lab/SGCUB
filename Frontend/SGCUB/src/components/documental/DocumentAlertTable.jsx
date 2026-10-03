@@ -12,8 +12,8 @@ const SORT_VALUES = {
   dueDate: (doc) => Math.abs(doc.daysFromToday),
 }
 const INITIAL_SORT = { columna: 'dueDate', direccion: 'asc' }
-const HEADER_CLASS = 'py-space-sm px-space-md font-semibold'
-const SELECT_CLASS = 'bg-surface-container-low text-on-surface text-body-sm font-body-sm rounded-lg focus:outline-none focus:bg-surface-container-lowest cursor-pointer'
+const HEADER_CLASS = 'py-3 px-4'
+const SELECT_CLASS = 'bg-surface-container-low text-on-surface font-body-sm text-sm font-medium rounded-lg focus:outline-none focus:bg-surface-container-lowest cursor-pointer'
 const ALL = 'all'
 const compareText = new Intl.Collator('es', { sensitivity: 'base' }).compare
 
@@ -77,15 +77,15 @@ export default function DocumentAlertTable({ title, icon, tone = 'warning', docu
             <span className="material-symbols-outlined text-[18px]">{icon}</span>
           </div>
           <div className="flex items-center gap-2">
-            <h2 className="font-headline-sm text-headline-sm text-on-surface">{title}</h2>
-            <span className={`font-label-sm text-label-sm px-2 py-0.5 rounded-full font-bold ${style.count}`}>{rows.length}</span>
+            <h2 className="text-lg font-semibold text-on-surface">{title}</h2>
+            <span className={`text-sm px-2.5 py-0.5 rounded-full font-semibold ${style.count}`}>{rows.length}</span>
           </div>
         </div>
         <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2">
           <div className="relative w-full sm:flex-1 sm:min-w-[12rem]">
             <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[18px]">search</span>
             <input
-              className="w-full h-10 pl-9 pr-4 bg-surface-container-low text-on-surface placeholder:text-outline text-body-sm font-body-sm rounded-lg focus:outline-none focus:bg-surface-container-lowest transition-all"
+              className="w-full h-10 pl-9 pr-4 bg-surface-container-low text-on-surface placeholder:text-outline font-body-sm text-sm rounded-lg focus:outline-none focus:bg-surface-container-lowest transition-all"
               placeholder="Filtrar por jugador o documento..."
               type="text"
               value={search}
@@ -103,15 +103,15 @@ export default function DocumentAlertTable({ title, icon, tone = 'warning', docu
         </div>
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full text-left">
+        <table className="w-full text-left text-sm border-collapse">
           <thead>
-            <tr className="bg-surface-container-low text-on-surface-variant font-label-sm text-label-sm uppercase tracking-wider">
+            <tr className="bg-surface-container-low/60 border-b border-outline-variant/30 text-sm font-semibold text-on-surface-variant uppercase tracking-wider">
               <SortableHeader className={HEADER_CLASS} etiqueta="Persona / Categoría" columna="person" orden={sort} onOrdenar={sortBy} />
               <th className={HEADER_CLASS} scope="col">{documentHeader}</th>
               <SortableHeader className={HEADER_CLASS} etiqueta={dateHeader} columna="dueDate" orden={sort} onOrdenar={sortBy} />
             </tr>
           </thead>
-          <tbody className="font-body-sm text-body-sm text-on-surface">
+          <tbody className="divide-y divide-outline-variant/20 font-body-sm text-on-surface">
             {visibleRows.map(doc => (
               <tr
                 key={doc.id_documento}
@@ -120,35 +120,35 @@ export default function DocumentAlertTable({ title, icon, tone = 'warning', docu
                 tabIndex={0}
                 className={`transition-colors cursor-pointer group focus:outline-none ${style.row}`}
               >
-                <td className="py-space-md px-space-md">
+                <td className="py-3 px-4">
                   <div className="flex flex-col min-w-0">
-                    <span className={`font-label-lg text-label-lg font-semibold text-on-surface truncate transition-colors ${style.name}`}>{doc.persona_nombre_completo || 'Desconocido'}</span>
-                    <span className="font-body-sm text-body-sm text-on-surface-variant truncate">{doc.categoria_nombre || ''}</span>
+                    <span className={`font-medium text-base text-on-surface truncate transition-colors ${style.name}`}>{doc.persona_nombre_completo || 'Desconocido'}</span>
+                    <span className="text-sm text-on-surface-variant truncate">{doc.categoria_nombre || ''}</span>
                   </div>
                 </td>
-                <td className="py-space-md px-space-md">
-                  <span className={`font-medium ${style.document}`}>{getTypeName(doc.tipo_documento)}</span>
+                <td className="py-3 px-4">
+                  <span className={`text-base font-medium ${style.document}`}>{getTypeName(doc.tipo_documento)}</span>
                 </td>
-                <td className="py-space-md px-space-md whitespace-nowrap">
-                  <span className="block font-medium text-on-surface">{doc.dueDateLabel}</span>
-                  <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-label-sm font-semibold mt-1 ${style.badge}`}>
+                <td className="py-3 px-4 whitespace-nowrap">
+                  <span className="block text-base font-medium text-on-surface">{doc.dueDateLabel}</span>
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-semibold mt-1 ${style.badge}`}>
                     {getBadgeLabel(doc)}
                   </span>
                 </td>
               </tr>
             ))}
             {visibleRows.length === 0 && (
-              <tr><td colSpan={3} className="p-4 text-center text-outline">{rows.length === 0 ? emptyMessage : 'No hay documentos que coincidan con los filtros'}</td></tr>
+              <tr><td colSpan={3} className="py-10 px-4 text-center text-on-surface-variant">{rows.length === 0 ? emptyMessage : 'No hay documentos que coincidan con los filtros'}</td></tr>
             )}
           </tbody>
         </table>
       </div>
       {filteredRows.length > limit && (
         <div className="p-space-md bg-surface-container-low flex items-center justify-between">
-          <span className="font-label-sm text-label-sm text-outline">Mostrando {limit} de {filteredRows.length}</span>
+          <span className="text-sm text-on-surface-variant">Mostrando {limit} de {filteredRows.length}</span>
           <button
             onClick={() => setLimit(limit + PAGE_SIZE)}
-            className={`font-label-md text-label-md font-semibold hover:underline ${style.loadMore}`}
+            className={`text-sm font-semibold hover:underline cursor-pointer ${style.loadMore}`}
           >
             Cargar más ↓
           </button>
