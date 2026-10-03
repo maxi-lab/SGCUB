@@ -98,29 +98,29 @@ export default function PersonaDocumentsTable({ title, documents, getTypeName, o
           <span className="ml-auto text-sm text-on-surface-variant">{rows.length} documentos</span>
         </div>
       )}
-      {!isHistory && (
-        <div className="p-4 border-b border-outline-variant/20 flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-2.5">
-          <div className="relative w-full sm:w-auto sm:flex-1 sm:min-w-[16rem] sm:max-w-md">
-            <span className="material-symbols-outlined absolute left-4 top-1.5 text-outline text-sm" aria-hidden="true">search</span>
-            <input
-              className="w-full h-10 pl-11 pr-4 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface placeholder:text-outline font-body-sm text-sm focus:outline-none focus:border-primary focus:bg-surface-container-lowest transition-colors"
-              placeholder="Filtrar por tipo de documento..."
-              type="text"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              aria-label="Filtrar documentos"
-            />
-          </div>
-          <FilterSelect className={SELECT_CLASS} value={docType} onChange={e => setDocType(e.target.value)} aria-label="Filtrar por tipo de documento">
-            <option value={ALL}>Tipo: Todos</option>
-            {typeOptions.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
-          </FilterSelect>
+      <div className="p-4 border-b border-outline-variant/20 flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-2.5">
+        <div className="relative w-full sm:w-auto sm:flex-1 sm:min-w-[16rem] sm:max-w-md">
+          <span className="material-symbols-outlined absolute left-4 top-1.5 text-outline text-sm" aria-hidden="true">search</span>
+          <input
+            className="w-full h-10 pl-11 pr-4 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface placeholder:text-outline font-body-sm text-sm focus:outline-none focus:border-primary focus:bg-surface-container-lowest transition-colors"
+            placeholder="Filtrar por tipo de documento..."
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            aria-label="Filtrar documentos"
+          />
+        </div>
+        <FilterSelect className={SELECT_CLASS} value={docType} onChange={e => setDocType(e.target.value)} aria-label="Filtrar por tipo de documento">
+          <option value={ALL}>Tipo: Todos</option>
+          {typeOptions.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+        </FilterSelect>
+        {!isHistory && (
           <FilterSelect className={SELECT_CLASS} value={status} onChange={e => setStatus(e.target.value)} aria-label="Filtrar por estado">
             <option value={ALL}>Estado: Todos</option>
             {Object.entries(STATUS_LABELS).map(([key, { label }]) => <option key={key} value={key}>{label}</option>)}
           </FilterSelect>
-        </div>
-      )}
+        )}
+      </div>
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm border-collapse">
           <thead>
