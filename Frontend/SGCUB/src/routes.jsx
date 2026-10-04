@@ -20,6 +20,7 @@ import Docentes from './pages/Docentes'
 import Cuotas from './pages/Cuotas'
 import EstadoCuenta from './pages/EstadoCuenta'
 import EnDesarrollo from './pages/EnDesarrollo'
+import ResumenFinanciero from './pages/ResumenFinanciero'
 import Caja from './pages/Caja'
 import Morosidad from './pages/Morosidad'
 
@@ -133,7 +134,7 @@ export const router = createBrowserRouter([
           },
           {
             path: 'resumen-financiero',
-            element: <EnDesarrollo title="Resumen financiero" />,
+            element: <ResumenFinanciero />,
           },
           {
             path: 'morosidad',
