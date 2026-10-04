@@ -142,13 +142,6 @@ function ResumenFinanciero() {
               <span className="material-symbols-outlined text-[18px]" aria-hidden="true">download</span>
               Exportar informe contable
             </button>
-            <button
-              type="button"
-              className="inline-flex items-center gap-2 h-10 px-4 rounded-lg bg-primary text-on-primary hover:bg-primary/90 transition-colors cursor-pointer"
-            >
-              <span className="material-symbols-outlined text-[18px]" aria-hidden="true">add</span>
-              Registrar nuevo pago
-            </button>
           </>
         )}
       />
@@ -175,36 +168,35 @@ function ResumenFinanciero() {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         {collectionMethods.map((method) => (
           <div
             key={method.label}
-            className="rounded-xl border border-outline-variant/40 bg-surface-container-lowest p-4 shadow-sm"
+            className="rounded-xl border border-outline-variant/40 bg-surface-container-lowest p-3 shadow-sm"
           >
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-3">
                 {method.bankLogo ? (
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-blue-700 to-sky-500 text-sm font-bold text-white shadow-sm">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-700 to-sky-500 text-sm font-bold text-white shadow-sm">
                     {method.bankLogo}
                   </div>
                 ) : (
-                  <span className={`material-symbols-outlined rounded-md p-2 text-lg ${method.tone === 'emerald' ? 'bg-emerald-100 text-emerald-700' : method.tone === 'sky' ? 'bg-sky-100 text-sky-700' : 'bg-violet-100 text-violet-700'}`} aria-hidden="true">
+                  <span className={`material-symbols-outlined rounded-md p-1.5 text-base ${method.tone === 'emerald' ? 'bg-emerald-100 text-emerald-700' : method.tone === 'sky' ? 'bg-sky-100 text-sky-700' : 'bg-violet-100 text-violet-700'}`} aria-hidden="true">
                     {method.icon}
                   </span>
                 )}
                 <div className="min-w-0">
-                  <span className="block text-sm font-semibold text-on-surface">{method.label}</span>
+                  <span className="block text-xs font-semibold text-on-surface sm:text-sm">{method.label}</span>
                   {method.bankName && (
                     <span className="block text-[11px] text-on-surface-variant">{method.bankName}</span>
                   )}
                 </div>
               </div>
-              <span className={`rounded-full px-2 py-1 text-[11px] font-semibold ${toneStyles[method.tone]}`}>
-                {method.status}
-              </span>
+              
+              
             </div>
-            <div className="text-3xl font-bold text-on-surface leading-none">{method.amount}</div>
-            <p className="mt-3 text-sm text-on-surface-variant">{method.detail}</p>
+            <div className="text-2xl font-bold text-on-surface leading-none">{method.amount}</div>
+            <p className="mt-2 text-xs text-on-surface-variant">{method.detail}</p>
           </div>
         ))}
       </div>
