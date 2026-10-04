@@ -1,5 +1,14 @@
 import { useEffect, useRef } from 'react'
 
+const INVALID_DATES_MESSAGE = 'La fecha de vencimiento debe ser posterior a la fecha de emisión'
+
+const shiftDate = (date, days) => {
+  if (!date) return undefined
+  const shifted = new Date(`${date}T00:00:00Z`)
+  shifted.setUTCDate(shifted.getUTCDate() + days)
+  return shifted.toISOString().split('T')[0]
+}
+
 export default function DocumentacionUploadModal({ 
   isOpen, 
   onClose, 
@@ -7,7 +16,8 @@ export default function DocumentacionUploadModal({
   form, 
   onChange, 
   tipos, 
-  isEditing
+  isEditing,
+  error
 }) {
   const fileInputRef = useRef(null)
 
@@ -26,6 +36,8 @@ export default function DocumentacionUploadModal({
   }, [isOpen])
 
   if (!isOpen) return null;
+
+  const hasInvalidDates = Boolean(form.fecha_emision && form.fecha_vencimiento && form.fecha_vencimiento <= form.fecha_emision)
 
   const handleBackdropClick = (e) => {
     if (e.target === e.currentTarget) {
@@ -53,12 +65,15 @@ export default function DocumentacionUploadModal({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-label-sm text-outline uppercase mb-1">Fecha Emisión</label>
-              <input type="date" name="fecha_emision" value={form.fecha_emision} onChange={onChange} className="w-full h-10 px-3 rounded-lg bg-surface-container-low border-none cursor-pointer focus:ring-2 focus:ring-primary-container outline-none" />
+              <input type="date" name="fecha_emision" value={form.fecha_emision} max={shiftDate(form.fecha_vencimiento, -1)} onChange={onChange} className="w-full h-10 px-3 rounded-lg bg-surface-container-low border-none cursor-pointer focus:ring-2 focus:ring-primary-container outline-none" />
             </div>
             <div>
               <label className="block text-label-sm text-outline uppercase mb-1">Fecha Vencimiento</label>
-              <input type="date" name="fecha_vencimiento" value={form.fecha_vencimiento} onChange={onChange} className="w-full h-10 px-3 rounded-lg bg-surface-container-low border-none cursor-pointer focus:ring-2 focus:ring-primary-container outline-none" />
+              <input type="date" name="fecha_vencimiento" value={form.fecha_vencimiento} min={shiftDate(form.fecha_emision, 1)} onChange={onChange} className="w-full h-10 px-3 rounded-lg bg-surface-container-low border-none cursor-pointer focus:ring-2 focus:ring-primary-container outline-none" />
             </div>
+            {hasInvalidDates && (
+              <p className="col-span-2 -mt-2 text-sm text-error" role="alert">{INVALID_DATES_MESSAGE}</p>
+            )}
           </div>
           <div>
             <label className="block text-label-sm text-outline uppercase mb-1">Archivo PDF (Opcional)</label>
@@ -95,6 +110,12 @@ export default function DocumentacionUploadModal({
               </label>
             )}
           </div>
+          {error && (
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-error-container text-error text-sm" role="alert">
+              <span className="material-symbols-outlined text-[20px]" aria-hidden="true">error</span>
+              <span>{error}</span>
+            </div>
+          )}
           <div className="flex items-center justify-end gap-space-sm mt-4">
             <button type="button" onClick={onClose} className="px-space-md h-10 rounded-lg bg-surface-container text-on-surface font-title-md hover:bg-surface-container-high transition-colors cursor-pointer">Cancelar</button>
             <button type="submit" className="px-space-md h-10 rounded-lg bg-primary text-on-primary font-title-md hover:bg-primary/90 transition-colors cursor-pointer">{isEditing ? 'Guardar Cambios' : 'Cargar Documento'}</button>

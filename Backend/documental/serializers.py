@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import TipoDocumento, EstadoDocumento, Documento
+from .models import TipoDocumento, EstadoDocumento, Documento, _local_date
 
 class TipoDocumentoSerializer(serializers.ModelSerializer):
     class Meta:
@@ -20,6 +20,15 @@ class DocumentoSerializer(serializers.ModelSerializer):
         model = Documento
         fields = '__all__'
         read_only_fields = ['nombre', 'estado_documento']
+
+    def validate(self, attrs):
+        issue_date = attrs.get('fecha_emision', getattr(self.instance, 'fecha_emision', None))
+        due_date = attrs.get('fecha_vencimiento', getattr(self.instance, 'fecha_vencimiento', None))
+        if issue_date and due_date and _local_date(due_date) <= _local_date(issue_date):
+            raise serializers.ValidationError({
+                'fecha_vencimiento': 'La fecha de vencimiento debe ser posterior a la fecha de emisión.'
+            })
+        return attrs
 
     def get_persona_nombre_completo(self, obj):
         return f"{obj.persona.nombre} {obj.persona.apellido}"

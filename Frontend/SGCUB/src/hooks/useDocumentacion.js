@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useId } from 'react'
 import { getDocumentos, createDocumento, deleteDocumento, getTiposDocumento, getEstadosDocumento, updateDocumento } from '../api/documentacion'
 
 export default function useDocumentacion(personaId = null, fetchAll = false) {
@@ -22,36 +22,23 @@ export default function useDocumentacion(personaId = null, fetchAll = false) {
       return { ...d, status };
     });
 
-    const docsGrouped = {};
+    const groupedDocs = {};
     docsWithStatus.forEach(d => {
       const key = `${d.persona}_${d.tipo_documento}`;
-      if (!docsGrouped[key]) docsGrouped[key] = [];
-      docsGrouped[key].push(d);
+      if (!groupedDocs[key]) groupedDocs[key] = [];
+      groupedDocs[key].push(d);
     });
 
-    const activos = [];
-    const historicos = [];
+    const activeDocs = [];
+    const historicDocs = [];
 
-    Object.values(docsGrouped).forEach(grupo => {
-      if (grupo.length === 1) {
-        activos.push(grupo[0]);
-      } else {
-        const hayVigentes = grupo.some(d => d.status !== 'vencido');
-        if (hayVigentes) {
-          grupo.forEach(d => {
-            if (d.status === 'vencido') historicos.push(d);
-            else activos.push(d);
-          });
-        } else {
-          // Sort descending by date (newest first)
-          const sorted = [...grupo].sort((a,b) => new Date(b.fecha_vencimiento) - new Date(a.fecha_vencimiento));
-          activos.push(sorted[0]);
-          for (let i = 1; i < sorted.length; i++) historicos.push(sorted[i]);
-        }
-      }
+    Object.values(groupedDocs).forEach(group => {
+      const [latest, ...older] = [...group].sort((a, b) => b.id_documento - a.id_documento);
+      activeDocs.push(latest);
+      historicDocs.push(...older);
     });
 
-    return { documentosActivos: activos, documentosHistoricos: historicos };
+    return { documentosActivos: activeDocs, documentosHistoricos: historicDocs };
   }, [documentos]);
 
   const cargarDatos = useCallback(async () => {
@@ -77,14 +64,23 @@ export default function useDocumentacion(personaId = null, fetchAll = false) {
     } finally {
       setIsLoading(false)
     }
-  }, [personaId])
+  }, [personaId, fetchAll])
 
   useEffect(() => {
     cargarDatos()
   }, [cargarDatos])
 
+  const instanceId = useId()
+  useEffect(() => {
+    const handleChange = (event) => {
+      if (event.detail?.source !== instanceId) cargarDatos()
+    }
+    window.addEventListener('documentacionCambiada', handleChange)
+    return () => window.removeEventListener('documentacionCambiada', handleChange)
+  }, [cargarDatos, instanceId])
+
   const notifyChange = () => {
-    window.dispatchEvent(new CustomEvent('documentacionCambiada'))
+    window.dispatchEvent(new CustomEvent('documentacionCambiada', { detail: { source: instanceId } }))
   }
 
   const subirDocumento = async (documentData) => {
