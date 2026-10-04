@@ -1,15 +1,6 @@
 import { Alert, Button, Group, Modal, Stack, Table, Text, TextInput } from '@mantine/core'
 import { IconAlertCircle } from '@tabler/icons-react'
 
-const CONCEPTO_LABEL = {
-  CuotaSocial: 'Cuota social',
-  CuotaDeportiva: 'Cuota deportiva',
-  Mora: 'Mora',
-  DescuentoUnico: 'Descuento único',
-  Beca: 'Beca',
-  Otro: 'Otro',
-}
-
 const formatAmount = (item) => {
   const monto = Number(item.monto ?? 0) * (item.es_descuento ? -1 : 1)
   return monto.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })
@@ -51,7 +42,7 @@ function EditCuotaModal({ opened, onClose, onSubmit, formulario, onChange, loadi
               <Table.Tbody>
                 {(cuota?.items ?? []).map((item) => (
                   <Table.Tr key={item.item_cuota_id}>
-                    <Table.Td>{CONCEPTO_LABEL[item.concepto] ?? item.concepto}</Table.Td>
+                    <Table.Td>{item.concepto_nombre ?? item.concepto}</Table.Td>
                     <Table.Td ta="right">{formatAmount(item)}</Table.Td>
                   </Table.Tr>
                 ))}

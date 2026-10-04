@@ -12,7 +12,7 @@ const isPaid = (cuota) => normalizeState(cuota.estado_cuota ?? cuota.estado) ===
 
 const cuotaAmount = (cuota) => Number(cuota.monto_total ?? 0)
 
-const cuotaConcepts = (cuota) => (cuota.items ?? []).map((item) => item.concepto).filter(Boolean).join(', ') || 'Cuota social'
+const cuotaConcepts = (cuota) => [...new Set((cuota.items ?? []).map((item) => item.concepto_nombre ?? item.concepto).filter(Boolean))].join(', ') || '—'
 
 const fetchAccount = (socioId) => getEstadoCuenta(socioId).catch((requestError) => {
   if (requestError.response?.status === 404) return null

@@ -190,6 +190,8 @@ class CuotaUpdateSerializer(serializers.ModelSerializer):
 
 
 class ItemCuotaSerializer(serializers.ModelSerializer):
+    concepto_nombre = serializers.CharField(source="get_concepto_display", read_only=True)
+
     class Meta:
         model = ItemCuota
         fields = "__all__"

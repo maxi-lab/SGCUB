@@ -935,6 +935,40 @@ class CuotaSettledStateTests(APITestCase):
 		self.assertEqual(self.cuota.items.count(), 3)
 
 
+class ItemCuotaLabelTests(APITestCase):
+	def setUp(self):
+		self.client.force_authenticate(user=get_user_model().objects.create_user(username="tesorero"))
+		self.socio = crear_socio("60000003", con_jugador=True)
+		response = self.client.post(reverse("cuota-list"), {"socio_id": self.socio.pk, "periodo": "2026-10"}, format="json")
+		self.cuota_id = response.data["cuota_id"]
+		self.client.post(reverse("cuota-beneficio", args=[self.cuota_id]), {
+			"tipo": "Descuento",
+			"modalidad": "MontoFijo",
+			"valor": "100.00",
+			"concepto": "CuotaSocial",
+			"fecha_aplicacion": "2026-10-01",
+			"motivo": "Hermanos en el club",
+		}, format="json")
+
+	def test_account_status_items_include_concept_labels(self):
+		response = self.client.get(reverse("estado-cuenta-socio", args=[self.socio.pk]))
+
+		self.assertEqual(response.status_code, 200)
+		labels = {item["concepto"]: item["concepto_nombre"] for item in response.data["cuotas"][0]["items"]}
+		self.assertEqual(labels, {
+			"CuotaSocial": "Cuota Social",
+			"CuotaDeportiva": "Cuota Deportiva",
+			"DescuentoUnico": "Descuento único",
+		})
+
+	def test_item_endpoint_includes_concept_label(self):
+		item = ItemCuota.objects.get(cuota_id=self.cuota_id, concepto="DescuentoUnico")
+
+		response = self.client.get(reverse("item-cuota-detail", args=[item.pk]))
+
+		self.assertEqual(response.data["concepto_nombre"], "Descuento único")
+
+
 class BecasEnGeneracionDeCuotasTests(TestCase):
 	def setUp(self):
 		self.socio = crear_socio("70000001", con_jugador=True)

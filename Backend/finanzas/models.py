@@ -16,7 +16,7 @@ class ConceptoItemChoices(models.TextChoices):
     CUOTA_SOCIAL = "CuotaSocial", "Cuota Social"
     CUOTA_DEPORTIVA = "CuotaDeportiva", "Cuota Deportiva"
     MORA = "Mora", "Mora"
-    DESCUENTO_UNICO = "DescuentoUnico", "Descuento Unico"
+    DESCUENTO_UNICO = "DescuentoUnico", "Descuento único"
     BECA = "Beca", "Beca"
     OTRO = "Otro", "Otro"
 
