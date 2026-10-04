@@ -5,14 +5,14 @@ import DocumentacionUploadModal from '../../documental/DocumentacionUploadModal'
 import DocumentacionDeleteModal from '../../documental/DocumentacionDeleteModal'
 import PersonaDocumentsTable from '../../documental/PersonaDocumentsTable'
 
-const EMPTY_UPLOAD_FORM = {
+const getEmptyUploadForm = () => ({
   tipo_documento: '',
   archivo: null,
   archivoUrl_existing: null,
   borrar_archivo: false,
-  fecha_emision: '',
+  fecha_emision: new Date().toISOString().split('T')[0],
   fecha_vencimiento: '',
-}
+})
 
 const SAVE_ERROR_MESSAGE = 'No se pudo guardar el documento.'
 
@@ -44,7 +44,7 @@ export default function DocumentationTab({ personaId, personaType, personaInfo }
   const [isEditing, setIsEditing] = useState(false)
   const [docToEdit, setDocToEdit] = useState(null)
 
-  const [uploadForm, setUploadForm] = useState(EMPTY_UPLOAD_FORM)
+  const [uploadForm, setUploadForm] = useState(getEmptyUploadForm())
   const [saveError, setSaveError] = useState(null)
 
   const tiposFiltrados = tipos.filter(t => {
@@ -78,7 +78,7 @@ export default function DocumentationTab({ personaId, personaType, personaInfo }
   const handleNewClick = () => {
     setIsEditing(false)
     setDocToEdit(null)
-    setUploadForm(EMPTY_UPLOAD_FORM)
+    setUploadForm(getEmptyUploadForm())
     setSaveError(null)
     setUploadModalOpen(true)
   }
@@ -131,7 +131,7 @@ export default function DocumentationTab({ personaId, personaType, personaInfo }
         await subirDocumento(formData)
       }
       setUploadModalOpen(false)
-      setUploadForm(EMPTY_UPLOAD_FORM)
+      setUploadForm(getEmptyUploadForm())
       setIsEditing(false)
       setDocToEdit(null)
     } catch (error) {
