@@ -26,6 +26,7 @@ services:
       - .env
     volumes:
       - ./Backend:/app
+      - /documentacion:/app/media
     ports:
       - "127.0.0.1:8000:8000"
     environment:

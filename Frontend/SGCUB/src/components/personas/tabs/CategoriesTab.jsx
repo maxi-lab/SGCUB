@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Button, Group, Modal, Text } from '@mantine/core'
 import CargoFields from '../../docentes/CargoFields'
+import CargosDocenteTable from '../../docentes/CargosDocenteTable'
 import { etiquetaCategoria, idsCategorias, validateCargo } from '../../docentes/docentesUtils'
 import { TabHeader, EmptyState, PrimaryButton } from './parts'
 
@@ -62,35 +63,6 @@ function CargoModal({ asignacion, asignaciones, cargos, categorias, onClose, onS
         </Group>
       </div>
     </Modal>
-  )
-}
-
-function BotonEditar({ label, onClick }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      title={label}
-      aria-label={label}
-      className="inline-flex items-center justify-center p-2 rounded-lg text-primary hover:bg-primary-fixed/30 transition-colors cursor-pointer"
-    >
-      <span className="material-symbols-outlined text-[20px]" aria-hidden="true">edit</span>
-    </button>
-  )
-}
-
-function RemoveButton({ label, disabledReason, onClick }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={Boolean(disabledReason)}
-      title={disabledReason ?? label}
-      aria-label={label}
-      className="inline-flex items-center justify-center p-2 rounded-lg text-error hover:bg-error-container/60 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
-    >
-      <span className="material-symbols-outlined text-[20px]" aria-hidden="true">delete</span>
-    </button>
   )
 }
 
@@ -165,51 +137,13 @@ export default function CategoriesTab({ asignaciones = [], cargos = [], categori
           description="Este docente todavía no tiene categorías asignadas."
         />
       ) : (
-        <div className="overflow-x-auto border border-outline-variant/30 rounded-xl bg-surface-container-lowest shadow-sm">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-surface-container-low/70 border-b border-outline-variant/30 text-on-surface-variant text-base uppercase tracking-wider">
-                <th className="py-3 px-4 font-semibold">Cargo</th>
-                <th className="py-3 px-4 font-semibold">Categorías</th>
-                {editable && <th className="py-3 px-4 font-semibold text-right">Acciones</th>}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-outline-variant/20 text-base">
-              {asignaciones.map((asignacion) => (
-                <tr key={asignacion.cargo} className="align-top hover:bg-surface-container-low transition-colors">
-                  <td className="py-3.5 px-4 font-semibold text-on-surface whitespace-nowrap">{asignacion.cargo_nombre ?? '—'}</td>
-                  <td className="py-3 px-4">
-                    <ul className="flex flex-wrap gap-1.5">
-                      {asignacion.categorias.map((categoria) => (
-                        <li
-                          key={categoria.categoria_id}
-                          className="px-2.5 py-0.5 rounded-md bg-surface-container-high text-on-surface text-base font-medium"
-                        >
-                          {etiquetaCategoria(categoria)}
-                        </li>
-                      ))}
-                    </ul>
-                  </td>
-                  {editable && (
-                    <td className="py-2 px-4">
-                      <div className="flex items-center justify-end gap-1">
-                        <BotonEditar
-                          label={`Editar cargo ${asignacion.cargo_nombre ?? ''}`.trim()}
-                          onClick={() => setModalCargo({ asignacion })}
-                        />
-                        <RemoveButton
-                          label={`Eliminar cargo ${asignacion.cargo_nombre ?? ''}`.trim()}
-                          disabledReason={removeDisabledReason}
-                          onClick={() => setCargoToRemove(asignacion)}
-                        />
-                      </div>
-                    </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <CargosDocenteTable
+          asignaciones={asignaciones}
+          editable={editable}
+          removeDisabledReason={removeDisabledReason}
+          onEdit={(asignacion) => setModalCargo({ asignacion })}
+          onRemove={setCargoToRemove}
+        />
       )}
 
       {modalCargo && (

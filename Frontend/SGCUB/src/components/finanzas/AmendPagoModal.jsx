@@ -32,7 +32,7 @@ const errorMessage = (requestError) => {
   return 'No se pudo registrar la corrección. El pago original se conserva.'
 }
 
-function CorregirPagoModal({ comprobante, pago, detail, opened, onClose, onSuccess }) {
+function AmendPagoModal({ comprobante, pago, detail, opened, onClose, onSuccess }) {
   const socioId = pago?.socio?.socio_id
   const [load, setLoad] = useState({ socioId: null, account: null, error: '' })
   const [selectedCuotaIds, setSelectedCuotaIds] = useState([])
@@ -180,4 +180,4 @@ function CorregirPagoModal({ comprobante, pago, detail, opened, onClose, onSucce
   )
 }
 
-export default CorregirPagoModal
+export default AmendPagoModal

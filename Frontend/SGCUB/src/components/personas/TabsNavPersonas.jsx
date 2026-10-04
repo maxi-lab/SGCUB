@@ -1,18 +1,5 @@
 import { useState } from 'react'
-
-const TONOS_BADGE = {
-  info: 'bg-primary-fixed/30 text-primary',
-  ok: 'bg-emerald-50 text-emerald-700',
-  alerta: 'bg-amber-50 text-amber-700',
-  error: 'bg-error-container text-on-error-container',
-  neutro: 'bg-surface-container-high text-on-surface-variant',
-}
-
-const PUNTO_BADGE = {
-  ok: 'bg-emerald-500',
-  alerta: 'bg-amber-500',
-  error: 'bg-error',
-}
+import StatusBadge from '../shared/StatusBadge'
 
 export default function PersonTabs({ tabs = [], defaultTab }) {
   const [activeTabId, setActiveTabId] = useState(defaultTab ?? tabs[0]?.id)
@@ -41,12 +28,9 @@ export default function PersonTabs({ tabs = [], defaultTab }) {
             >
               <span className="material-symbols-outlined text-[20px]">{tab.icon}</span>
               <span>{tab.label}</span>
-              {tab.badge && (
-                <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-semibold ${TONOS_BADGE[tab.badge.tono] ?? TONOS_BADGE.neutro}`}>
-                  {PUNTO_BADGE[tab.badge.tono] && <span className={`w-1.5 h-1.5 rounded-full ${PUNTO_BADGE[tab.badge.tono]}`} />}
-                  {tab.badge.label}
-                </span>
-              )}
+              {[tab.badge].flat().filter(Boolean).map((badge, index) => (
+                <StatusBadge key={index} badge={badge} />
+              ))}
               <span className={`absolute bottom-0 left-0 right-0 h-0.5 rounded-t ${isSelected ? 'bg-primary' : 'bg-transparent'}`} />
             </button>
           )

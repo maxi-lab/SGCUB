@@ -1,118 +1,98 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import ActiveStatusBadge from '../shared/ActiveStatusBadge'
+import DataTable from '../shared/DataTable'
 import FilterSelect from '../shared/FilterSelect'
 import SortableHeader from '../shared/SortableHeader'
+import TableMessageRow from '../shared/TableMessageRow'
 import TablePagination from '../shared/TablePagination'
+import TableSearchInput from '../shared/TableSearchInput'
 import useOrdenTabla from '../../hooks/useOrdenTabla'
+import usePagination from '../../hooks/usePagination'
 import { cargosDe, esActivo, exportarNominaCSV } from './docentesUtils'
 
-const nombreCompleto = (docente) =>
+const FILTER_CLASS = 'bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-sm font-medium focus:outline-none focus:border-primary cursor-pointer'
+const COLUMN_COUNT = 6
+
+const fullName = (docente) =>
   [docente.persona_detalle?.nombre, docente.persona_detalle?.apellido].filter(Boolean).join(' ')
 
-const nombresCategorias = (categorias) =>
+const categoryNames = (categorias) =>
   categorias.length > 0 ? categorias.map((categoria) => categoria.nombre).join(', ') : '—'
 
-const VALORES_ORDEN = {
+const SORT_VALUES = {
   legajo: (docente) => (docente.legajo ? Number(docente.legajo) : null),
-  nombre: (docente) => nombreCompleto(docente),
+  nombre: (docente) => fullName(docente),
   estado: (docente) => (esActivo(docente) ? 0 : 1),
 }
-const ORDEN_INICIAL = { columna: 'legajo', direccion: 'desc' }
+const INITIAL_SORT = { columna: 'legajo', direccion: 'desc' }
 
 function DocentesTable({ data, categorias = [], categoriasPorDocente = {}, isLoading, error }) {
   const navigate = useNavigate()
-  const [busqueda, setBusqueda] = useState('')
+  const [search, setSearch] = useState('')
   const [cargo, setCargo] = useState('todos')
-  const [categoria, setCategoria] = useState('todas')
-  const [estado, setEstado] = useState('activo')
-  const [rowsPerPage, setRowsPerPage] = useState(25)
-  const [page, setPage] = useState(1)
+  const [category, setCategory] = useState('todas')
+  const [status, setStatus] = useState('activo')
 
   const docentes = useMemo(() => data ?? [], [data])
 
-  const cargosDisponibles = useMemo(
+  const availableCargos = useMemo(
     () => cargosDe(Object.values(categoriasPorDocente).flat()).sort(),
     [categoriasPorDocente],
   )
 
-  const filtrados = useMemo(() => {
-    const texto = busqueda.trim().toLowerCase()
+  const filtered = useMemo(() => {
+    const text = search.trim().toLowerCase()
     return docentes.filter((docente) => {
-      const categoriasDocente = categoriasPorDocente[docente.docente_id] ?? []
-      if (cargo !== 'todos' && !cargosDe(categoriasDocente).includes(cargo)) return false
-      if (categoria !== 'todas' && !categoriasDocente.some((item) => String(item.categoria_id) === categoria)) return false
-      if (estado === 'activo' && !esActivo(docente)) return false
-      if (estado === 'baja' && esActivo(docente)) return false
-      if (!texto) return true
+      const docenteCategorias = categoriasPorDocente[docente.docente_id] ?? []
+      if (cargo !== 'todos' && !cargosDe(docenteCategorias).includes(cargo)) return false
+      if (category !== 'todas' && !docenteCategorias.some((item) => String(item.categoria_id) === category)) return false
+      if (status === 'activo' && !esActivo(docente)) return false
+      if (status === 'baja' && esActivo(docente)) return false
+      if (!text) return true
       return [docente.persona_detalle?.nombre, docente.persona_detalle?.apellido, docente.persona_detalle?.dni, docente.legajo]
-        .some((campo) => String(campo ?? '').toLowerCase().includes(texto))
+        .some((field) => String(field ?? '').toLowerCase().includes(text))
     })
-  }, [docentes, categoriasPorDocente, busqueda, cargo, categoria, estado])
+  }, [docentes, categoriasPorDocente, search, cargo, category, status])
 
-  const { ordenadas, orden, ordenarPor } = useOrdenTabla(filtrados, VALORES_ORDEN, ORDEN_INICIAL)
-  const ordenar = (columna) => {
-    ordenarPor(columna)
-    setPage(1)
-  }
-
-  const totalPages = Math.max(1, Math.ceil(ordenadas.length / rowsPerPage))
-  const currentPage = Math.min(page, totalPages)
-  const start = (currentPage - 1) * rowsPerPage
-  const visible = ordenadas.slice(start, start + rowsPerPage)
+  const { ordenadas: sorted, orden: sort, ordenarPor: sortBy } = useOrdenTabla(filtered, SORT_VALUES, INITIAL_SORT)
+  const { visibleRows, withPageReset, paginationProps } = usePagination(sorted)
+  const sortAndReset = withPageReset(sortBy)
 
   return (
     <div className="min-w-0 bg-surface-container-lowest border border-outline-variant/30 rounded-lg shadow-sm">
       <div className="p-4 border-b border-outline-variant/20 flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-3">
         <div className="flex flex-1 min-w-0 flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-2.5">
-          <div className="relative w-full sm:w-auto sm:flex-1 sm:min-w-[16rem] sm:max-w-md">
-            <span className="material-symbols-outlined absolute left-4 top-1.5 text-outline text-sm" aria-hidden="true">
-              search
-            </span>
-            <input
-              className="w-full h-10 pl-11 pr-4 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface placeholder:text-outline font-body-sm text-sm focus:outline-none focus:border-primary focus:bg-surface-container-lowest transition-colors"
-              placeholder="Filtrar por DNI, Nombre, Apellido o Legajo..."
-              type="text"
-              value={busqueda}
-              onChange={(event) => {
-                setBusqueda(event.target.value)
-                setPage(1)
-              }}
-              aria-label="Filtrar docentes"
-            />
-          </div>
+          <TableSearchInput
+            value={search}
+            onChange={withPageReset(setSearch)}
+            placeholder="Filtrar por DNI, Nombre, Apellido o Legajo..."
+            label="Filtrar docentes"
+          />
           <FilterSelect
-            className="bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-sm font-medium focus:outline-none focus:border-primary cursor-pointer"
+            className={FILTER_CLASS}
             value={cargo}
-            onChange={(event) => {
-              setCargo(event.target.value)
-              setPage(1)
-            }}
+            onChange={(event) => withPageReset(setCargo)(event.target.value)}
             aria-label="Filtrar por cargo"
           >
             <option value="todos">Cargo: Todos</option>
-            {cargosDisponibles.map((item) => <option key={item} value={item}>{item}</option>)}
+            {availableCargos.map((item) => <option key={item} value={item}>{item}</option>)}
           </FilterSelect>
           <FilterSelect
-            className="bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-sm font-medium focus:outline-none focus:border-primary cursor-pointer"
-            value={categoria}
-            onChange={(event) => {
-              setCategoria(event.target.value)
-              setPage(1)
-            }}
+            className={FILTER_CLASS}
+            value={category}
+            onChange={(event) => withPageReset(setCategory)(event.target.value)}
             aria-label="Filtrar por categoría"
           >
             <option value="todas">Categoría: Todas</option>
             {categorias.map((item) => <option key={item.categoria_id} value={item.categoria_id}>{item.nombre}</option>)}
           </FilterSelect>
           <FilterSelect
-            className="bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-sm font-medium focus:outline-none focus:border-primary cursor-pointer"
-            value={estado}
-            onChange={(event) => {
-              setEstado(event.target.value)
-              setPage(1)
-            }}
+            className={FILTER_CLASS}
+            value={status}
+            onChange={(event) => withPageReset(setStatus)(event.target.value)}
             aria-label="Filtrar por estado"
-          > 
+          >
             <option value="activo">Estado: Activo</option>
             <option value="todos">Estado: Todos</option>
             <option value="baja">De baja / Inactivo</option>
@@ -121,8 +101,8 @@ function DocentesTable({ data, categorias = [], categoriasPorDocente = {}, isLoa
         <div className="flex items-center justify-end xl:shrink-0">
           <button
             type="button"
-            onClick={() => exportarNominaCSV(filtrados, categoriasPorDocente)}
-            disabled={filtrados.length === 0}
+            onClick={() => exportarNominaCSV(filtered, categoriasPorDocente)}
+            disabled={filtered.length === 0}
             className="inline-flex items-center justify-center gap-1.5 h-10 px-3 w-full sm:w-auto shrink-0 bg-surface-container-low hover:bg-surface-container-high border border-outline-variant/40 text-on-surface rounded text-lg font-medium transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <span className="material-symbols-outlined text-[16px]" aria-hidden="true">file_download</span>
@@ -131,89 +111,56 @@ function DocentesTable({ data, categorias = [], categoriasPorDocente = {}, isLoa
         </div>
       </div>
 
-      {/* Tabla */}
-      <div className="overflow-x-auto">
-        <table className="w-full text-left text-base border-collapse">
-          <thead>
-            <tr className="bg-surface-container-low/60 border-b border-outline-variant/30 text-sm font-semibold text-on-surface-variant uppercase tracking-wider">
-              <SortableHeader className="py-3 px-4 w-28 whitespace-nowrap" etiqueta="N° Legajo" columna="legajo" orden={orden} onOrdenar={ordenar} />
-              <SortableHeader className="py-3 px-4" etiqueta="Nombre y Apellido" columna="nombre" orden={orden} onOrdenar={ordenar} />
-              <th className="py-3 px-4" scope="col">DNI</th>
-              <th className="py-3 px-4" scope="col">Cargo</th>
-              <th className="py-3 px-4" scope="col">Categorías</th>
-              <SortableHeader className="py-3 px-4" etiqueta="Estado" columna="estado" orden={orden} onOrdenar={ordenar} />
+      <DataTable
+        tableClassName="text-base"
+        bodyClassName="text-lg"
+        headers={(
+          <>
+            <SortableHeader className="py-3 px-4 w-28 whitespace-nowrap" etiqueta="N° Legajo" columna="legajo" orden={sort} onOrdenar={sortAndReset} />
+            <SortableHeader className="py-3 px-4" etiqueta="Nombre y Apellido" columna="nombre" orden={sort} onOrdenar={sortAndReset} />
+            <th className="py-3 px-4" scope="col">DNI</th>
+            <th className="py-3 px-4" scope="col">Cargo</th>
+            <th className="py-3 px-4" scope="col">Categorías</th>
+            <SortableHeader className="py-3 px-4" etiqueta="Estado" columna="estado" orden={sort} onOrdenar={sortAndReset} />
+          </>
+        )}
+      >
+        <TableMessageRow
+          colSpan={COLUMN_COUNT}
+          isLoading={isLoading}
+          isEmpty={visibleRows.length === 0}
+          error={error}
+          loadingText="Cargando docentes..."
+          errorText="No se pudieron cargar los docentes."
+          emptyText="No hay docentes que coincidan con el filtro."
+        />
+
+        {!isLoading && visibleRows.map((docente) => {
+          const docenteCategorias = categoriasPorDocente[docente.docente_id] ?? []
+          return (
+            <tr
+              key={docente.docente_id}
+              onClick={() => navigate(`/padron/docentes/${docente.docente_id}`)}
+              className="hover:bg-surface-container-low/80 transition-colors cursor-pointer group"
+            >
+              <td className="py-3 px-4 font-bold text-primary text-base pl-6">
+                {docente.legajo ? `#${docente.legajo}` : '—'}
+              </td>
+              <td className="py-3 px-4">
+                <span className="font-medium text-on-surface block text-base">{fullName(docente) || '—'}</span>
+              </td>
+              <td className="py-3 px-4 text-on-surface-variant text-sm">{docente.persona_detalle?.dni ?? '—'}</td>
+              <td className="py-3 px-4 text-on-surface-variant text-sm">{cargosDe(docenteCategorias).join(', ') || '—'}</td>
+              <td className="py-3 px-4 text-on-surface-variant text-sm">{categoryNames(docenteCategorias)}</td>
+              <td className="py-3 px-4">
+                <ActiveStatusBadge isActive={esActivo(docente)} label={esActivo(docente) ? 'Activo' : 'De baja'} />
+              </td>
             </tr>
-          </thead>
-          <tbody className="divide-y divide-outline-variant/20 font-body-sm text-lg text-on-surface">
-            {isLoading && (
-              <tr>
-                <td className="py-10 px-4 text-center text-on-surface-variant" colSpan={6}>
-                  Cargando docentes...
-                </td>
-              </tr>
-            )}
+          )
+        })}
+      </DataTable>
 
-            {!isLoading && visible.length === 0 && (
-              <tr>
-                <td className="py-10 px-4 text-center text-on-surface-variant" colSpan={6}>
-                  {error ? 'No se pudieron cargar los docentes.' : 'No hay docentes que coincidan con el filtro.'}
-                </td>
-              </tr>
-            )}
-
-            {!isLoading && visible.map((docente) => (
-              <tr
-                key={docente.docente_id}
-                onClick={() => navigate(`/padron/docentes/${docente.docente_id}`)}
-                className="hover:bg-surface-container-low/80 transition-colors cursor-pointer group"
-              >
-                <td className="py-3 px-4 font-bold text-primary text-base pl-6">
-                  {docente.legajo ? `#${docente.legajo}` : '—'}
-                </td>
-                <td className="py-3 px-4">
-                  <span className="font-medium text-on-surface block text-base group-hover: transition-colors">
-                    {nombreCompleto(docente) || '—'}
-                  </span>
-                </td>
-                <td className="py-3 px-4 text-on-surface-variant text-sm">
-                  {docente.persona_detalle?.dni ?? '—'}
-                </td>
-                <td className="py-3 px-4 text-on-surface-variant text-sm">
-                  {cargosDe(categoriasPorDocente[docente.docente_id]).join(', ') || '—'}
-                </td>
-                <td className="py-3 px-4 text-on-surface-variant text-sm">
-                  {nombresCategorias(categoriasPorDocente[docente.docente_id] ?? [])}
-                </td>
-                <td className="py-3 px-4 whitespace-nowrap">
-                  {esActivo(docente) ? (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-sm font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 shrink-0" />
-                      Activo
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-sm font-medium bg-surface-container-high text-on-surface-variant border border-outline-variant/30">
-                      <span className="w-1.5 h-1.5 rounded-full bg-outline shrink-0" />
-                      De baja
-                    </span>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <TablePagination
-        id="docentes-rows-per-page"
-        page={currentPage}
-        totalPages={totalPages}
-        rowsPerPage={rowsPerPage}
-        onPageChange={setPage}
-        onRowsPerPageChange={(value) => {
-          setRowsPerPage(value)
-          setPage(1)
-        }}
-      />
+      <TablePagination id="docentes-rows-per-page" {...paginationProps} />
     </div>
   )
 }

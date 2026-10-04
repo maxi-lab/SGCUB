@@ -1,3 +1,4 @@
+import React from 'react'
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { activateJugador, deactivateJugador, getJugador, patchJugador } from '../api/jugadores'
@@ -13,6 +14,8 @@ import { EmptyState } from '../components/personas/tabs/parts'
 import { LoadingFile, ErrorFile } from '../components/personas/FileStatus'
 import { isActiveStatus, formatDni, formatDate, formatNumber, getErrorMessage } from '../components/personas/format'
 import useLocalidades from '../hooks/useLocalidades'
+import useDocumentacion from "../hooks/useDocumentacion"
+import { buildDocumentBadges } from '../components/documental/documentBadges'
 
 const getContacts = (player) => (player.vinculos_familiares ?? []).map((c) => ({
   vinculo_familiar_id: c.vinculo_familiar_id,
@@ -40,6 +43,9 @@ function JugadorDetail() {
   const setJugador = (datos) => setCarga((actual) => ({ ...actual, datos }))
 
   const { localidades } = useLocalidades()
+  const { documentosActivos: activos } = useDocumentacion(jugador?.socio?.persona)
+  const badgeConfig = React.useMemo(() => buildDocumentBadges(activos), [activos])
+
 
   const [modalBajaAbierto, setModalBajaAbierto] = useState(false)
   const [dandoDeBaja, setDandoDeBaja] = useState(false)
@@ -155,7 +161,8 @@ function JugadorDetail() {
       id: 'documentacion',
       label: 'Documentación',
       icon: 'folder_shared',
-      content: <DocumentationTab />,
+      badge: badgeConfig,
+      content: <DocumentationTab personaId={socio?.persona?.persona_id || socio?.persona} personaInfo={socio} personaType="jugador" />,
     },
     {
       id: 'financiero',

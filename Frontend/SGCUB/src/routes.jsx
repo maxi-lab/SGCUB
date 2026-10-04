@@ -28,6 +28,7 @@ import CategoriaDetail from './pages/CategoriaDetail'
 import Usuarios from './pages/Usuarios'
 import ChangePassword from './pages/ChangePassword'
 import { CHANGE_PASSWORD_PATH } from './auth/paths'
+import DocumentacionDashboard from './pages/DocumentacionDashboard'
 export const router = createBrowserRouter([
   {
     path: '/login',
@@ -144,7 +145,7 @@ export const router = createBrowserRouter([
           },
           {
             path: 'documental',
-            element: <EnDesarrollo title="Documental" />,
+            element: <DocumentacionDashboard />,
           },
           {
             path: 'comunicaciones',

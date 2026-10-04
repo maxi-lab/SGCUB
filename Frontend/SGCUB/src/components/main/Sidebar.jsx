@@ -3,6 +3,7 @@ import { Link, NavLink, useLocation } from 'react-router-dom';
 import PermissionGate from '../../auth/PermissionGate';
 import { PERMISSIONS } from '../../auth/permissions';
 import { useAuth } from '../../auth/useAuth';
+import StatusBadge from '../shared/StatusBadge';
 import './sidebar.css';
 
 const DURACION_CONTRAER = 220;
@@ -11,6 +12,25 @@ export default function Sidebar({ collapsed, onToggle }) {
   const { pathname } = useLocation();
   const { hasPermission } = useAuth();
   const showAdminSection = hasPermission(PERMISSIONS.manageUsers) || hasPermission(PERMISSIONS.manageAutomations);
+
+  const [alertas, setAlertas] = useState(null);
+
+  useEffect(() => {
+    const fetchAlertas = async () => {
+      try {
+        const { getAlertasCount } = await import('../../api/documentacion');
+        const data = await getAlertasCount();
+        setAlertas(data);
+      } catch (err) {
+        console.error('Error fetching alertas count:', err);
+      }
+    };
+    
+    fetchAlertas();
+
+    window.addEventListener('documentacionCambiada', fetchAlertas);
+    return () => window.removeEventListener('documentacionCambiada', fetchAlertas);
+  }, []);
 
   const [contrayendo, setContrayendo] = useState(false);
   const [collapsedAnterior, setCollapsedAnterior] = useState(collapsed);
@@ -133,9 +153,16 @@ export default function Sidebar({ collapsed, onToggle }) {
                 <span className="app-sidebar-label font-body-md text-body-md">Documental</span>
               </div>
 
-              {/* Aca el uno habria que cambiarlo por un valor real o eliminar la notificacion */}
-              
-              <span className="bg-error-container text-on-error-container px-1.5 py-0.5 rounded-full font-label-sm text-label-sm font-semibold">8</span>
+              {alertas && (alertas.vencidos > 0 || alertas.proximos > 0) && (
+                <span className="font-label-sm flex items-center gap-1">
+                  {alertas.vencidos > 0 && (
+                    <StatusBadge badge={{ label: alertas.vencidos, tono: 'error', icon: 'error', hideDot: true, title: 'Vencidos' }} />
+                  )}
+                  {alertas.proximos > 0 && (
+                    <StatusBadge badge={{ label: alertas.proximos, tono: 'alerta', icon: 'schedule', hideDot: true, title: 'Por vencer' }} />
+                  )}
+                </span>
+              )}
             </NavLink>
             
             <NavLink to="/padron/categorias" className={({ isActive }) => `app-sidebar-link flex items-center justify-between px-space-sm py-2 rounded text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors ${isActive ? 'app-sidebar-link--active' : ''}`}>
