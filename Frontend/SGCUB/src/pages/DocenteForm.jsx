@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useRef } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api, API_ORIGIN } from '../api/conf'
 import { getCargosDocente, getDocente, patchDocente, postDocente } from '../api/docentes'
@@ -170,8 +170,15 @@ function DocenteForm() {
   const [cargando, setCargando] = useState(editando)
   const [errorCarga, setErrorCarga] = useState('')
   const busqueda = usePersonaSearchDNI({ habilitada: !editando })
+  const fileInputRef = useRef(null)
   const [archivoAntecedente, setArchivoAntecedente] = useState(null)
   const [documentoExistente, setDocumentoExistente] = useState(null)
+
+  const handleClearFile = () => {
+    setArchivoAntecedente(null)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
 
   useEffect(() => {
     let activo = true
@@ -358,6 +365,7 @@ function DocenteForm() {
           formData.append('tipo_documento', tipoId)
           formData.append('archivoUrl', archivoAntecedente)
           formData.append('fecha_recepcion', new Date().toISOString())
+          formData.append('fecha_emision', new Date().toISOString().split('T')[0])
           await api.post('documental/documentos/', formData, {
             headers: { 'Content-Type': 'multipart/form-data' },
           })
@@ -388,6 +396,7 @@ function DocenteForm() {
       formData.append('tipo_documento', tipoId)
       formData.append('archivoUrl', archivoAntecedente)
       formData.append('fecha_recepcion', new Date().toISOString())
+          formData.append('fecha_emision', new Date().toISOString().split('T')[0])
 
       await api.post('documental/documentos/', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -636,16 +645,29 @@ function DocenteForm() {
                 hint={editando && documentoExistente ? '(dejalo vacío para conservar el actual)' : '(archivo PDF)'}
                 error={errores.antecedente_penal}
               >
-                <input
-                  id="antecedente_penal"
-                  type="file"
-                  accept="application/pdf"
-                  onChange={(e) => {
-                    setArchivoAntecedente(e.target.files?.[0] ?? null)
-                    limpiarError('antecedente_penal')
-                  }}
-                  className={claseInput(Boolean(errores.antecedente_penal), 'file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:bg-primary/10 file:text-primary file:text-sm file:font-semibold')}
-                />
+                <div className="relative w-full flex items-center gap-2">
+                  <input
+                    id="antecedente_penal"
+                    type="file"
+                    accept="application/pdf"
+                    ref={fileInputRef}
+                    onChange={(e) => {
+                      setArchivoAntecedente(e.target.files?.[0] ?? null)
+                      limpiarError('antecedente_penal')
+                    }}
+                    className={`block w-full text-sm text-on-surface-variant file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary-container file:text-on-primary-container hover:file:bg-primary hover:file:text-on-primary file:cursor-pointer file:transition-colors cursor-pointer bg-surface-container-low rounded-lg p-2 focus:outline-none ${errores.antecedente_penal ? 'border-2 border-error' : 'border border-outline-variant/50'}`}
+                  />
+                  {archivoAntecedente && (
+                    <button 
+                      type="button" 
+                      onClick={handleClearFile}
+                      className="w-10 h-10 shrink-0 rounded-lg bg-surface-container-high hover:bg-error-container text-on-surface-variant hover:text-error flex items-center justify-center transition-colors cursor-pointer"
+                      title="Quitar archivo seleccionado"
+                    >
+                      <span className="material-symbols-outlined text-[20px]">close</span>
+                    </button>
+                  )}
+                </div>
                 {archivoAntecedente && (
                   <p className="text-sm text-on-surface-variant mt-1">
                     {archivoAntecedente.name} ({(archivoAntecedente.size / 1024).toFixed(0)} KB)
