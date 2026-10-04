@@ -1,5 +1,6 @@
+import React from 'react'
 import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { activateDocente, deactivateDocente, getCargosDocente, getDocente, patchDocente } from '../api/docentes'
 import ActivateDocenteModal from '../components/docentes/ActivateDocenteModal'
 import DeactivateDocenteModal from '../components/docentes/DeactivateDocenteModal'
@@ -7,14 +8,19 @@ import PersonHeader, { EditButton, DeactivateButton, ActivateButton } from '../c
 import PersonTabs from '../components/personas/TabsNavPersonas'
 import PersonalDataTab from '../components/personas/tabs/PersonalDataTab'
 import CategoriesTab from '../components/personas/tabs/CategoriesTab'
+import DocumentationTab from '../components/personas/tabs/DocumentationTab'
 import { LoadingFile, ErrorFile } from '../components/personas/FileStatus'
 import { yearsSince, formatDni, formatDate, yearsText, isActiveStatus, getErrorMessage } from '../components/personas/format'
 import useCategorias from '../hooks/useCategorias'
 import useLocalidades from '../hooks/useLocalidades'
 
+import useDocumentacion from "../hooks/useDocumentacion"
+import { buildDocumentBadges } from '../components/documental/documentBadges'
 function DocenteDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const requestedTab = searchParams.get("tab") ?? undefined
   const { localidades } = useLocalidades()
   const { categorias } = useCategorias()
   const [cargos, setCargos] = useState([])
@@ -22,6 +28,9 @@ function DocenteDetail() {
   const [carga, setCarga] = useState({ id: null, docente: null, error: null })
   const loading = carga.id !== id
   const { docente, error } = carga
+
+  const { documentosActivos: activos } = useDocumentacion(docente?.persona)
+  const badgeConfig = React.useMemo(() => buildDocumentBadges(activos), [activos])
 
   const [modalBajaAbierto, setModalBajaAbierto] = useState(false)
   const [dandoDeBaja, setDandoDeBaja] = useState(false)
@@ -109,6 +118,13 @@ function DocenteDetail() {
       content: <PersonalDataTab persona={persona} localidades={localidades} />,
     },
     {
+      id: 'documentacion',
+      label: 'Documentación',
+      icon: 'folder_shared',
+      badge: badgeConfig,
+      content: <DocumentationTab personaId={docente?.persona?.persona_id || docente?.persona} personaInfo={persona} personaType="docente" />,
+    },
+    {
       id: 'categorias',
       label: 'Categorías',
       icon: 'groups',
@@ -164,7 +180,7 @@ function DocenteDetail() {
         )}
       />
 
-      <PersonTabs tabs={tabs} />
+      <PersonTabs key={`${id}-${requestedTab}`} tabs={tabs} defaultTab={requestedTab} />
 
       <ActivateDocenteModal
         key={modalAltaKey}

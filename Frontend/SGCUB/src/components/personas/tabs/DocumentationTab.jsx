@@ -1,91 +1,221 @@
-//DEBE REVISARSE AL REALIZAR TODA LA LOGICA DE DOCUMENTACION, SOLO ES PARA PODER MOSTRAR ALGO EN EL LEGAJO
+import { useState } from 'react'
+import { EmptyState, PrimaryButton, SecondaryButton, TabHeader } from './parts'
+import useDocumentacion from '../../../hooks/useDocumentacion'
+import DocumentacionUploadModal from '../../documental/DocumentacionUploadModal'
+import DocumentacionDeleteModal from '../../documental/DocumentacionDeleteModal'
+import PersonaDocumentsTable from '../../documental/PersonaDocumentsTable'
 
-
-import { formatDate } from '../format'
-import { PrimaryButton, SecondaryButton, TabHeader, EmptyState, KPI } from './parts'
-
-const DIAS_AVISO_VENCIMIENTO = 30
-
-const getDocumentStatus = (vencimiento) => {
-  if (!vencimiento) return 'vigente'
-  const dias = (new Date(`${vencimiento}T00:00:00`) - new Date()) / 86400000
-  if (dias < 0) return 'vencido'
-  return dias <= DIAS_AVISO_VENCIMIENTO ? 'por_vencer' : 'vigente'
+const EMPTY_UPLOAD_FORM = {
+  tipo_documento: '',
+  archivo: null,
+  archivoUrl_existing: null,
+  borrar_archivo: false,
+  fecha_emision: '',
+  fecha_vencimiento: '',
 }
 
-const ETIQUETA_ESTADO = {
-  vigente: { label: 'Vigente', clase: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-  por_vencer: { label: 'Por vencer', clase: 'bg-amber-50 text-amber-700 border-amber-200' },
-  vencido: { label: 'Vencido', clase: 'bg-error-container text-on-error-container border-error/20' },
+const SAVE_ERROR_MESSAGE = 'No se pudo guardar el documento.'
+
+const getSaveErrorMessage = (requestError) => {
+  const data = requestError.response?.data
+  if (!data) return requestError.response ? SAVE_ERROR_MESSAGE : 'No se pudo conectar con el servidor.'
+  if (typeof data === 'string') return SAVE_ERROR_MESSAGE
+  if (data.detail) return data.detail
+  return Object.values(data).flat().join(' ') || SAVE_ERROR_MESSAGE
 }
 
-export default function DocumentationTab({ documents = [], onUpload, onDownload }) {
-  const documentsWithStatus = documents.map((document) => ({ ...document, status: getDocumentStatus(document.vencimiento) }))
-  const countByStatus = (status) => documentsWithStatus.filter((document) => document.status === status).length
+export default function DocumentationTab({ personaId, personaType, personaInfo }) {
+  const {
+    tipos,
+    isLoading: loading,
+    subirDocumento,
+    actualizarDocumento,
+    borrarDocumento,
+    getNombreTipo,
+    documentosActivos,
+    documentosHistoricos
+  } = useDocumentacion(personaId)
+
+
+  const [uploadModalOpen, setUploadModalOpen] = useState(false)
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false)
+  const [docToDelete, setDocToDelete] = useState(null)
+  
+  const [isEditing, setIsEditing] = useState(false)
+  const [docToEdit, setDocToEdit] = useState(null)
+
+  const [uploadForm, setUploadForm] = useState(EMPTY_UPLOAD_FORM)
+  const [saveError, setSaveError] = useState(null)
+
+  const tiposFiltrados = tipos.filter(t => {
+    const isDocenteType = ['Antecedentes Penales', 'CV', 'DNI'].includes(t.nombre)
+    if (personaType === 'docente') {
+      return isDocenteType
+    }
+    return !['Antecedentes Penales', 'CV'].includes(t.nombre)
+  })
+
+  const handleDeleteClick = (doc) => {
+    setDocToDelete(doc)
+    setDeleteModalOpen(true)
+  }
+
+  const handleEditClick = (doc) => {
+    setIsEditing(true)
+    setDocToEdit(doc)
+    setUploadForm({
+      tipo_documento: doc.tipo_documento || '',
+      archivo: null,
+      archivoUrl_existing: doc.archivoUrl || null,
+      borrar_archivo: false,
+      fecha_emision: doc.fecha_emision ? doc.fecha_emision.split('T')[0] : '',
+      fecha_vencimiento: doc.fecha_vencimiento ? doc.fecha_vencimiento.split('T')[0] : '',
+    })
+    setSaveError(null)
+    setUploadModalOpen(true)
+  }
+
+  const handleNewClick = () => {
+    setIsEditing(false)
+    setDocToEdit(null)
+    setUploadForm(EMPTY_UPLOAD_FORM)
+    setSaveError(null)
+    setUploadModalOpen(true)
+  }
+
+  const confirmDelete = async () => {
+    if (!docToDelete) return
+    try {
+      await borrarDocumento(docToDelete.id_documento)
+      setDeleteModalOpen(false)
+      setDocToDelete(null)
+    } catch (error) {
+      console.error('Error deleting document:', error)
+    }
+  }
+
+  const handleUploadChange = (e) => {
+    const { name, value, type, files, checked } = e.target
+    if (type === 'file') {
+      setUploadForm(prev => ({ ...prev, archivo: files.length > 0 ? files[0] : null }))
+    } else if (type === 'checkbox') {
+      setUploadForm(prev => ({ ...prev, [name]: checked }))
+    } else {
+      setUploadForm(prev => ({ ...prev, [name]: value }))
+    }
+  }
+
+  const handleUploadSubmit = async (e) => {
+    e.preventDefault()
+    setSaveError(null)
+    try {
+      const formData = new FormData();
+      formData.append('persona', personaId);
+      formData.append('tipo_documento', uploadForm.tipo_documento);
+      
+      const appendDate = (field) => {
+        if (uploadForm[field]) formData.append(field, `${uploadForm[field]}T00:00:00`);
+        else if (isEditing) formData.append(field, '');
+      }
+      appendDate('fecha_emision');
+      appendDate('fecha_vencimiento');
+      if (uploadForm.archivo) {
+        formData.append('archivoUrl', uploadForm.archivo);
+      } else if (isEditing && uploadForm.borrar_archivo) {
+        formData.append('archivoUrl', '');
+      }
+      
+      if (isEditing) {
+        await actualizarDocumento(docToEdit.id_documento, formData)
+      } else {
+        await subirDocumento(formData)
+      }
+      setUploadModalOpen(false)
+      setUploadForm(EMPTY_UPLOAD_FORM)
+      setIsEditing(false)
+      setDocToEdit(null)
+    } catch (error) {
+      console.error('Error uploading document:', error)
+      setSaveError(getSaveErrorMessage(error))
+    }
+  }
+
+  const handleDownloadZip = async () => {
+    try {
+      const { downloadZip } = await import('../../../api/documentacion');
+      const blob = await downloadZip(personaId);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = personaInfo?.dni ? `${personaInfo.dni}-${personaInfo.nombre}_${personaInfo.apellido}.zip`.replace(/\s+/g, '_') : `documentos_${personaId}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Error descargando ZIP:", err);
+      alert("Error al descargar el ZIP. Verifica que el usuario tenga documentos.");
+    }
+  }
+
+  if (loading) return <div className="text-base text-on-surface-variant">Cargando documentación...</div>
 
   return (
     <div className="flex flex-col gap-6">
       <TabHeader
-        title="Documentación del jugador"
-        description="Control de legajo documental, aptos físicos, fichas federativas y vencimientos"
+        title="Documentación Requerida"
+        description="Control de habilitaciones institucionales, certificados médicos laborales y títulos habilitantes reglamentarios."
         actions={(
           <>
-            <SecondaryButton icon="folder_zip" onClick={onDownload} disabled={!onDownload || documents.length === 0}>
-              Descargar legajo (ZIP)
-            </SecondaryButton>
-            <PrimaryButton icon="upload_file" onClick={onUpload} disabled={!onUpload}>
-              Cargar documento
-            </PrimaryButton>
+            <SecondaryButton icon="folder_zip" onClick={handleDownloadZip}>Descargar ZIP</SecondaryButton>
+            <PrimaryButton icon="upload_file" onClick={handleNewClick}>Cargar documento</PrimaryButton>
           </>
         )}
       />
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <KPI label="Total documentos" value={documents.length} icon="description" />
-        <KPI label="Vigentes" value={countByStatus('vigente')} icon="verified" tone="ok" />
-        <KPI label="Por vencer" value={countByStatus('por_vencer')} icon="schedule" tone="alert" />
-        <KPI label="Vencidos" value={countByStatus('vencido')} icon="error" tone="error" />
-      </div>
-
-      {documentsWithStatus.length === 0 ? (
+      {documentosActivos.length === 0 ? (
         <EmptyState
-          icono="folder_off"
-          titulo="Sin documentos cargados"
-          descripcion="La carga de documentación (aptos médicos, fichas federativas, autorizaciones) todavía no está disponible en el sistema."
+          icon="folder_off"
+          title="Sin documentos cargados"
+          description="Todavía no hay documentación cargada para esta persona."
         />
       ) : (
-        <div className="overflow-x-auto border border-outline-variant/30 rounded-xl bg-surface-container-lowest shadow-sm">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-surface-container-low/70 border-b border-outline-variant/30 text-on-surface-variant text-sm uppercase tracking-wider">
-                <th className="py-3 px-4 font-semibold">Documento</th>
-                <th className="py-3 px-4 font-semibold">Tipo</th>
-                <th className="py-3 px-4 font-semibold">Vencimiento</th>
-                <th className="py-3 px-4 font-semibold text-center">Estado</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-outline-variant/20 text-base">
-              {documentsWithStatus.map((document, index) => (
-                <tr key={document.id ?? index} className="hover:bg-surface-container-low transition-colors">
-                  <td className="py-3.5 px-4 font-semibold text-on-surface">
-                    <span className="inline-flex items-center gap-2">
-                      <span className="material-symbols-outlined text-[20px] text-primary">description</span>
-                      {document.nombre}
-                    </span>
-                  </td>
-                  <td className="py-3.5 px-4 text-on-surface-variant">{document.tipo || '—'}</td>
-                  <td className="py-3.5 px-4 text-on-surface-variant">{document.vencimiento ? formatDate(document.vencimiento) : 'Sin vencimiento'}</td>
-                  <td className="py-3.5 px-4 text-center">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-semibold border ${ETIQUETA_ESTADO[document.status].clase}`}>
-                      {ETIQUETA_ESTADO[document.status].label}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <PersonaDocumentsTable
+          documents={documentosActivos}
+          getTypeName={getNombreTipo}
+          onEdit={handleEditClick}
+          onDelete={handleDeleteClick}
+        />
       )}
+
+      {documentosHistoricos.length > 0 && (
+        <PersonaDocumentsTable
+          title="Historial de Documentación"
+          documents={documentosHistoricos}
+          getTypeName={getNombreTipo}
+          onDelete={handleDeleteClick}
+          isHistory
+        />
+      )}
+
+      <DocumentacionUploadModal 
+        isOpen={uploadModalOpen} 
+        onClose={() => setUploadModalOpen(false)} 
+        onSubmit={handleUploadSubmit} 
+        form={uploadForm} 
+        onChange={handleUploadChange} 
+        tipos={tiposFiltrados} 
+        isEditing={isEditing}
+        error={saveError}
+      />
+
+      <DocumentacionDeleteModal 
+        isOpen={deleteModalOpen} 
+        onClose={() => setDeleteModalOpen(false)} 
+        onConfirm={confirmDelete} 
+        document={docToDelete} 
+        typeName={docToDelete ? getNombreTipo(docToDelete.tipo_documento) : ''}
+      />
     </div>
   )
 }
