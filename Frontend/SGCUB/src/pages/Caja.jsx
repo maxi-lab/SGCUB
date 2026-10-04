@@ -73,8 +73,10 @@ function Caja() {
       <ComprobantesTable comprobantes={comprobantes} isLoading={cargaComprobantes.loading} error={cargaComprobantes.error} onSelect={seleccionarComprobante} />
       <ComprobanteDetalleModal comprobante={comprobanteSeleccionado} detalle={detalleComprobante} loading={cargandoDetalle} error={errorDetalle} opened={Boolean(comprobanteSeleccionado)} onClose={() => setComprobanteSeleccionado(null)} onCorrect={setPagoEnCorreccion} />
       <CorregirPagoModal
+        key={pagoEnCorreccion?.pago_id ?? 'closed'}
         comprobante={comprobanteSeleccionado}
         pago={pagoEnCorreccion}
+        detail={detalleComprobante}
         opened={Boolean(pagoEnCorreccion)}
         onClose={() => setPagoEnCorreccion(null)}
         onSuccess={async () => {
