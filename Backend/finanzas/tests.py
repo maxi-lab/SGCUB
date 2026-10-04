@@ -375,24 +375,22 @@ class CuotaEndpointTests(APITestCase):
 	def test_agregar_descuento_actualiza_cargo_y_saldo(self):
 		cuota_id = self.crear().data["cuota_id"]
 
-		response = self.client.post(
-			reverse("item-cuota-list"),
-			{
-				"cuota": cuota_id,
-				"concepto": "DescuentoUnico",
-				"es_descuento": True,
-				"fecha_aplicacion": "2026-10-01",
-				"monto": "500.00",
-				"motivo": "Hermanos",
-			},
-			format="json",
+		cuota = Cuota.objects.get(pk=cuota_id)
+		item = ItemCuota.objects.create(
+			cuota=cuota,
+			concepto="DescuentoUnico",
+			es_descuento=True,
+			fecha_aplicacion=date(2026, 10, 1),
+			monto=Decimal("500.00"),
+			motivo="Hermanos",
 		)
+		sync_cuota_charge(cuota)
 
-		self.assertEqual(response.status_code, 201, response.data)
 		self.assertEqual(MovimientoCuenta.objects.get(cuota_id=cuota_id).monto, Decimal("2000.00"))
 		self.assertEqual(CuentaCorriente.objects.get(socio=self.socio).saldo, Decimal("-2000.00"))
 
-		self.client.delete(reverse("item-cuota-detail", args=[response.data["item_cuota_id"]]))
+		item.delete()
+		sync_cuota_charge(cuota)
 
 		self.assertEqual(MovimientoCuenta.objects.get(cuota_id=cuota_id).monto, Decimal("2500.00"))
 		self.assertEqual(CuentaCorriente.objects.get(socio=self.socio).saldo, Decimal("-2500.00"))
@@ -869,14 +867,15 @@ class CuotaSettledStateTests(APITestCase):
 		return self.client.post(reverse("cuota-beneficio", args=[self.cuota.pk]), values, format="json")
 
 	def add_discount_item(self, amount):
-		return self.client.post(reverse("item-cuota-list"), {
-			"cuota": self.cuota.pk,
-			"concepto": "DescuentoUnico",
-			"es_descuento": True,
-			"fecha_aplicacion": "2026-10-01",
-			"monto": amount,
-			"motivo": "Ajuste",
-		}, format="json")
+		ItemCuota.objects.create(
+			cuota=self.cuota,
+			concepto="DescuentoUnico",
+			es_descuento=True,
+			fecha_aplicacion=date(2026, 10, 1),
+			monto=Decimal(amount),
+			motivo="Ajuste",
+		)
+		sync_cuota_charge(self.cuota)
 
 	def state(self):
 		self.cuota.refresh_from_db()
@@ -903,25 +902,19 @@ class CuotaSettledStateTests(APITestCase):
 		self.assertEqual(self.state(), EstadoCuotaChoices.PAGA)
 		self.assertEqual(self.account_status()["cuotas_impagas"], 0)
 
-	def test_item_endpoint_refreshes_state(self):
-		response = self.add_discount_item("1000.00")
+	def test_item_changes_refresh_state(self):
+		self.add_discount_item("1000.00")
 
-		self.assertEqual(response.status_code, 201, response.data)
 		self.assertNotEqual(self.state(), EstadoCuotaChoices.PAGA)
 
-		response = self.add_discount_item("1500.00")
+		self.add_discount_item("1500.00")
 
-		self.assertEqual(response.status_code, 201, response.data)
 		self.assertEqual(self.state(), EstadoCuotaChoices.PAGA)
 
 	def test_paid_cuota_cannot_be_modified(self):
 		self.assign()
-		item = self.cuota.items.first()
 
 		responses = {
-			"add item": self.add_discount_item("10.00"),
-			"edit item": self.client.patch(reverse("item-cuota-detail", args=[item.pk]), {"monto": "10.00"}, format="json"),
-			"delete item": self.client.delete(reverse("item-cuota-detail", args=[item.pk])),
 			"edit cuota": self.client.patch(reverse("cuota-detail", args=[self.cuota.pk]), {"fecha_venc2": "2026-10-25"}, format="json"),
 			"delete cuota": self.client.delete(reverse("cuota-detail", args=[self.cuota.pk])),
 			"discount": self.assign(modalidad="MontoFijo", valor="10.00"),
@@ -1312,17 +1305,17 @@ class ProteccionRegistrosFinancierosTests(PagoTestBase):
 		self.assertEqual(self.client.get(reverse("imputacion-list")).status_code, 200)
 		self.assertTrue(MovimientoCuenta.objects.filter(pk=self.movimiento.pk).exists())
 
-	def test_saldo_de_la_cuenta_no_se_edita_a_mano(self):
-		response = self.client.patch(
-			reverse("cuenta-corriente-detail", args=[self.cuenta.pk]),
-			{"saldo": "999999.00", "estado_cuenta_corriente": "Inactivo"},
-			format="json",
-		)
+	def test_current_account_is_read_only(self):
+		url = reverse("cuenta-corriente-detail", args=[self.cuenta.pk])
+		data = {"saldo": "999999.00", "estado_cuenta_corriente": "Inactivo"}
 
-		self.assertEqual(response.status_code, 200, response.data)
+		for method in ("put", "patch"):
+			with self.subTest(method=method):
+				self.assertEqual(getattr(self.client, method)(url, data, format="json").status_code, 405)
 		self.cuenta.refresh_from_db()
 		self.assertEqual(self.cuenta.saldo, Decimal("-1600.00"))
-		self.assertEqual(self.cuenta.estado_cuenta_corriente, "Inactivo")
+		self.assertEqual(self.cuenta.estado_cuenta_corriente, "Activo")
+		self.assertEqual(self.client.get(url).status_code, 200)
 
 	def test_cuota_con_pagos_no_se_edita_ni_se_elimina(self):
 		edicion = self.client.patch(
@@ -1331,32 +1324,30 @@ class ProteccionRegistrosFinancierosTests(PagoTestBase):
 			format="json",
 		)
 		baja = self.client.delete(reverse("cuota-detail", args=[self.agosto.pk]))
-		nuevo_item = self.client.post(
-			reverse("item-cuota-list"),
-			{"cuota": self.agosto.pk, "concepto": "Otro", "fecha_aplicacion": "2026-08-01", "monto": "10.00"},
-			format="json",
-		)
-		item = self.agosto.items.get()
-		baja_item = self.client.delete(reverse("item-cuota-detail", args=[item.pk]))
 
-		for response in (edicion, baja, nuevo_item, baja_item):
+		for response in (edicion, baja):
 			self.assertEqual(response.status_code, 400)
 		self.assertTrue(Cuota.objects.filter(pk=self.agosto.pk).exists())
 		self.assertEqual(self.agosto.items.count(), 1)
 		self.assertEqual(MovimientoCuenta.objects.get(cuota=self.agosto).monto, Decimal("1000.00"))
 
-	def test_no_se_puede_mover_un_item_a_una_cuota_con_pagos(self):
+	def test_cuota_items_are_read_only(self):
 		item = self.septiembre.items.get()
+		writes = [
+			("post", reverse("item-cuota-list"), {"cuota": self.septiembre.pk, "concepto": "Otro", "fecha_aplicacion": "2026-09-01", "monto": "10.00"}),
+			("put", reverse("item-cuota-detail", args=[item.pk]), {"cuota": self.agosto.pk}),
+			("patch", reverse("item-cuota-detail", args=[item.pk]), {"cuota": self.agosto.pk, "monto": "1.00"}),
+			("delete", reverse("item-cuota-detail", args=[item.pk]), {}),
+		]
 
-		response = self.client.patch(
-			reverse("item-cuota-detail", args=[item.pk]),
-			{"cuota": self.agosto.pk},
-			format="json",
-		)
-
-		self.assertEqual(response.status_code, 400)
+		for method, url, data in writes:
+			with self.subTest(method=method, url=url):
+				self.assertEqual(getattr(self.client, method)(url, data, format="json").status_code, 405)
 		item.refresh_from_db()
 		self.assertEqual(item.cuota_id, self.septiembre.pk)
+		self.assertEqual(item.monto, Decimal("1000.00"))
+		self.assertEqual(self.septiembre.items.count(), 1)
+		self.assertEqual(self.client.get(reverse("item-cuota-detail", args=[item.pk])).status_code, 200)
 
 	def test_cuota_sin_pagos_sigue_pudiendo_eliminarse(self):
 		response = self.client.delete(reverse("cuota-detail", args=[self.septiembre.pk]))
@@ -2015,3 +2006,83 @@ class OpenMissingCurrentAccountsMigrationTests(TransactionTestCase):
 		self.assertEqual(NewCuentaCorriente.objects.filter(socio_id=with_account.pk).count(), 1)
 		self.assertEqual(NewCuentaCorriente.objects.get(socio_id=with_account.pk).pk, existing.pk)
 		self.assertEqual(NewCuentaCorriente.objects.get(pk=existing.pk).saldo, Decimal("-500.00"))
+
+
+class CurrentAccountStateTests(APITestCase):
+	def setUp(self):
+		self.client.force_authenticate(user=get_user_model().objects.create_user(username="administrativo"))
+		self.socio = crear_socio("40111230")
+
+	def account_state(self):
+		return CuentaCorriente.objects.get(socio=self.socio).estado_cuenta_corriente
+
+	def test_inactive_socio_opens_an_inactive_account(self):
+		socio = crear_socio("40111231", socio_inactivo=True)
+		inactive_socio = Socio.objects.create(
+			persona=Persona.objects.create(nombre="Baja", apellido="Directa", dni="40111232"),
+			estado_administrativo=socio.estado_administrativo,
+		)
+
+		self.assertEqual(CuentaCorriente.objects.get(socio=inactive_socio).estado_cuenta_corriente, "Inactivo")
+
+	def test_account_follows_socio_deactivation_and_reactivation(self):
+		self.assertEqual(self.account_state(), "Activo")
+
+		response = self.client.delete(f"/api/padron/socio/{self.socio.pk}/")
+
+		self.assertEqual(response.status_code, 200, response.data)
+		self.assertEqual(self.account_state(), "Inactivo")
+
+		active_state = EstadoAdministrativo.objects.get_or_create(nombre="Activo")[0]
+		response = self.client.patch(f"/api/padron/socio/{self.socio.pk}/", {"estado_administrativo": active_state.pk}, format="json")
+
+		self.assertEqual(response.status_code, 200, response.data)
+		self.assertEqual(self.account_state(), "Activo")
+
+	def test_account_follows_model_methods(self):
+		self.socio.deactivate()
+
+		self.assertEqual(self.account_state(), "Inactivo")
+
+		self.socio.activate()
+
+		self.assertEqual(self.account_state(), "Activo")
+
+
+class SyncCurrentAccountStatesMigrationTests(TransactionTestCase):
+	migrate_from = [("finanzas", "0027_concepto_item_labels")]
+	migrate_to = [("finanzas", "0028_sync_current_account_states")]
+
+	def migrate(self, targets):
+		executor = MigrationExecutor(connection)
+		executor.loader.build_graph()
+		executor.migrate(targets)
+		return executor.loader.project_state(targets).apps
+
+	def tearDown(self):
+		self.migrate(MigrationExecutor(connection).loader.graph.leaf_nodes())
+
+	def test_aligns_account_states_with_socio_states(self):
+		old_apps = self.migrate(self.migrate_from)
+		OldPersona = old_apps.get_model("padron", "Persona")
+		OldSocio = old_apps.get_model("padron", "Socio")
+		OldEstado = old_apps.get_model("padron", "EstadoAdministrativo")
+		OldCuentaCorriente = old_apps.get_model("finanzas", "CuentaCorriente")
+
+		active = OldEstado.objects.get_or_create(nombre="Activo")[0]
+		inactive = OldEstado.objects.get_or_create(nombre="Inactivo")[0]
+
+		def account(dni, number, state, account_state):
+			socio = OldSocio.objects.create(persona=OldPersona.objects.create(nombre="Socio", apellido="Prueba", dni=dni), numero_socio=number, estado_administrativo=state)
+			return OldCuentaCorriente.objects.create(socio=socio, estado_cuenta_corriente=account_state)
+
+		stale_inactive = account("95678901", 1, inactive, "Activo")
+		stale_active = account("95678902", 2, active, "Inactivo")
+		aligned = account("95678903", 3, active, "Activo")
+
+		new_apps = self.migrate(self.migrate_to)
+		NewCuentaCorriente = new_apps.get_model("finanzas", "CuentaCorriente")
+
+		self.assertEqual(NewCuentaCorriente.objects.get(pk=stale_inactive.pk).estado_cuenta_corriente, "Inactivo")
+		self.assertEqual(NewCuentaCorriente.objects.get(pk=stale_active.pk).estado_cuenta_corriente, "Activo")
+		self.assertEqual(NewCuentaCorriente.objects.get(pk=aligned.pk).estado_cuenta_corriente, "Activo")

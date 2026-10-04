@@ -1,5 +1,4 @@
 
-from django.db import transaction
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -59,7 +58,6 @@ from .services import (
 	generar_cuotas_mensuales,
 	pending_amounts,
 	register_payment,
-	sync_cuota_charge,
 )
 
 
@@ -130,53 +128,16 @@ def cuota_detail(request, pk):
 	return Response(CuotaSerializer(_cuotas_queryset().get(pk=pk)).data)
 
 
-@extend_schema(tags=["Finanzas/ItemCuota"], request=ItemCuotaSerializer, responses=ItemCuotaSerializer)
-@api_view(["GET", "POST"])
-def item_cuota_list_create(request):
-	if request.method == "GET":
-		return Response(ItemCuotaSerializer(ItemCuota.objects.all(), many=True).data)
-
-	serializer = ItemCuotaSerializer(data=request.data)
-	if not serializer.is_valid():
-		return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-	try:
-		with transaction.atomic():
-			ensure_cuota_without_payments(serializer.validated_data["cuota"])
-			item = serializer.save()
-			sync_cuota_charge(item.cuota)
-	except CuotaConPagosError as error:
-		return _cuota_con_pagos(error)
-	return Response(ItemCuotaSerializer(item).data, status=status.HTTP_201_CREATED)
+@extend_schema(tags=["Finanzas/ItemCuota"], responses=ItemCuotaSerializer)
+@api_view(["GET"])
+def cuota_item_list(request):
+	return Response(ItemCuotaSerializer(ItemCuota.objects.order_by("pk"), many=True).data)
 
 
-@extend_schema(tags=["Finanzas/ItemCuota"], request=ItemCuotaSerializer, responses=ItemCuotaSerializer)
-@api_view(["GET", "PUT", "PATCH", "DELETE"])
-def item_cuota_detail(request, pk):
-	item = get_object_or_404(ItemCuota.objects.select_related("cuota"), pk=pk)
-	if request.method == "GET":
-		return Response(ItemCuotaSerializer(item).data)
-
-	previous_cuota = item.cuota
-	try:
-		with transaction.atomic():
-			ensure_cuota_without_payments(previous_cuota)
-			if request.method == "DELETE":
-				item.delete()
-				sync_cuota_charge(previous_cuota)
-				return Response(status=status.HTTP_204_NO_CONTENT)
-
-			serializer = ItemCuotaSerializer(item, data=request.data, partial=request.method == "PATCH")
-			if not serializer.is_valid():
-				return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-			ensure_cuota_without_payments(serializer.validated_data.get("cuota", previous_cuota))
-			item = serializer.save()
-			sync_cuota_charge(previous_cuota)
-			if item.cuota_id != previous_cuota.pk:
-				sync_cuota_charge(item.cuota)
-	except CuotaConPagosError as error:
-		return _cuota_con_pagos(error)
-	return Response(ItemCuotaSerializer(item).data)
+@extend_schema(tags=["Finanzas/ItemCuota"], responses=ItemCuotaSerializer)
+@api_view(["GET"])
+def cuota_item_detail(request, pk):
+	return Response(ItemCuotaSerializer(get_object_or_404(ItemCuota, pk=pk)).data)
 
 
 @extend_schema(tags=["Finanzas/Pago"], responses=PagoSerializer)
@@ -307,17 +268,11 @@ def current_account_list(request):
 	return Response(CuentaCorrienteSerializer(accounts, many=True).data)
 
 
-@extend_schema(tags=["Finanzas/CuentaCorriente"], request=CuentaCorrienteSerializer, responses=CuentaCorrienteSerializer)
-@api_view(["GET", "PUT", "PATCH"])
-def cuenta_corriente_detail(request, pk):
-	cuenta = get_object_or_404(CuentaCorriente.objects.select_related("socio"), pk=pk)
-	if request.method == "GET":
-		return Response(CuentaCorrienteSerializer(cuenta).data)
-
-	serializer = CuentaCorrienteSerializer(cuenta, data=request.data, partial=request.method == "PATCH")
-	if not serializer.is_valid():
-		return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-	return Response(CuentaCorrienteSerializer(serializer.save()).data)
+@extend_schema(tags=["Finanzas/CuentaCorriente"], responses=CuentaCorrienteSerializer)
+@api_view(["GET"])
+def current_account_detail(request, pk):
+	account = get_object_or_404(CuentaCorriente.objects.select_related("socio"), pk=pk)
+	return Response(CuentaCorrienteSerializer(account).data)
 
 
 @extend_schema(tags=["Finanzas/EstadoCuenta"], responses=CuentaCorrienteEstadoSerializer)
