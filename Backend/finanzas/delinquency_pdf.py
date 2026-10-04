@@ -11,7 +11,7 @@ from .pdf_utils import CLUB_NAME, format_amount, table
 
 PAGE_SIZE = landscape(A4)
 MARGIN = 15 * mm
-COLUMN_SHARES = (0.28, 0.12, 0.09, 0.20, 0.10, 0.09, 0.12)
+COLUMN_SHARES = (0.28, 0.10, 0.10, 0.18, 0.12, 0.10, 0.12)
 HEADERS = ["Apellido y nombre", "DNI", "N° de socio", "Categoría deportiva", "Cuotas vencidas", "Días de mora", "Monto adeudado"]
 
 
