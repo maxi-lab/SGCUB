@@ -375,7 +375,7 @@ class VinculoFamiliarSerializer(serializers.ModelSerializer):
             flags = list(player.vinculos_familiares.exclude(pk=self.instance.pk).values_list("responsable_legal", flat=True))
             error = player_contacts_error(player.socio.persona.fecha_nacimiento, flags + [attrs["responsable_legal"]])
             if error:
-                raise serializers.ValidationError({"responsable legal": [error]})
+                raise serializers.ValidationError({"responsable_legal": [error]})
         return attrs
 
     @transaction.atomic
@@ -650,7 +650,7 @@ class DocenteSerializer(serializers.ModelSerializer):
             if existing is not None:
                 raise serializers.ValidationError({
                     "persona": ["Esta persona ya está registrada como docente."],
-                    "persona existente": {"docente_id": existing.pk},
+                    "persona_existente": {"docente_id": existing.pk},
                 })
 
         assignments = attrs.get("asignaciones")

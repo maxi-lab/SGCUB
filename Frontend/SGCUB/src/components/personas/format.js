@@ -37,17 +37,25 @@ export const isActiveStatus = (name) => {
   return value.includes('activo') && !value.includes('inactivo')
 }
 
+const FIELD_LABELS = { dni: 'DNI' }
+
+const fieldLabel = (field) => {
+  if (FIELD_LABELS[field]) return FIELD_LABELS[field]
+  const label = field.replaceAll('_', ' ').trim()
+  return label.charAt(0).toUpperCase() + label.slice(1)
+}
+
 export const getErrorMessage = (requestError, fallback) => {
   const errorData = requestError.response?.data
   if (!errorData) return fallback
   if (typeof errorData === 'string') return errorData
   if (errorData.detail) return errorData.detail
   return Object.entries(errorData)
-    .map(([k, v]) => {
-      if (Array.isArray(v)) {
-        return `${k}: ${v.map((item) => (typeof item === 'object' ? JSON.stringify(item) : item)).join(', ')}`
+    .map(([field, value]) => {
+      if (Array.isArray(value)) {
+        return `${fieldLabel(field)}: ${value.map((item) => (typeof item === 'object' ? JSON.stringify(item) : item)).join(', ')}`
       }
-      return `${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`
+      return `${fieldLabel(field)}: ${typeof value === 'object' ? JSON.stringify(value) : value}`
     })
     .join(' | ')
 }
