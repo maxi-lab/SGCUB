@@ -29,6 +29,7 @@ from .serializers import (
 	BeneficioSerializer,
 	ConfiguracionFinancieraSerializer,
 	CorreccionPagoSerializer,
+	ComprobanteListSerializer,
 	ComprobanteSerializer,
 	CuentaCorrienteSerializer,
 	CuotaCreateSerializer,
@@ -231,10 +232,13 @@ def item_pago_detail(request, pk):
 	return Response(ItemPagoSerializer(get_object_or_404(ItemPago, pk=pk)).data)
 
 
-@extend_schema(tags=["Finanzas/Comprobante"], responses=ComprobanteSerializer)
+@extend_schema(tags=["Finanzas/Comprobante"], responses=ComprobanteListSerializer)
 @api_view(["GET"])
 def comprobante_list(request):
-	return Response(ComprobanteSerializer(Comprobante.objects.order_by("pk"), many=True).data)
+	comprobantes = Comprobante.objects.select_related(
+		"pago__movimiento__cuenta_corriente__socio__persona",
+	).order_by("pk")
+	return Response(ComprobanteListSerializer(comprobantes, many=True).data)
 
 
 @extend_schema(tags=["Finanzas/Comprobante"], responses=ComprobanteDetalleSerializer)

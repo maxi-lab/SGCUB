@@ -1201,6 +1201,28 @@ class DesgloseComprobanteTests(ComprobanteTestBase):
 		self.assertEqual(CuentaCorriente.objects.get(socio=self.socio).saldo, Decimal("-2500.00"))
 
 
+class ComprobanteListTests(ComprobanteTestBase):
+	def list_comprobantes(self):
+		with CaptureQueriesContext(connection) as queries:
+			response = self.client.get(reverse("comprobante-list"))
+		self.assertEqual(response.status_code, 200)
+		return response.data, len(queries)
+
+	def test_lista_incluye_el_socio_sin_consultas_por_comprobante(self):
+		self.pagar("2500.00")
+		_, queries_with_one = self.list_comprobantes()
+		self.pagar("2500.00", cuotas=[self.generar("2026-11")])
+
+		comprobantes, queries_with_two = self.list_comprobantes()
+
+		self.assertEqual(len(comprobantes), 2)
+		self.assertEqual(queries_with_two, queries_with_one)
+		socio = comprobantes[0]["socio"]
+		self.assertEqual(socio["socio_id"], self.socio.pk)
+		self.assertEqual(socio["dni"], "80000001")
+		self.assertEqual(socio["apellido"], "Prueba")
+
+
 class ComprobantePdfTests(ComprobanteTestBase):
 	def descargar(self, numero):
 		comprobante = Comprobante.objects.get(numero=numero)

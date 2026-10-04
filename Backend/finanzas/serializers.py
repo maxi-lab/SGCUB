@@ -219,6 +219,14 @@ class ComprobanteSerializer(serializers.ModelSerializer):
         read_only_fields = ["comprobante_id"]
 
 
+class ComprobanteListSerializer(ComprobanteSerializer):
+    socio = serializers.SerializerMethodField()
+
+    def get_socio(self, obj):
+        movement = getattr(obj.pago, "movimiento", None)
+        return socio_data(movement.cuenta_corriente.socio) if movement else None
+
+
 class ComprobanteDetalleSerializer(ComprobanteSerializer):
     pago_detalle = serializers.SerializerMethodField()
     reemplazado_por_numero = serializers.IntegerField(source="reemplazado_por.numero", read_only=True, default=None)

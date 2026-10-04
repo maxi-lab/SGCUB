@@ -1,9 +1,12 @@
 import { useMemo, useState } from 'react'
 import DataTable from '../shared/DataTable'
 import FilterSelect from '../shared/FilterSelect'
+import SortableHeader from '../shared/SortableHeader'
 import TableMessageRow from '../shared/TableMessageRow'
 import TablePagination from '../shared/TablePagination'
 import TableSearchInput from '../shared/TableSearchInput'
+import { formatPeriod, periodOptions } from '../shared/periodFormat'
+import useOrdenTabla from '../../hooks/useOrdenTabla'
 import usePagination from '../../hooks/usePagination'
 
 const STATUS_LABELS = {
@@ -18,8 +21,13 @@ const STATUS_BADGE_CLASSES = {
 }
 const DEFAULT_STATUS_BADGE_CLASS = 'bg-sky-50 text-sky-700 border-sky-200'
 
+// Status sort: overdue first in ascending order.
+const STATUS_ORDER = { Vencida: 0, EnFecha: 1, Paga: 2 }
+
 const FILTER_CLASS = 'bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-sm font-medium focus:outline-none focus:border-primary cursor-pointer'
+const HEADER_CLASS = 'py-3 px-4'
 const COLUMN_COUNT = 7
+const ALL = 'todos'
 
 const formatDate = (value) => {
   if (!value) return '—'
@@ -50,17 +58,31 @@ const cuotaAmount = (cuota) => {
   )
 }
 
+const SORT_VALUES = {
+  period: (cuota) => cuota.periodo,
+  socio: (cuota) => (cuota.socio ? socioName(cuota) : null),
+  firstDue: (cuota) => cuota.fecha_venc1,
+  secondDue: (cuota) => cuota.fecha_venc2,
+  amount: (cuota) => cuotaAmount(cuota),
+  status: (cuota) => STATUS_ORDER[cuota.estado_cuota] ?? null,
+}
+// On load: most recent periods first.
+const INITIAL_SORT = { columna: 'period', direccion: 'desc' }
+
 function CuotaTable({ data = [], isLoading = false, error = null, onAdd, onEdit, onDelete }) {
   const [search, setSearch] = useState('')
-  const [status, setStatus] = useState('todos')
+  const [status, setStatus] = useState(ALL)
+  const [period, setPeriod] = useState(ALL)
 
   const cuotas = useMemo(() => data ?? [], [data])
+  const availablePeriods = useMemo(() => periodOptions(cuotas, (cuota) => cuota.periodo), [cuotas])
 
   const filtered = useMemo(() => {
     const text = search.trim().toLowerCase()
 
     return cuotas.filter((cuota) => {
-      if (status !== 'todos' && String(cuota.estado_cuota) !== status) return false
+      if (status !== ALL && String(cuota.estado_cuota) !== status) return false
+      if (period !== ALL && cuota.periodo !== period) return false
       if (!text) return true
 
       return [
@@ -70,13 +92,15 @@ function CuotaTable({ data = [], isLoading = false, error = null, onAdd, onEdit,
         cuota.socio?.dni,
       ].some((field) => String(field ?? '').toLowerCase().includes(text))
     })
-  }, [cuotas, search, status])
+  }, [cuotas, search, status, period])
 
-  const { visibleRows, start, withPageReset, paginationProps } = usePagination(filtered)
+  const { ordenadas: sorted, orden: sort, ordenarPor: sortBy } = useOrdenTabla(filtered, SORT_VALUES, INITIAL_SORT)
+  const { visibleRows, start, withPageReset, paginationProps } = usePagination(sorted)
+  const sortAndReset = withPageReset(sortBy)
 
   return (
-    <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-lg shadow-sm">
-      <div className="p-4 border-b border-outline-variant/20 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
+    <div className="min-w-0 bg-surface-container-lowest border border-outline-variant/30 rounded-lg shadow-sm">
+      <div className="p-4 border-b border-outline-variant/20 flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-3">
         <div className="flex flex-1 min-w-0 flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-2.5">
           <TableSearchInput
             value={search}
@@ -86,22 +110,31 @@ function CuotaTable({ data = [], isLoading = false, error = null, onAdd, onEdit,
           />
           <FilterSelect
             className={FILTER_CLASS}
+            value={period}
+            onChange={(event) => withPageReset(setPeriod)(event.target.value)}
+            aria-label="Filtrar cuotas por período"
+          >
+            <option value={ALL}>Período: Todos</option>
+            {availablePeriods.map((value) => <option key={value} value={value}>{formatPeriod(value)}</option>)}
+          </FilterSelect>
+          <FilterSelect
+            className={FILTER_CLASS}
             value={status}
             onChange={(event) => withPageReset(setStatus)(event.target.value)}
             aria-label="Filtrar cuotas por estado"
           >
-            <option value="todos">Estado: Todos</option>
+            <option value={ALL}>Estado: Todos</option>
             {Object.entries(STATUS_LABELS).map(([value, label]) => (
               <option key={value} value={value}>{label}</option>
             ))}
           </FilterSelect>
         </div>
 
-        <div className="flex items-center justify-between sm:justify-end gap-3 pt-2 lg:pt-0">
+        <div className="flex items-center justify-between sm:justify-end gap-3 xl:shrink-0">
           <span className="text-base text-on-surface-variant whitespace-nowrap">
-            {filtered.length === 0
+            {sorted.length === 0
               ? 'Sin resultados'
-              : `Mostrando ${start + 1}-${start + visibleRows.length} de ${filtered.length.toLocaleString('es-AR')} cuotas`}
+              : `Mostrando ${start + 1}-${start + visibleRows.length} de ${sorted.length.toLocaleString('es-AR')} cuotas`}
           </span>
           <button
             type="button"
@@ -119,13 +152,13 @@ function CuotaTable({ data = [], isLoading = false, error = null, onAdd, onEdit,
         bodyClassName="text-lg"
         headers={(
           <>
-            <th className="py-3 px-4" scope="col">Período</th>
-            <th className="py-3 px-4" scope="col">Socio</th>
-            <th className="py-3 px-4" scope="col">Venc. 1</th>
-            <th className="py-3 px-4" scope="col">Venc. 2</th>
-            <th className="py-3 px-4 text-right" scope="col">Monto</th>
-            <th className="py-3 px-4" scope="col">Estado</th>
-            <th className="py-3 px-4 text-right" scope="col">Acciones</th>
+            <SortableHeader className={HEADER_CLASS} etiqueta="Período" columna="period" orden={sort} onOrdenar={sortAndReset} />
+            <SortableHeader className={HEADER_CLASS} etiqueta="Socio" columna="socio" orden={sort} onOrdenar={sortAndReset} />
+            <SortableHeader className={HEADER_CLASS} etiqueta="Venc. 1" columna="firstDue" orden={sort} onOrdenar={sortAndReset} />
+            <SortableHeader className={HEADER_CLASS} etiqueta="Venc. 2" columna="secondDue" orden={sort} onOrdenar={sortAndReset} />
+            <SortableHeader className={`${HEADER_CLASS} text-right`} etiqueta="Monto" columna="amount" orden={sort} onOrdenar={sortAndReset} />
+            <SortableHeader className={HEADER_CLASS} etiqueta="Estado" columna="status" orden={sort} onOrdenar={sortAndReset} />
+            <th className={`${HEADER_CLASS} text-right`} scope="col">Acciones</th>
           </>
         )}
       >
