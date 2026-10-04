@@ -48,8 +48,12 @@ function CuotasEstadoCuentaTable({ cuotas, selectedCuotaId, onToggle }) {
             <td className="py-3.5 px-4 text-right text-on-surface-variant">{formatAmount(Number(cuota.monto_pagado ?? 0))}</td>
             <td className="py-3.5 px-4 text-right font-semibold text-on-surface">{formatAmount(Number(cuota.saldo_pendiente ?? 0))}</td>
             <td className="py-3.5 px-4 text-center">
-              <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-sm font-semibold border ${paid ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-error-container text-on-error-container border-error/20'}`}>
-                {state}
+              <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-sm font-semibold border ${
+                state === 'Paga' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 
+                state === 'EnFecha' ? 'bg-sky-50 text-sky-700 border-sky-200' : 
+                'bg-error-container text-on-error-container border-error/20'
+              }`}>
+                {state === 'EnFecha' ? 'En fecha' : state}
               </span>
             </td>
           </tr>
