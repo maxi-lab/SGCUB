@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import DataTable from '../shared/DataTable'
 import FilterSelect from '../shared/FilterSelect'
 import SortableHeader from '../shared/SortableHeader'
+import TableMessageRow from '../shared/TableMessageRow'
 import useOrdenTabla from '../../hooks/useOrdenTabla'
 
 const PAGE_SIZE = 5
@@ -13,6 +15,7 @@ const SORT_VALUES = {
 }
 const INITIAL_SORT = { columna: 'dueDate', direccion: 'asc' }
 const HEADER_CLASS = 'py-3 px-4'
+const COLUMN_COUNT = 3
 const SELECT_CLASS = 'bg-surface-container-low text-on-surface font-body-sm text-sm font-medium rounded-lg focus:outline-none focus:bg-surface-container-lowest cursor-pointer'
 const ALL = 'all'
 const compareText = new Intl.Collator('es', { sensitivity: 'base' }).compare
@@ -102,47 +105,46 @@ export default function DocumentAlertTable({ title, icon, tone = 'warning', docu
           </div>
         </div>
       </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm border-collapse">
-          <thead>
-            <tr className="bg-surface-container-low/60 border-b border-outline-variant/30 text-sm font-semibold text-on-surface-variant uppercase tracking-wider">
-              <SortableHeader className={HEADER_CLASS} etiqueta="Persona / Categoría" columna="person" orden={sort} onOrdenar={sortBy} />
-              <th className={HEADER_CLASS} scope="col">{documentHeader}</th>
-              <SortableHeader className={HEADER_CLASS} etiqueta={dateHeader} columna="dueDate" orden={sort} onOrdenar={sortBy} />
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-outline-variant/20 font-body-sm text-on-surface">
-            {visibleRows.map(doc => (
-              <tr
-                key={doc.id_documento}
-                onClick={() => openProfile(doc)}
-                onKeyDown={(e) => e.key === 'Enter' && openProfile(doc)}
-                tabIndex={0}
-                className={`transition-colors cursor-pointer group focus:outline-none ${style.row}`}
-              >
-                <td className="py-3 px-4">
-                  <div className="flex flex-col min-w-0">
-                    <span className={`font-medium text-base text-on-surface truncate transition-colors ${style.name}`}>{doc.persona_nombre_completo || 'Desconocido'}</span>
-                    <span className="text-sm text-on-surface-variant truncate">{doc.categoria_nombre || ''}</span>
-                  </div>
-                </td>
-                <td className="py-3 px-4">
-                  <span className={`text-base font-medium ${style.document}`}>{getTypeName(doc.tipo_documento)}</span>
-                </td>
-                <td className="py-3 px-4 whitespace-nowrap">
-                  <span className="block text-base font-medium text-on-surface">{doc.dueDateLabel}</span>
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-semibold mt-1 ${style.badge}`}>
-                    {getBadgeLabel(doc)}
-                  </span>
-                </td>
-              </tr>
-            ))}
-            {visibleRows.length === 0 && (
-              <tr><td colSpan={3} className="py-10 px-4 text-center text-on-surface-variant">{rows.length === 0 ? emptyMessage : 'No hay documentos que coincidan con los filtros'}</td></tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        headers={(
+          <>
+            <SortableHeader className={HEADER_CLASS} etiqueta="Persona / Categoría" columna="person" orden={sort} onOrdenar={sortBy} />
+            <th className={HEADER_CLASS} scope="col">{documentHeader}</th>
+            <SortableHeader className={HEADER_CLASS} etiqueta={dateHeader} columna="dueDate" orden={sort} onOrdenar={sortBy} />
+          </>
+        )}
+      >
+        {visibleRows.map(doc => (
+          <tr
+            key={doc.id_documento}
+            onClick={() => openProfile(doc)}
+            onKeyDown={(e) => e.key === 'Enter' && openProfile(doc)}
+            tabIndex={0}
+            className={`transition-colors cursor-pointer group focus:outline-none ${style.row}`}
+          >
+            <td className="py-3 px-4">
+              <div className="flex flex-col min-w-0">
+                <span className={`font-medium text-base text-on-surface truncate transition-colors ${style.name}`}>{doc.persona_nombre_completo || 'Desconocido'}</span>
+                <span className="text-sm text-on-surface-variant truncate">{doc.categoria_nombre || ''}</span>
+              </div>
+            </td>
+            <td className="py-3 px-4">
+              <span className={`text-base font-medium ${style.document}`}>{getTypeName(doc.tipo_documento)}</span>
+            </td>
+            <td className="py-3 px-4 whitespace-nowrap">
+              <span className="block text-base font-medium text-on-surface">{doc.dueDateLabel}</span>
+              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-semibold mt-1 ${style.badge}`}>
+                {getBadgeLabel(doc)}
+              </span>
+            </td>
+          </tr>
+        ))}
+        <TableMessageRow
+          colSpan={COLUMN_COUNT}
+          isEmpty={visibleRows.length === 0}
+          emptyText={rows.length === 0 ? emptyMessage : 'No hay documentos que coincidan con los filtros'}
+        />
+      </DataTable>
       {filteredRows.length > limit && (
         <div className="p-space-md bg-surface-container-low flex items-center justify-between">
           <span className="text-sm text-on-surface-variant">Mostrando {limit} de {filteredRows.length}</span>

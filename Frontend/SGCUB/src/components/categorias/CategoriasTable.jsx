@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import TableSearchInput from '../shared/TableSearchInput'
 import CategoriasGeneroTable from './CategoriasGeneroTable'
 import { GENERO_OPTIONS } from './categoriaFormat'
 
@@ -18,19 +19,13 @@ function CategoriasTable({ data, isLoading, error }) {
   return (
     <div className="min-w-0 flex flex-col gap-4">
       <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-lg shadow-sm p-4">
-        <div className="relative w-full sm:max-w-md">
-          <span className="material-symbols-outlined absolute left-4 top-1.5 text-outline text-[18px]" aria-hidden="true">
-            search
-          </span>
-          <input
-            className="w-full h-10 pl-11 pr-4 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface placeholder:text-outline font-body-sm text-sm focus:outline-none focus:border-primary focus:bg-surface-container-lowest transition-colors"
-            placeholder="Filtrar por nombre..."
-            type="text"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            aria-label="Filtrar categorías"
-          />
-        </div>
+        <TableSearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder="Filtrar por nombre..."
+          label="Filtrar categorías"
+          className="sm:max-w-md"
+        />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">

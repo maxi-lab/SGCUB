@@ -1,6 +1,5 @@
-import { Fragment, useState } from 'react'
-import { formatAmount, formatDni, formatNumber } from '../personas/format'
-import FinancialTab from '../personas/tabs/FinancialTab'
+import { formatAmount, formatDni } from '../personas/format'
+import MorosidadTable from './MorosidadTable'
 
 const alcances = [
   { id: 'activos', titulo: 'Todos los activos', detalle: 'Incluye a todos los socios activos.' },
@@ -33,7 +32,6 @@ function MorosidadReport({
   onExportPdf,
   exportError,
 }) {
-  const [socioExpandido, setSocioExpandido] = useState(null)
   const sociosParaElegir = sociosFiltrados
   const deudaTotal = reporte?.filas.reduce((total, fila) => total + fila.monto_adeudado, 0) ?? 0
 
@@ -143,28 +141,7 @@ function MorosidadReport({
           {reporte.filas.length === 0 ? (
             <div className="py-12 text-center border border-dashed border-outline-variant/50 text-on-surface-variant"><span className="material-symbols-outlined text-3xl">task_alt</span><p className="mt-2 font-semibold text-on-surface">No hay socios con deuda vencida en este alcance.</p></div>
           ) : (
-            <div className="overflow-x-auto border border-outline-variant/40 rounded-lg">
-              <table className="w-full min-w-[760px] text-left border-collapse">
-                <thead><tr className="bg-surface-container-low border-b border-outline-variant/40 text-xs uppercase text-on-surface-variant"><th className="px-3 py-3 font-semibold">Socio</th><th className="px-3 py-3 font-semibold">DNI</th><th className="px-3 py-3 font-semibold">Categoría deportiva</th><th className="px-3 py-3 text-right font-semibold">Monto adeudado</th><th className="px-3 py-3 text-right font-semibold">Días de mora</th></tr></thead>
-                <tbody className="divide-y divide-outline-variant/20">
-                  {reporte.filas.map((fila) => {
-                    const expandido = String(socioExpandido) === String(fila.socio_id)
-                    return (
-                      <Fragment key={fila.socio_id}>
-                        <tr className="hover:bg-surface-container-low/70">
-                          <td className="px-3 py-2.5"><button type="button" aria-expanded={expandido} onClick={() => setSocioExpandido(expandido ? null : fila.socio_id)} className="inline-flex items-center gap-2 text-left font-semibold text-primary hover:underline"><span className="material-symbols-outlined text-[18px]" aria-hidden="true">{expandido ? 'expand_less' : 'expand_more'}</span>{fila.apellido}, {fila.nombre}</button><span className="block pl-7 text-xs text-on-surface-variant">Socio {formatNumber(fila.numero_socio)}</span></td>
-                          <td className="px-3 py-2.5 text-on-surface-variant">{formatDni(fila.dni)}</td>
-                          <td className="px-3 py-2.5 text-on-surface-variant">{fila.categoria_deportiva}</td>
-                          <td className="px-3 py-2.5 text-right font-semibold text-error">{formatAmount(fila.monto_adeudado)}</td>
-                          <td className="px-3 py-2.5 text-right tabular-nums text-on-surface">{fila.dias_mora}</td>
-                        </tr>
-                        {expandido && <tr key={`${fila.socio_id}-detalle`} className="bg-surface-container-low/50"><td colSpan="5" className="p-4"><FinancialTab socio={fila} /></td></tr>}
-                      </Fragment>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
+            <MorosidadTable filas={reporte.filas} />
           )}
         </section>
       )}

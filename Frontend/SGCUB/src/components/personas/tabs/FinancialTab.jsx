@@ -3,16 +3,10 @@ import { useNavigate } from 'react-router-dom'
 import { getEstadoCuenta } from '../../../api/estadoCuenta'
 import { postBeneficio } from '../../../api/cuotas'
 import BecaDescuentoModal from '../../finanzas/BecaDescuentoModal'
-import { formatAmount, formatDate, formatNumber } from '../format'
+import CuotasEstadoCuentaTable from '../../finanzas/CuotasEstadoCuentaTable'
+import { isPaid } from '../../finanzas/accountStatement'
+import { formatAmount, formatNumber } from '../format'
 import { EmptyState, KPI, PrimaryButton } from './parts'
-
-const normalizeState = (state) => String(state ?? '').toLowerCase().replaceAll(' ', '')
-
-const isPaid = (cuota) => normalizeState(cuota.estado_cuota ?? cuota.estado) === 'paga'
-
-const cuotaAmount = (cuota) => Number(cuota.monto_total ?? 0)
-
-const cuotaConcepts = (cuota) => [...new Set((cuota.items ?? []).map((item) => item.concepto_nombre ?? item.concepto).filter(Boolean))].join(', ') || '—'
 
 const fetchAccount = (socioId) => getEstadoCuenta(socioId).catch((requestError) => {
   if (requestError.response?.status === 404) return null
@@ -98,51 +92,7 @@ function FinancialTab({ socio, onRegisterPayment, enableBenefits = false }) {
       {cuotas.length === 0 ? (
         <EmptyState icon="receipt_long" title="Sin cuotas generadas" description="La cuenta corriente no tiene cuotas registradas." />
       ) : (
-        <div className="overflow-x-auto border border-outline-variant/30 rounded-xl bg-surface-container-lowest shadow-sm">
-          <table className="w-full text-left border-collapse min-w-[960px]">
-            <thead>
-              <tr className="bg-surface-container-low/70 border-b border-outline-variant/30 text-on-surface-variant text-sm uppercase tracking-wider">
-                <th className="py-3 px-4 font-semibold">Período</th>
-                <th className="py-3 px-4 font-semibold">Vencimientos</th>
-                <th className="py-3 px-4 font-semibold">Conceptos</th>
-                <th className="py-3 px-4 font-semibold text-right">Importe</th>
-                <th className="py-3 px-4 font-semibold text-right">Pagado</th>
-                <th className="py-3 px-4 font-semibold text-right">Pendiente</th>
-                <th className="py-3 px-4 font-semibold text-center">Estado</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-outline-variant/20 text-base">
-              {cuotas.map((cuota) => {
-                const state = cuota.estado_cuota ?? cuota.estado ?? 'Pendiente'
-                const paid = isPaid(cuota)
-                const selected = selectedCuota?.cuota_id === cuota.cuota_id
-                return (
-                  <tr
-                    key={cuota.cuota_id}
-                    tabIndex={0}
-                    aria-selected={selected}
-                    onClick={() => toggleCuota(cuota, selected)}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault()
-                        toggleCuota(cuota, selected)
-                      }
-                    }}
-                    className={`cursor-pointer transition-colors ${selected ? 'bg-primary/5 ring-1 ring-inset ring-primary/40' : 'hover:bg-surface-container-low'}`}
-                  >
-                    <td className="py-3.5 px-4 font-semibold text-on-surface">{cuota.periodo || '—'}</td>
-                    <td className="py-3.5 px-4 text-on-surface-variant">{formatDate(cuota.fecha_venc1)} / {formatDate(cuota.fecha_venc2)}</td>
-                    <td className="py-3.5 px-4 text-on-surface-variant">{cuotaConcepts(cuota)}</td>
-                    <td className="py-3.5 px-4 text-right font-semibold text-on-surface">{formatAmount(cuotaAmount(cuota))}</td>
-                    <td className="py-3.5 px-4 text-right text-on-surface-variant">{formatAmount(Number(cuota.monto_pagado ?? 0))}</td>
-                    <td className="py-3.5 px-4 text-right font-semibold text-on-surface">{formatAmount(Number(cuota.saldo_pendiente ?? 0))}</td>
-                    <td className="py-3.5 px-4 text-center"><span className={`inline-flex items-center px-2.5 py-1 rounded-full text-sm font-semibold border ${paid ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-error-container text-on-error-container border-error/20'}`}>{state}</span></td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
+        <CuotasEstadoCuentaTable cuotas={cuotas} selectedCuotaId={selectedCuota?.cuota_id} onToggle={toggleCuota} />
       )}
 
       {enableBenefits && selectedCuota && (

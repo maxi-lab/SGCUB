@@ -2,14 +2,7 @@ import { useEffect, useState } from 'react'
 import { formatDni } from '../format'
 import { PrimaryButton, Field, TabHeader, EmptyState } from './parts'
 import AddContactModal from '../../jugadores/AddContactModal'
-
-function LegalGuardianBadge({ isLegalGuardian }) {
-  return isLegalGuardian ? (
-    <span className="inline-flex items-center justify-center px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-base font-semibold border border-emerald-200">Sí</span>
-  ) : (
-    <span className="inline-flex items-center justify-center px-2.5 py-0.5 rounded-full bg-surface-container-high text-on-surface-variant text-base font-medium border border-outline-variant/30">No</span>
-  )
-}
+import ContactosTable from '../../jugadores/ContactosTable'
 
 function ContactDetailsModal({ contact, onClose }) {
   useEffect(() => {
@@ -159,60 +152,11 @@ export default function FamilyTab({ contacts = [], onAdd, onDelete }) {
           description="Este jugador todavía no tiene familiares ni contactos de emergencia cargados."
         />
       ) : (
-        <div className="overflow-x-auto border border-outline-variant/30 rounded-xl bg-surface-container-lowest shadow-sm">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-surface-container-low/70 border-b border-outline-variant/30 text-on-surface-variant text-base uppercase tracking-wider">
-                <th className="py-3 px-4 font-semibold">Nombre y apellido</th>
-                <th className="py-3 px-4 font-semibold">DNI</th>
-                <th className="py-3 px-4 font-semibold">Teléfono</th>
-                <th className="py-3 px-4 font-semibold">Vínculo</th>
-                <th className="py-3 px-4 font-semibold text-center">Responsable legal</th>
-                <th className="py-3 px-4 font-semibold text-center">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-outline-variant/20 text-base">
-              {contacts.map((contact, index) => (
-                <tr
-                  key={contact.vinculo_familiar_id ?? index}
-                  className="hover:bg-surface-container-low transition-colors cursor-pointer group"
-                  onClick={() => setSelectedContact(contact)}
-                >
-                  <td className="py-3.5 px-4">
-                    <span className="font-semibold text-on-surface group-hover:text-primary transition-colors inline-flex items-center gap-1.5">
-                      {`${contact.persona?.nombre ?? ''} ${contact.persona?.apellido ?? ''}`.trim() || 'Sin nombre'}
-                      <span className="material-symbols-outlined text-[16px] text-primary opacity-0 group-hover:opacity-100 transition-opacity">open_in_new</span>
-                    </span>
-                  </td>
-                  <td className="py-3.5 px-4 text-on-surface-variant">{contact.persona?.dni ? formatDni(contact.persona.dni) : '—'}</td>
-                  <td className="py-3.5 px-4"><span className="font-mono text-base text-on-surface">{contact.persona?.telefono || '—'}</span></td>
-                  <td className="py-3.5 px-4">
-                    {contact.relacion ? (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-surface-container-high text-on-surface text-base font-medium">{contact.relacion}</span>
-                    ) : '—'}
-                  </td>
-                  <td className="py-3.5 px-4 text-center"><LegalGuardianBadge isLegalGuardian={contact.responsable_legal} /></td>
-                  <td className="py-3.5 px-4 text-center">
-                    {onDelete && (
-                      <button
-                        type="button"
-                        onClick={(event) => {
-                          event.stopPropagation()
-                          setContactToDelete(contact)
-                        }}
-                        className="inline-flex items-center justify-center p-2 rounded-lg text-error hover:bg-error-container/60 transition-colors cursor-pointer"
-                        aria-label={`Eliminar contacto ${contact.persona?.nombre ?? ''} ${contact.persona?.apellido ?? ''}`.trim()}
-                        title="Eliminar contacto"
-                      >
-                        <span className="material-symbols-outlined text-[20px]">delete</span>
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <ContactosTable
+          contacts={contacts}
+          onSelect={setSelectedContact}
+          onDelete={onDelete ? setContactToDelete : undefined}
+        />
       )}
 
       {selectedContact && <ContactDetailsModal contact={selectedContact} onClose={() => setSelectedContact(null)} />}
