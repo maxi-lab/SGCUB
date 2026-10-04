@@ -27,6 +27,7 @@ from .views import (
     pago_detail,
     pago_list,
     registrar_pago,
+    resumen_financiero,
     reporte_morosidad,
 )
 
@@ -52,6 +53,7 @@ urlpatterns = [
     path("cuenta-corriente/", current_account_list, name="cuenta-corriente-list"),
     path("cuenta-corriente/<int:pk>/", current_account_detail, name="cuenta-corriente-detail"),
     path("cuenta-corriente/socio/<int:socio_id>/estado/", estado_cuenta_socio, name="estado-cuenta-socio"),
+    path("resumen/", resumen_financiero, name="resumen-financiero"),
     path("morosidad/", reporte_morosidad, name="reporte-morosidad"),
     path("morosidad/pdf/", delinquency_report_pdf, name="reporte-morosidad-pdf"),
     path("movimiento-cuenta/", movimiento_cuenta_list, name="movimiento-cuenta-list"),

@@ -34,10 +34,12 @@ from .models import (
 	ConfiguracionFinanciera,
 	CuentaCorriente,
 	Cuota,
+	EstadoPagoChoices,
 	EstadoCuotaChoices,
 	Imputacion,
 	ItemCuota,
 	ItemPago,
+	MedioDePagoChoices,
 	MovimientoCuenta,
 	Pago,
 	SecuenciaComprobante,
@@ -1442,6 +1444,47 @@ class ReporteMorosidadTests(APITestCase):
 		self.assertEqual(len(data["filas"]), 1)
 		self.assertEqual(data["sin_cuenta"], 1)
 		self.assertNotIn("erroresConsulta", data)
+
+
+class ResumenFinancieroTests(APITestCase):
+	def setUp(self):
+		self.client.force_authenticate(user=get_user_model().objects.create_user(username="tesorero"))
+		today = timezone.localdate()
+		socio = crear_socio("78901237")
+		cuenta = account_for(socio)
+		crear_cuota_con_cargo(
+			cuenta,
+			"2026-08",
+			"1000.00",
+			venc1=today - timedelta(days=5),
+			venc2=today + timedelta(days=5),
+		)
+
+	def test_resumen_saldo_vencido_y_cobros_por_medio_solo_acreditados(self):
+		pago = Pago.objects.create(estado_pago=EstadoPagoChoices.ACREDITADO)
+		ItemPago.objects.bulk_create([
+			ItemPago(pago=pago, medio_de_pago=MedioDePagoChoices.TRANSFERENCIA, monto=Decimal("1200.00")),
+			ItemPago(pago=pago, medio_de_pago=MedioDePagoChoices.BILLETERA_VIRTUAL, monto=Decimal("350.00")),
+			ItemPago(pago=pago, medio_de_pago=MedioDePagoChoices.EFECTIVO, monto=Decimal("150.00")),
+		])
+		pago_anulado = Pago.objects.create(estado_pago=EstadoPagoChoices.ANULADO)
+		ItemPago.objects.create(
+			pago=pago_anulado,
+			medio_de_pago=MedioDePagoChoices.TRANSFERENCIA,
+			monto=Decimal("999.00"),
+		)
+
+		response = self.client.get(reverse("resumen-financiero"))
+
+		self.assertEqual(response.status_code, 200)
+		self.assertEqual(response.data, {
+			"socios_en_mora": 1,
+			"monto_adeudado_total": Decimal("1000.00"),
+			"cuotas_vencidas": 1,
+			"transferencia_bancaria": Decimal("1200.00"),
+			"billetera_virtual": Decimal("350.00"),
+			"pago_efectivo": Decimal("150.00"),
+		})
 
 
 class ReporteMorosidadPdfTests(APITestCase):

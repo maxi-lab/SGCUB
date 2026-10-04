@@ -1,5 +1,8 @@
 
+from decimal import Decimal
+
 from django.db import transaction
+from django.db.models import Sum
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -20,6 +23,8 @@ from .models import (
 	ItemCuota,
 	MovimientoCuenta,
 	Pago,
+	EstadoPagoChoices,
+	MedioDePagoChoices,
 )
 from .delinquency import ReporteMorosidadInvalidoError, delinquency_report, parse_delinquency_params
 from .delinquency_pdf import delinquency_filename, render_delinquency_pdf
@@ -292,6 +297,40 @@ def estado_cuenta_socio(request, socio_id):
 		socio_id=socio_id,
 	)
 	return Response(CuentaCorrienteEstadoSerializer(cuenta).data)
+
+
+@extend_schema(tags=["Finanzas/Resumen"])
+@api_view(["GET"])
+def resumen_financiero(request):
+	reporte = delinquency_report("activos")
+	pagos_por_medio = {
+		item["medio_de_pago"]: item["total"]
+		for item in ItemPago.objects.filter(
+			pago__estado_pago=EstadoPagoChoices.ACREDITADO,
+		).values("medio_de_pago").annotate(total=Sum("monto"))
+	}
+	filas_morosas = reporte["filas"]
+
+	return Response({
+		"socios_en_mora": len(filas_morosas),
+		"monto_adeudado_total": sum(
+			(fila["monto_adeudado"] for fila in filas_morosas),
+			Decimal("0.00"),
+		),
+		"cuotas_vencidas": sum(fila["cuotas_vencidas"] for fila in filas_morosas),
+		"transferencia_bancaria": pagos_por_medio.get(
+			MedioDePagoChoices.TRANSFERENCIA,
+			Decimal("0.00"),
+		),
+		"billetera_virtual": pagos_por_medio.get(
+			MedioDePagoChoices.BILLETERA_VIRTUAL,
+			Decimal("0.00"),
+		),
+		"pago_efectivo": pagos_por_medio.get(
+			MedioDePagoChoices.EFECTIVO,
+			Decimal("0.00"),
+		),
+	})
 
 
 @extend_schema(tags=["Finanzas/Morosidad"])

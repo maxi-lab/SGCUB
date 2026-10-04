@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getCuotas } from '../api/cuotas'
+import { getResumenFinanciero } from '../api/resumenFinanciero'
 import { getSocios } from '../api/socios'
 import { formatAmount, formatDni, getErrorMessage } from '../components/personas/format'
 import PageHeader from '../components/shared/PageHeader'
@@ -13,23 +14,26 @@ import usePagination from '../hooks/usePagination'
 const summaryCards = [
   {
     label: 'Socios en mora',
-    value: '0',
+    key: 'socios_en_mora',
     suffix: 'socios',
     icon: 'warning',
     tone: 'rose',
+    format: 'number',
   },
   {
     label: 'Monto adeudado total',
-    value: '$ 0',
+    key: 'monto_adeudado_total',
     icon: 'payments',
     tone: 'amber',
+    format: 'amount',
   },
   {
     label: 'Cuotas vencidas',
-    value: '0',
+    key: 'cuotas_vencidas',
     suffix: '',
     icon: 'receipt_long',
     tone: 'blue',
+    format: 'number',
   },
 ]
 
@@ -37,7 +41,7 @@ const collectionMethods = [
 
   {
     label: 'Transferencia bancaria',
-    amount: '$ 0',
+    key: 'transferencia_bancaria',
     detail: 'Cobros por transferencia desde cuentas bancarias',
     
     tone: 'sky',
@@ -46,7 +50,7 @@ const collectionMethods = [
   },
   {
     label: 'Billetera virtual',
-    amount: '$ 0',
+    key: 'billetera_virtual',
     detail: 'Cobros digitales instantáneos con QR institucional',
     
     tone: 'sky',
@@ -54,22 +58,13 @@ const collectionMethods = [
   },
   {
     label: 'Pago en efectivo',
-    amount: '$0',
+    key: 'pago_efectivo',
     detail: 'Ventanilla y caja de cobro por administración',
     
     tone: 'violet',
     icon: 'payments',
   },
 ]
-
-const toneStyles = {
-  rose: 'bg-rose-50 text-rose-700 border border-rose-200',
-  amber: 'bg-amber-50 text-amber-700 border border-amber-200',
-  blue: 'bg-sky-50 text-sky-700 border border-sky-200',
-  emerald: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
-  violet: 'bg-violet-50 text-violet-700 border border-violet-200',
-  sky: 'bg-sky-50 text-sky-700 border border-sky-200',
-}
 
 function ResumenFinanciero() {
   const navigate = useNavigate()
@@ -78,24 +73,36 @@ function ResumenFinanciero() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(null)
   const [search, setSearch] = useState('')
+  const [resumen, setResumen] = useState(null)
+  const [errorResumen, setErrorResumen] = useState('')
 
   useEffect(() => {
+    let active = true
     const cargarDatos = async () => {
       try {
         const [sociosRecibidos, cuotasRecibidas] = await Promise.all([
           getSocios(),
           getCuotas(),
         ])
-        setSocios(sociosRecibidos)
-        setCuotas(cuotasRecibidas)
+        if (active) {
+          setSocios(sociosRecibidos)
+          setCuotas(cuotasRecibidas)
+        }
       } catch (requestError) {
-        setError(requestError)
+        if (active) setError(requestError)
       } finally {
-        setIsLoading(false)
+        if (active) setIsLoading(false)
       }
     }
 
     cargarDatos()
+    getResumenFinanciero()
+      .then((datos) => active && setResumen(datos))
+      .catch((requestError) => {
+        if (active) setErrorResumen(getErrorMessage(requestError, 'No se pudieron cargar las métricas financieras.'))
+      })
+
+    return () => { active = false }
   }, [])
 
   const rows = useMemo(() => {
@@ -161,12 +168,17 @@ function ResumenFinanciero() {
               </div>
             </div>
             <div className="flex items-end gap-2">
-              <span className="text-4xl font-bold text-on-surface tracking-tight">{card.value}</span>
+              <span className="text-4xl font-bold text-on-surface tracking-tight">
+                {card.format === 'amount'
+                  ? formatAmount(resumen?.[card.key] ?? 0)
+                  : Number(resumen?.[card.key] ?? 0).toLocaleString('es-AR')}
+              </span>
               {card.suffix && <span className="pb-1 text-sm text-on-surface-variant">{card.suffix}</span>}
             </div>
           </div>
         ))}
       </div>
+      {errorResumen && <p className="text-sm text-error" role="alert">{errorResumen}</p>}
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         {collectionMethods.map((method) => (
@@ -195,7 +207,9 @@ function ResumenFinanciero() {
               
               
             </div>
-            <div className="text-2xl font-bold text-on-surface leading-none">{method.amount}</div>
+            <div className="text-2xl font-bold text-on-surface leading-none">
+              {formatAmount(resumen?.[method.key] ?? 0)}
+            </div>
             <p className="mt-2 text-xs text-on-surface-variant">{method.detail}</p>
           </div>
         ))}
