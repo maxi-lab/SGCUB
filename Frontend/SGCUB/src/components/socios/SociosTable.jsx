@@ -108,7 +108,7 @@ function SociosTable({ data, isLoading, error }) {
             className="inline-flex items-center justify-center gap-1.5 h-10 px-3 w-full sm:w-auto shrink-0 bg-surface-container-low hover:bg-surface-container-high border border-outline-variant/40 text-on-surface rounded text-base font-medium transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <span className="material-symbols-outlined text-[16px]" aria-hidden="true">file_download</span>
-            <span>Exportar padrón (CSV / Excel)</span>
+            <span>Exportar padrón</span>
           </button>
         </div>
       </div>
