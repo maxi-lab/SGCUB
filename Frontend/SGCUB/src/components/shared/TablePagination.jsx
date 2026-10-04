@@ -18,11 +18,11 @@ const navButtonClass = 'w-8 h-8 flex items-center justify-center rounded border 
 
 export default function TablePagination({ page, totalPages, rowsPerPage, onPageChange, onRowsPerPageChange, id = 'rows-per-page' }) {
   return (
-    <div className="p-4 border-t border-outline-variant/20 flex flex-col sm:flex-row items-center justify-between gap-3 text-base text-on-surface-variant">
+    <div className="p-4 border-t border-outline-variant/20 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-on-surface-variant">
       <div className="flex items-center gap-2">
         <label className="font-label-md" htmlFor={id}>Filas por página:</label>
         <select
-          className="h-8 px-2 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-base focus:outline-none focus:border-primary cursor-pointer"
+          className="h-8 px-2 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-sm focus:outline-none focus:border-primary cursor-pointer"
           id={id}
           value={rowsPerPage}
           onChange={(event) => onRowsPerPageChange(Number(event.target.value))}

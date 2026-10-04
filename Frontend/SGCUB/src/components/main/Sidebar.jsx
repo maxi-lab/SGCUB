@@ -48,7 +48,7 @@ export default function Sidebar({ collapsed, onToggle }) {
   const claseEstado = contrayendo ? 'app-sidebar--collapsing' : collapsed ? 'app-sidebar--collapsed' : '';
   const personasActive = ['/padron/socios', '/padron/jugadores', '/padron/docentes']
     .some((route) => pathname === route || pathname.startsWith(`${route}/`));
-  const finanzasActive = ['/resumen-financiero', '/morosidad', '/caja']
+  const finanzasActive = ['/finanzas', '/finanzas/cuotas', '/finanzas/estado-cuenta', '/resumen-financiero', '/morosidad', '/caja']
     .some((route) => pathname === route || pathname.startsWith(`${route}/`));
   const adminActive = ['/usuarios', '/automatizaciones']
     .some((route) => pathname === route || pathname.startsWith(`${route}/`));
@@ -112,7 +112,20 @@ export default function Sidebar({ collapsed, onToggle }) {
                   <span className="app-sidebar-label text-base font-semibold text-on-surface">Finanzas</span>
                 </div>
               </div>
-              <div className="flex flex-col gap-0.5 pl-3 border-l-2 border-outline-variant/30 ml-4 my-0.5">
+              <div className="flex flex-col gap-0.5 pl-6 border-l-2 border-outline-variant/30 ml-4 my-0.5">
+                <NavLink to="/finanzas/cuotas" className={({ isActive }) => `app-sidebar-link flex items-center justify-between px-space-sm py-1.5 rounded text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors ${isActive ? 'app-sidebar-link--active' : ''}`}>
+                  <span className="app-sidebar-subitem-main">
+                    <span className="app-sidebar-subitem-icon material-symbols-outlined" aria-hidden="true">receipt_long</span>
+                    <span className="app-sidebar-label text-base">Cuotas</span>
+                  </span>
+                </NavLink>
+                <NavLink to="/finanzas/estado-cuenta" className={({ isActive }) => `app-sidebar-link flex items-center justify-between px-space-sm py-1.5 rounded text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors ${isActive ? 'app-sidebar-link--active' : ''}`}>
+                  <span className="app-sidebar-subitem-main">
+                    <span className="app-sidebar-subitem-icon material-symbols-outlined" aria-hidden="true">account_balance_wallet</span>
+                    <span className="app-sidebar-label text-base">Estado de cuenta</span>
+                  </span>
+                </NavLink>
+
                 <NavLink to="/resumen-financiero" className={({ isActive }) => `app-sidebar-link flex items-center justify-between px-space-sm py-1.5 rounded text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors ${isActive ? 'app-sidebar-link--active' : ''}`}>
                   <span className="app-sidebar-subitem-main">
                     <span className="app-sidebar-subitem-icon material-symbols-outlined" aria-hidden="true">account_balance</span>

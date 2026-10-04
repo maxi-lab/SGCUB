@@ -8,4 +8,6 @@ psycopg2-binary>=2.9.12
 django-q2>=1.11.1
 drf-spectacular>=0.28.0
 djangorestframework-simplejwt>=5.4,<6
+reportlab>=4.2,<5
+croniter
 django-cleanup>=9.0.0

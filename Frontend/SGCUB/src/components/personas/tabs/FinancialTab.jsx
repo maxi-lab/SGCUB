@@ -1,112 +1,118 @@
-//DEBE REVISARSE AL REALIZAR TODA LA LOGICA DE FINANZAS, SOLO ES PARA PODER MOSTRAR ALGO EN EL ESTADO DE CUENTA
+import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { getEstadoCuenta } from '../../../api/estadoCuenta'
+import { postBeneficio } from '../../../api/cuotas'
+import BecaDescuentoModal from '../../finanzas/BecaDescuentoModal'
+import CuotasEstadoCuentaTable from '../../finanzas/CuotasEstadoCuentaTable'
+import { isPaid } from '../../finanzas/accountStatement'
+import { formatAmount, formatNumber } from '../format'
+import { EmptyState, KPI, PrimaryButton } from './parts'
 
+const fetchAccount = (socioId) => getEstadoCuenta(socioId).catch((requestError) => {
+  if (requestError.response?.status === 404) return null
+  throw requestError
+})
 
+function FinancialTab({ socio, onRegisterPayment, enableBenefits = false }) {
+  const navigate = useNavigate()
+  const socioId = socio.socio_id
+  const [load, setLoad] = useState({ socioId: null, error: null, account: null })
+  const [selectedCuota, setSelectedCuota] = useState(null)
+  const [benefitModalOpen, setBenefitModalOpen] = useState(false)
+  const [savingBenefit, setSavingBenefit] = useState(false)
 
-import { formatDate, formatAmount } from '../format'
-import { TabHeader, EmptyState, KPI } from './parts'
+  useEffect(() => {
+    let active = true
+    fetchAccount(socioId)
+      .then((account) => active && setLoad({ socioId, error: null, account }))
+      .catch(() => active && setLoad({ socioId, error: 'No se pudo cargar el estado de cuenta.', account: null }))
+    return () => { active = false }
+  }, [socioId])
 
-const ESTILO_ESTADO = {
-  Paga: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  'En Fecha': 'bg-primary-fixed/30 text-primary border-primary-fixed',
-  Vencida: 'bg-error-container text-on-error-container border-error/20',
-}
+  const loading = load.socioId !== socioId
+  const account = load.account
+  const cuotas = useMemo(() => account?.cuotas ?? [], [account])
 
-export default function FinancialTab({ cuenta, cuotas = [], vencidas = [], situacion, isLoading, error }) {
-  if (isLoading) {
-    return (
-      <div className="py-12 flex flex-col items-center gap-3 text-on-surface-variant">
-        <span className="material-symbols-outlined text-[28px] animate-spin">progress_activity</span>
-        <p className="text-base">Cargando estado de cuenta...</p>
-      </div>
-    )
+  const applyBenefit = async (benefit) => {
+    if (!selectedCuota) return
+    setSavingBenefit(true)
+    try {
+      await postBeneficio(selectedCuota.cuota_id, benefit)
+      setBenefitModalOpen(false)
+      setSelectedCuota(null)
+      try {
+        const updatedAccount = await fetchAccount(socioId)
+        setLoad({ socioId, error: null, account: updatedAccount })
+      } catch {
+        setLoad((current) => ({ ...current, error: 'El beneficio se aplicó, pero no se pudo actualizar el estado de cuenta.' }))
+      }
+    } finally {
+      setSavingBenefit(false)
+    }
   }
 
-  if (error) {
-    return (
-      <div className="bg-error-container text-on-error-container p-4 rounded-lg border border-error/30 flex items-center gap-2.5" role="alert">
-        <span className="material-symbols-outlined text-error">error</span>
-        <p className="text-base font-medium">No se pudo cargar la información financiera.</p>
-      </div>
-    )
+  const summary = useMemo(() => ({
+    paidCount: cuotas.filter(isPaid).length,
+    surcharges: Number(account?.total_mora ?? 0),
+    debt: Number(account?.total_adeudado ?? 0),
+  }), [account, cuotas])
+
+  const toggleCuota = (cuota, selected) => setSelectedCuota(selected ? null : cuota)
+
+  if (loading) {
+    return <div className="py-16 flex flex-col items-center gap-3 text-on-surface-variant"><span className="material-symbols-outlined text-3xl animate-spin">progress_activity</span><p>Cargando estado de cuenta...</p></div>
   }
 
-  const deuda = vencidas.reduce((total, cuota) => total + cuota.monto, 0)
-  const pagas = cuotas.filter((c) => c.estado === 'Paga').length
-  const saldo = cuenta?.saldo ?? 0
+  if (load.error) {
+    return <div className="bg-error-container text-on-error-container p-4 rounded-lg border border-error/30" role="alert">{load.error}</div>
+  }
+
+  if (!account) {
+    return <EmptyState icon="account_balance_wallet" title="Sin cuenta corriente" description="Este socio todavía no tiene una cuenta corriente asociada." />
+  }
 
   return (
-    <div className="flex flex-col gap-6">
-      <TabHeader
-        title="Estado de cuenta"
-        description="Cuotas emitidas, vencimientos y saldo de la cuenta corriente del socio"
-        actions={situacion && (
-          <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-semibold ${
-            situacion.tono === 'ok' ? 'bg-emerald-50 text-emerald-700'
-              : situacion.tono === 'error' ? 'bg-error-container text-on-error-container'
-                : 'bg-surface-container-high text-on-surface-variant'
-          }`}
-          >
-            <span className="material-symbols-outlined text-[18px]">
-              {situacion.tono === 'ok' ? 'check_circle' : situacion.tono === 'error' ? 'warning' : 'info'}
-            </span>
-            {situacion.label}
-          </span>
-        )}
-      />
+    <section className="flex flex-col gap-5" aria-labelledby="estado-cuenta-title">
+      <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 pb-4 border-b border-surface-container">
+        <div>
+          <p className="text-sm uppercase tracking-wider font-semibold text-primary">Cuenta corriente {formatNumber(account.cuenta_corriente_id)}</p>
+          <h2 id="estado-cuenta-title" className="text-2xl font-bold text-on-surface mt-1">Estado de cuenta</h2>
+          <p className="text-base text-on-surface-variant mt-1">Detalle de cuotas, pagos y conceptos pendientes del socio.</p>
+        </div>
+        <PrimaryButton icon="payments" onClick={onRegisterPayment ?? (() => navigate(`/caja?socio=${socioId}`))}>Registrar pago</PrimaryButton>
+      </div>
 
-      {!cuenta ? (
-        <EmptyState
-          icono="account_balance_wallet"
-          titulo="Sin cuenta corriente"
-          descripcion="Este socio todavía no tiene una cuenta corriente asociada, por lo que no hay cuotas para mostrar."
-        />
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+        <KPI label="Saldo total adeudado" value={formatAmount(summary.debt)} icon="account_balance" tone={summary.debt ? 'error' : 'ok'} />
+        <KPI label="Cuotas generadas" value={cuotas.length} icon="receipt_long" />
+        <KPI label="Cuotas pagas" value={summary.paidCount} icon="task_alt" tone="ok" />
+        <KPI label="Recargos por mora" value={formatAmount(summary.surcharges)} icon="warning" tone={summary.surcharges ? 'alert' : 'ok'} />
+      </div>
+
+      {cuotas.length === 0 ? (
+        <EmptyState icon="receipt_long" title="Sin cuotas generadas" description="La cuenta corriente no tiene cuotas registradas." />
       ) : (
-        <>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <KPI label="Saldo de cuenta" value={formatAmount(saldo)} icon="account_balance" tone={saldo < 0 ? 'error' : 'neutral'} />
-            <KPI label="Cuotas emitidas" value={cuotas.length} icon="receipt_long" />
-            <KPI label="Cuotas pagas" value={pagas} icon="task_alt" tone="ok" />
-            <KPI label="Deuda vencida" value={formatAmount(deuda)} icon="warning" tone={vencidas.length ? 'error' : 'ok'} />
-          </div>
-
-          {cuotas.length === 0 ? (
-            <EmptyState icon="receipt_long" title="Sin cuotas emitidas" description="La cuenta corriente no tiene cuotas registradas." />
-          ) : (
-            <div className="overflow-x-auto border border-outline-variant/30 rounded-xl bg-surface-container-lowest shadow-sm">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-surface-container-low/70 border-b border-outline-variant/30 text-on-surface-variant text-sm uppercase tracking-wider">
-                    <th className="py-3 px-4 font-semibold">Período</th>
-                    <th className="py-3 px-4 font-semibold">1° vencimiento</th>
-                    <th className="py-3 px-4 font-semibold">2° vencimiento</th>
-                    <th className="py-3 px-4 font-semibold">Conceptos</th>
-                    <th className="py-3 px-4 font-semibold text-right">Monto</th>
-                    <th className="py-3 px-4 font-semibold text-center">Estado</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-outline-variant/20 text-base">
-                  {cuotas.map((cuota) => (
-                    <tr key={cuota.cuota_id} className="hover:bg-surface-container-low transition-colors">
-                      <td className="py-3.5 px-4 font-semibold text-on-surface">{cuota.periodo}</td>
-                      <td className="py-3.5 px-4 text-on-surface-variant">{formatDate(cuota.fecha_venc1)}</td>
-                      <td className="py-3.5 px-4 text-on-surface-variant">{formatDate(cuota.fecha_venc2)}</td>
-                      <td className="py-3.5 px-4 text-sm text-on-surface-variant">
-                        {cuota.items.length ? cuota.items.map((item) => item.concepto).join(', ') : '—'}
-                      </td>
-                      <td className="py-3.5 px-4 text-right font-mono text-on-surface">{formatAmount(cuota.monto)}</td>
-                      <td className="py-3.5 px-4 text-center">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-semibold border ${ESTILO_ESTADO[cuota.estado] ?? 'bg-surface-container-high text-on-surface-variant border-outline-variant/30'}`}>
-                          {cuota.estado}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </>
+        <CuotasEstadoCuentaTable cuotas={cuotas} selectedCuotaId={selectedCuota?.cuota_id} onToggle={toggleCuota} />
       )}
-    </div>
+
+      {enableBenefits && selectedCuota && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-surface-container-low border border-outline-variant/30 rounded-lg">
+          <p className="text-sm text-on-surface-variant">Cuota seleccionada: <strong className="text-on-surface">{selectedCuota.periodo}</strong> · {formatAmount(selectedCuota.monto_total)} · Pendiente {formatAmount(Number(selectedCuota.saldo_pendiente ?? 0))}</p>
+          <button type="button" onClick={() => setBenefitModalOpen(true)} className="inline-flex items-center justify-center gap-2 h-10 px-4 bg-primary text-on-primary rounded-md font-semibold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed">
+            <span className="material-symbols-outlined text-lg">redeem</span>Asignar beca o descuento
+          </button>
+        </div>
+      )}
+
+      <BecaDescuentoModal
+        opened={benefitModalOpen}
+        cuota={selectedCuota}
+        onClose={() => !savingBenefit && setBenefitModalOpen(false)}
+        onSubmit={applyBenefit}
+        isSaving={savingBenefit}
+      />
+    </section>
   )
 }
+
+export default FinancialTab

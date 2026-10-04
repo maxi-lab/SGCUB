@@ -1,6 +1,9 @@
 import { useMemo, useState } from 'react'
+import DataTable from '../shared/DataTable'
 import FilterSelect from '../shared/FilterSelect'
 import SortableHeader from '../shared/SortableHeader'
+import TableMessageRow from '../shared/TableMessageRow'
+import TableSearchInput from '../shared/TableSearchInput'
 import useOrdenTabla from '../../hooks/useOrdenTabla'
 import { formatDate } from '../personas/format'
 import { parseDueDate } from './dueDate'
@@ -19,6 +22,7 @@ const SORT_VALUES = {
   status: (doc) => STATUS_ORDER[doc.status] ?? null,
 }
 const INITIAL_SORT = { columna: 'dueDate', direccion: 'asc' }
+const COLUMN_COUNT = 5
 
 const ALL = 'all'
 const HEADER_CLASS = 'py-3 px-4'
@@ -99,17 +103,12 @@ export default function PersonaDocumentsTable({ title, documents, getTypeName, o
         </div>
       )}
       <div className="p-4 border-b border-outline-variant/20 flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-2.5">
-        <div className="relative w-full sm:w-auto sm:flex-1 sm:min-w-[16rem] sm:max-w-md">
-          <span className="material-symbols-outlined absolute left-4 top-1.5 text-outline text-sm" aria-hidden="true">search</span>
-          <input
-            className="w-full h-10 pl-11 pr-4 bg-surface-container-low border border-outline-variant/40 rounded text-on-surface placeholder:text-outline font-body-sm text-sm focus:outline-none focus:border-primary focus:bg-surface-container-lowest transition-colors"
-            placeholder="Filtrar por tipo de documento..."
-            type="text"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            aria-label="Filtrar documentos"
-          />
-        </div>
+        <TableSearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder="Filtrar por tipo de documento..."
+          label="Filtrar documentos"
+        />
         <FilterSelect className={SELECT_CLASS} value={docType} onChange={e => setDocType(e.target.value)} aria-label="Filtrar por tipo de documento">
           <option value={ALL}>Tipo: Todos</option>
           {typeOptions.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
@@ -121,57 +120,56 @@ export default function PersonaDocumentsTable({ title, documents, getTypeName, o
           </FilterSelect>
         )}
       </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm border-collapse">
-          <thead>
-            <tr className="bg-surface-container-low/60 border-b border-outline-variant/30 text-sm font-semibold text-on-surface-variant uppercase tracking-wider">
-              <SortableHeader className={`${HEADER_CLASS} pl-6`} etiqueta="Documento" columna="type" orden={sort} onOrdenar={sortBy} />
-              <SortableHeader className={HEADER_CLASS} etiqueta="Emisión" columna="issueDate" orden={sort} onOrdenar={sortBy} />
-              <SortableHeader className={HEADER_CLASS} etiqueta="Vencimiento" columna="dueDate" orden={sort} onOrdenar={sortBy} />
-              {isHistory
-                ? <th className={HEADER_CLASS} scope="col">Estado</th>
-                : <SortableHeader className={HEADER_CLASS} etiqueta="Estado" columna="status" orden={sort} onOrdenar={sortBy} />}
-              <th className={`${HEADER_CLASS} pr-6 text-right`} scope="col">Acciones</th>
+      <DataTable
+        headers={(
+          <>
+            <SortableHeader className={`${HEADER_CLASS} pl-6`} etiqueta="Documento" columna="type" orden={sort} onOrdenar={sortBy} />
+            <SortableHeader className={HEADER_CLASS} etiqueta="Emisión" columna="issueDate" orden={sort} onOrdenar={sortBy} />
+            <SortableHeader className={HEADER_CLASS} etiqueta="Vencimiento" columna="dueDate" orden={sort} onOrdenar={sortBy} />
+            {isHistory
+              ? <th className={HEADER_CLASS} scope="col">Estado</th>
+              : <SortableHeader className={HEADER_CLASS} etiqueta="Estado" columna="status" orden={sort} onOrdenar={sortBy} />}
+            <th className={`${HEADER_CLASS} pr-6 text-right`} scope="col">Acciones</th>
+          </>
+        )}
+      >
+        <TableMessageRow
+          colSpan={COLUMN_COUNT}
+          isEmpty={sortedRows.length === 0}
+          emptyText="No hay documentos que coincidan con los filtros."
+        />
+        {sortedRows.map(doc => {
+          const statusStyle = STATUS_LABELS[doc.status]
+          return (
+            <tr key={doc.id_documento} className={`hover:bg-surface-container-low/80 transition-colors ${isHistory ? 'opacity-75' : ''}`}>
+              <td className="py-3 px-4 pl-6 font-medium text-base">{doc.typeName}</td>
+              <td className="py-3 px-4 text-on-surface-variant">{formatDate(doc.fecha_emision)}</td>
+              <td className="py-3 px-4 text-on-surface-variant">{doc.fecha_vencimiento ? formatDate(doc.fecha_vencimiento) : 'Sin vencimiento'}</td>
+              <td className="py-3 px-4">
+                {isHistory ? (
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium bg-surface-container-high text-on-surface-variant border border-outline-variant/30">Histórico</span>
+                ) : (
+                  <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-sm font-semibold ${statusStyle?.badge ?? ''}`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${statusStyle?.dot ?? ''}`} />
+                    {statusStyle?.label ?? 'Desconocido'}
+                  </span>
+                )}
+              </td>
+              <td className="py-2 px-4 pr-6">
+                <div className="flex items-center justify-end gap-1">
+                  {doc.archivoUrl && (
+                    <ActionButton icon="download" label={`Descargar ${doc.typeName}`} className={PRIMARY_ACTION_CLASS} onClick={() => openFile(doc.archivoUrl)} />
+                  )}
+                  {!isHistory && (
+                    <ActionButton icon="edit" label={`Editar ${doc.typeName}`} className={PRIMARY_ACTION_CLASS} onClick={() => onEdit(doc)} />
+                  )}
+                  <ActionButton icon="delete" label={`Eliminar ${doc.typeName}`} className={DANGER_ACTION_CLASS} onClick={() => onDelete(doc)} />
+                </div>
+              </td>
             </tr>
-          </thead>
-          <tbody className="divide-y divide-outline-variant/20 font-body-sm text-on-surface">
-            {sortedRows.length === 0 && (
-              <tr><td className="py-10 px-4 text-center text-on-surface-variant" colSpan={5}>No hay documentos que coincidan con los filtros.</td></tr>
-            )}
-            {sortedRows.map(doc => {
-              const statusStyle = STATUS_LABELS[doc.status]
-              return (
-                <tr key={doc.id_documento} className={`hover:bg-surface-container-low/80 transition-colors ${isHistory ? 'opacity-75' : ''}`}>
-                  <td className="py-3 px-4 pl-6 font-medium text-base">{doc.typeName}</td>
-                  <td className="py-3 px-4 text-on-surface-variant">{formatDate(doc.fecha_emision)}</td>
-                  <td className="py-3 px-4 text-on-surface-variant">{doc.fecha_vencimiento ? formatDate(doc.fecha_vencimiento) : 'Sin vencimiento'}</td>
-                  <td className="py-3 px-4">
-                    {isHistory ? (
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium bg-surface-container-high text-on-surface-variant border border-outline-variant/30">Histórico</span>
-                    ) : (
-                      <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-sm font-semibold ${statusStyle?.badge ?? ''}`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${statusStyle?.dot ?? ''}`} />
-                        {statusStyle?.label ?? 'Desconocido'}
-                      </span>
-                    )}
-                  </td>
-                  <td className="py-2 px-4 pr-6">
-                    <div className="flex items-center justify-end gap-1">
-                      {doc.archivoUrl && (
-                        <ActionButton icon="download" label={`Descargar ${doc.typeName}`} className={PRIMARY_ACTION_CLASS} onClick={() => openFile(doc.archivoUrl)} />
-                      )}
-                      {!isHistory && (
-                        <ActionButton icon="edit" label={`Editar ${doc.typeName}`} className={PRIMARY_ACTION_CLASS} onClick={() => onEdit(doc)} />
-                      )}
-                      <ActionButton icon="delete" label={`Eliminar ${doc.typeName}`} className={DANGER_ACTION_CLASS} onClick={() => onDelete(doc)} />
-                    </div>
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      </div>
+          )
+        })}
+      </DataTable>
     </div>
   )
 }

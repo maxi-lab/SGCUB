@@ -3,6 +3,8 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api/conf'
 import { getSocio } from '../api/socios'
 import PageHeader from '../components/shared/PageHeader'
+import { getErrorMessage } from '../components/personas/format'
+
 import { BotonCambiarPersona, ListaSugerenciasPersona } from '../components/shared/PersonaSearchDNI'
 import usePersonaSearchDNI from '../hooks/usePersonaSearchDNI'
 import useSocio from '../hooks/useSocio'
@@ -24,21 +26,6 @@ const formatearFecha = (fecha) => {
   if (!fecha) return '—'
   const partes = String(fecha).split('-')
   return partes.length === 3 ? `${partes[2]}/${partes[1]}/${partes[0]}` : fecha
-}
-
-const mensajeDeError = (requestError, porDefecto) => {
-  const errorData = requestError.response?.data
-  if (!errorData) return porDefecto
-  if (typeof errorData === 'string') return errorData
-  if (errorData.detail) return errorData.detail
-  return Object.entries(errorData)
-    .map(([k, v]) => {
-      if (Array.isArray(v)) {
-        return `${k}: ${v.map((item) => (typeof item === 'object' ? JSON.stringify(item) : item)).join(', ')}`
-      }
-      return `${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`
-    })
-    .join(' | ')
 }
 
 function SocioForm() {
@@ -190,7 +177,7 @@ function SocioForm() {
       const socioId = resultado?.socio_id ?? id
       navigate(socioId ? `/padron/socios/${socioId}` : '/padron/socios')
     } catch (requestError) {
-      setErrorGuardado(mensajeDeError(requestError, editando ? 'No se pudo modificar el socio.' : 'No se pudo agregar el socio.'))
+      setErrorGuardado(getErrorMessage(requestError, editando ? 'No se pudo modificar el socio.' : 'No se pudo agregar el socio.'))
       window.scrollTo({ top: 0, behavior: 'smooth' })
     } finally {
       setGuardando(false)

@@ -17,13 +17,19 @@ import DocenteForm from './pages/DocenteForm'
 import SocioForm from './pages/SocioForm'
 import Categorias from './pages/Categorias'
 import Docentes from './pages/Docentes'
-import CategoriaDetail from './pages/CategoriaDetail'
+import Cuotas from './pages/Cuotas'
+import EstadoCuenta from './pages/EstadoCuenta'
 import EnDesarrollo from './pages/EnDesarrollo'
+import ResumenFinanciero from './pages/ResumenFinanciero'
+import Caja from './pages/Caja'
+import Morosidad from './pages/Morosidad'
+
+import CategoriaDetail from './pages/CategoriaDetail'
+
 import Usuarios from './pages/Usuarios'
 import ChangePassword from './pages/ChangePassword'
 import { CHANGE_PASSWORD_PATH } from './auth/paths'
 import DocumentacionDashboard from './pages/DocumentacionDashboard'
-
 export const router = createBrowserRouter([
   {
     path: '/login',
@@ -110,16 +116,33 @@ export const router = createBrowserRouter([
             ],
           },
           {
+            path: 'finanzas',
+            children: [
+              {
+                index: true,
+                element: <Navigate to="cuotas" replace />,
+              },
+              {
+                path: 'cuotas',
+                element: <Cuotas />,
+              },
+              {
+                path: 'estado-cuenta',
+                element: <EstadoCuenta />,
+              },
+            ],
+          },
+          {
             path: 'resumen-financiero',
-            element: <EnDesarrollo title="Resumen financiero" />,
+            element: <ResumenFinanciero />,
           },
           {
             path: 'morosidad',
-            element: <EnDesarrollo title="Reporte de morosidad" />,
+            element: <Morosidad />,
           },
           {
             path: 'caja',
-            element: <EnDesarrollo title="Caja y cobros" />,
+            element: <Caja />,
           },
           {
             path: 'documental',
@@ -156,6 +179,28 @@ export const router = createBrowserRouter([
               },
             ],
           },
+          {
+            path: 'docentes',
+            element: <Docentes />,
+          },
+          {
+            path: 'docentes/nuevo',
+            element: <DocenteForm />,
+          },
+          {
+            path: 'docentes/:id',
+            element: <DocenteDetail />,
+          },
+          {
+            path: 'docentes/:id/editar',
+            element: <DocenteForm />,
+          },
+          {
+            path: 'categorias/:id',
+            element: <CategoriaDetail />,
+          },
+        ],
+      },
     ],
 
     label: 'Inicio',
@@ -174,9 +219,9 @@ export const router = createBrowserRouter([
     showInNavigation: true,
   },
     ],
-  },
+  
   {
     path: '*',
     element: <h1>404 - Página no encontrada</h1>,
   }
-])
+)

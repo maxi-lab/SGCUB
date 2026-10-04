@@ -9,14 +9,12 @@ import PersonalDataTab from '../components/personas/tabs/PersonalDataTab'
 import FinancialTab from '../components/personas/tabs/FinancialTab'
 import { LoadingFile, ErrorFile } from '../components/personas/FileStatus'
 import { yearsSince, isActiveStatus, formatDni, formatDate, formatNumber, yearsText } from '../components/personas/format'
-import useFinancialStatus from '../hooks/useEstadoFinanciero'
 import useLocalidades from '../hooks/useLocalidades'
 
 function SocioDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { localidades } = useLocalidades()
-  const financiero = useFinancialStatus(id)
 
   const [carga, setCarga] = useState({ id: null, datos: null, error: null })
   const loading = carga.id !== id
@@ -86,8 +84,7 @@ function SocioDetail() {
       id: 'financiero',
       label: 'Financiero',
       icon: 'account_balance_wallet',
-      badge: financiero.isLoading || financiero.error ? undefined : financiero.situacion,
-      content: <FinancialTab {...financiero} />,
+      content: <FinancialTab socio={socio} enableBenefits />,
     },
   ]
 
