@@ -28,8 +28,7 @@ def recategorizar_jugador(jugador):
         return
 
     # Determinamos la edad del jugador en la temporada actual
-    temporada_actual = categoria_actual.anio_vigente if categoria_actual else Categoria.objects.first().anio_vigente
-    edad_competencia = temporada_actual - anio_nacimiento
+    edad_competencia = date.today().year - anio_nacimiento
     
     # ¿Está el jugador en una categoría incorrecta?
     # Es incorrecta si es de otro género, o si el jugador es DEMASIADO GRANDE para esa categoría.
@@ -61,9 +60,10 @@ def recategorizar_jugador(jugador):
             print(f"Recategorizando jugador {jugador} pasado a: {estado}")
 
 def pasr_de_anio_vigente_a_categoria():
-    categorias = Categoria.objects.all()
+    current_year = date.today().year
+    categorias = Categoria.objects.exclude(anio_vigente=current_year)
     for categoria in categorias:
-        categoria.anio_vigente = categoria.anio_vigente + 1
+        categoria.anio_vigente = current_year
         
         # Renombrar automáticamente las categorías Infantiles (solo las que son un año numérico)
         if categoria.nombre.isdigit() and len(categoria.nombre) == 4:

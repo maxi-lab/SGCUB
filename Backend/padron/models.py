@@ -207,7 +207,7 @@ class Categoria(models.Model):
 
     def competition_age(self, birth_date):
         """Edad que el jugador cumple en el año de la temporada (al 31/12 del anio_vigente)."""
-        return self.anio_vigente - birth_date.year
+        return get_anio_actual() - birth_date.year
 
     def accepts_age(self, birth_date):
         return self.competition_age(birth_date) <= self.edad_maxima
