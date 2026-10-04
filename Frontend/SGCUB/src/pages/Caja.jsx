@@ -5,8 +5,8 @@ import { getEstadoCuenta } from '../api/estadoCuenta'
 import { getComprobante, getComprobantes } from '../api/comprobantes'
 import PagoForm from '../components/finanzas/PagoForm'
 import ComprobantesTable from '../components/finanzas/ComprobantesTable'
-import ComprobanteDetalleModal from '../components/finanzas/ComprobanteDetalleModal'
-import CorregirPagoModal from '../components/finanzas/CorregirPagoModal'
+import ComprobanteDetailModal from '../components/finanzas/ComprobanteDetailModal'
+import AmendPagoModal from '../components/finanzas/AmendPagoModal'
 import PageHeader from '../components/shared/PageHeader'
 import { ErrorFile, LoadingFile } from '../components/personas/FileStatus'
 
@@ -71,8 +71,8 @@ function Caja() {
       {!carga.loading && socioId && carga.socio && carga.cuenta && <section className="bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-5 shadow-sm"><PagoForm socio={carga.socio} cuenta={carga.cuenta} onCancel={() => navigate(`/finanzas/estado-cuenta?socio=${socioId}`)} onSuccess={cargarComprobantes} /></section>}
       {!socioId && <p className="p-4 bg-surface-container-low rounded-lg text-on-surface-variant">Para registrar un pago, ingresá desde el estado de cuenta de un socio.</p>}
       <ComprobantesTable comprobantes={comprobantes} isLoading={cargaComprobantes.loading} error={cargaComprobantes.error} onSelect={seleccionarComprobante} />
-      <ComprobanteDetalleModal comprobante={comprobanteSeleccionado} detalle={detalleComprobante} loading={cargandoDetalle} error={errorDetalle} opened={Boolean(comprobanteSeleccionado)} onClose={() => setComprobanteSeleccionado(null)} onCorrect={setPagoEnCorreccion} />
-      <CorregirPagoModal
+      <ComprobanteDetailModal comprobante={comprobanteSeleccionado} detalle={detalleComprobante} loading={cargandoDetalle} error={errorDetalle} opened={Boolean(comprobanteSeleccionado)} onClose={() => setComprobanteSeleccionado(null)} onCorrect={setPagoEnCorreccion} />
+      <AmendPagoModal
         key={pagoEnCorreccion?.pago_id ?? 'closed'}
         comprobante={comprobanteSeleccionado}
         pago={pagoEnCorreccion}

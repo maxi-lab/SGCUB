@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { descargarComprobantePdf } from '../../api/comprobantes'
 import { SecondaryButton } from '../personas/tabs/parts'
 
-function DescargarComprobanteButton({ comprobanteId }) {
+function DownloadComprobanteButtom({ comprobanteId }) {
   const [descargando, setDescargando] = useState(false)
   const [error, setError] = useState('')
 
@@ -28,4 +28,4 @@ function DescargarComprobanteButton({ comprobanteId }) {
   )
 }
 
-export default DescargarComprobanteButton
+export default DownloadComprobanteButtom
