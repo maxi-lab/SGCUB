@@ -1,4 +1,7 @@
 import { useEffect, useRef } from 'react'
+import { API_ORIGIN } from '../../api/conf'
+
+const mediaUrl = (ruta) => (ruta?.startsWith('http') ? ruta : `${API_ORIGIN}${ruta}`)
 
 const INVALID_DATES_MESSAGE = 'La fecha de vencimiento debe ser posterior a la fecha de emisión'
 
@@ -75,8 +78,31 @@ export default function DocumentacionUploadModal({
               <p className="col-span-2 -mt-2 text-sm text-error" role="alert">{INVALID_DATES_MESSAGE}</p>
             )}
           </div>
+          
+            {isEditing && form.archivoUrl_existing && (
+              <div className="bg-surface-container-low rounded-lg border border-outline-variant/40 p-3 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <span className="material-symbols-outlined text-error text-2xl shrink-0">picture_as_pdf</span>
+                  <div className="min-w-0">
+                    <p className="text-base font-semibold text-on-surface truncate">
+                      {tipos.find(t => String(t.id_tipo_documento) === String(form.tipo_documento))?.nombre || 'Documento actual'}
+                    </p>
+                    <p className="text-sm text-on-surface-variant">Documento cargado actualmente</p>
+                  </div>
+                </div>
+                <a
+                  href={mediaUrl(form.archivoUrl_existing)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-semibold text-primary border border-primary/40 hover:bg-primary/10 transition-colors shrink-0"
+                >
+                  <span className="material-symbols-outlined text-base">open_in_new</span>
+                  Ver PDF
+                </a>
+              </div>
+            )}
           <div>
-            <label className="block text-label-sm text-outline uppercase mb-1">Archivo PDF (Opcional)</label>
+            <label className="block text-label-sm text-outline uppercase mb-1">{isEditing && form.archivoUrl_existing ? 'Reemplazar archivo (Opcional)' : 'Archivo PDF'}</label>
             <div className="relative w-full flex items-center gap-2">
               <input 
                 type="file" 
@@ -84,8 +110,21 @@ export default function DocumentacionUploadModal({
                 accept=".pdf"
                 onChange={onChange}
                 ref={fileInputRef}
-                className="block w-full text-sm text-on-surface-variant file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary-container file:text-on-primary-container hover:file:bg-primary hover:file:text-on-primary file:cursor-pointer file:transition-colors cursor-pointer bg-surface-container-low rounded-lg p-2"
+                className="hidden"
               />
+              <div className="relative flex-1 min-w-0 flex items-center bg-surface-container-low rounded-lg p-1.5 border border-outline-variant/40">
+                <button 
+                  type="button" 
+                  onClick={() => fileInputRef.current?.click()} 
+                  className="inline-flex items-center gap-2 h-9 px-4 bg-primary text-on-primary hover:bg-on-primary-container rounded-md text-sm font-semibold shadow-sm transition-colors cursor-pointer shrink-0"
+                >
+                  <span className="material-symbols-outlined text-[18px]">upload_file</span>
+                  <span>Seleccionar</span>
+                </button>
+                <span className="ml-4 mr-2 text-sm text-on-surface-variant truncate">
+                  {form.archivo ? form.archivo.name : 'Ningún archivo seleccionado'}
+                </span>
+              </div>
               {form.archivo && (
                 <button 
                   type="button" 
@@ -97,18 +136,12 @@ export default function DocumentacionUploadModal({
                 </button>
               )}
             </div>
-            {isEditing && form.archivoUrl_existing && !form.archivo && (
-              <label className="flex items-center gap-2 mt-2 text-label-md cursor-pointer">
-                <input 
-                  type="checkbox" 
-                  name="borrar_archivo" 
-                  checked={form.borrar_archivo} 
-                  onChange={onChange} 
-                  className="w-4 h-4 rounded border-outline text-primary focus:ring-primary-container"
-                />
-                <span className="text-on-surface-variant">Eliminar archivo cargado actualmente</span>
-              </label>
+            {form.archivo && (
+              <p className="text-sm text-on-surface-variant mt-1">
+                {form.archivo.name} ({(form.archivo.size / 1024).toFixed(0)} KB)
+              </p>
             )}
+            
           </div>
           {error && (
             <div className="flex items-start gap-2 p-3 rounded-lg bg-error-container text-error text-sm" role="alert">
