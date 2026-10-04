@@ -839,6 +839,92 @@ class BeneficioCuotaTests(APITestCase):
 		self.assertEqual([beca["socio"] for beca in response.data], [self.socio.pk])
 
 
+class CuotaSettledStateTests(APITestCase):
+	def setUp(self):
+		self.client.force_authenticate(user=get_user_model().objects.create_user(username="tesorero"))
+		self.socio = crear_socio("60000002", con_jugador=True)
+		response = self.client.post(reverse("cuota-list"), {"socio_id": self.socio.pk, "periodo": "2026-10"}, format="json")
+		self.cuota = Cuota.objects.get(pk=response.data["cuota_id"])
+
+	def assign(self, **data):
+		values = {
+			"tipo": "Descuento",
+			"modalidad": "Porcentaje",
+			"valor": "100",
+			"concepto": "CuotaSocial",
+			"fecha_aplicacion": "2026-10-01",
+			"motivo": "Beneficio total",
+		}
+		values.update(data)
+		return self.client.post(reverse("cuota-beneficio", args=[self.cuota.pk]), values, format="json")
+
+	def add_discount_item(self, amount):
+		return self.client.post(reverse("item-cuota-list"), {
+			"cuota": self.cuota.pk,
+			"concepto": "DescuentoUnico",
+			"es_descuento": True,
+			"fecha_aplicacion": "2026-10-01",
+			"monto": amount,
+			"motivo": "Ajuste",
+		}, format="json")
+
+	def state(self):
+		self.cuota.refresh_from_db()
+		return self.cuota.estado_cuota
+
+	def account_status(self):
+		return self.client.get(reverse("estado-cuenta-socio", args=[self.socio.pk])).data
+
+	def test_full_discount_marks_cuota_as_paid(self):
+		response = self.assign()
+
+		self.assertEqual(response.status_code, 201, response.data)
+		self.assertEqual(self.state(), EstadoCuotaChoices.PAGA)
+		status_data = self.account_status()
+		self.assertEqual(status_data["cuotas_impagas"], 0)
+		self.assertEqual(status_data["cuotas_pagas"], 1)
+		self.assertEqual(status_data["total_adeudado"], Decimal("0.00"))
+
+	def test_full_scholarship_marks_cuota_as_paid(self):
+		response = self.assign(tipo="Beca", fecha_fin="2026-12-31")
+
+		self.assertEqual(response.status_code, 201, response.data)
+		self.assertTrue(response.data["aplicado_a_cuota"])
+		self.assertEqual(self.state(), EstadoCuotaChoices.PAGA)
+		self.assertEqual(self.account_status()["cuotas_impagas"], 0)
+
+	def test_item_endpoint_refreshes_state(self):
+		response = self.add_discount_item("1000.00")
+
+		self.assertEqual(response.status_code, 201, response.data)
+		self.assertNotEqual(self.state(), EstadoCuotaChoices.PAGA)
+
+		response = self.add_discount_item("1500.00")
+
+		self.assertEqual(response.status_code, 201, response.data)
+		self.assertEqual(self.state(), EstadoCuotaChoices.PAGA)
+
+	def test_paid_cuota_cannot_be_modified(self):
+		self.assign()
+		item = self.cuota.items.first()
+
+		responses = {
+			"add item": self.add_discount_item("10.00"),
+			"edit item": self.client.patch(reverse("item-cuota-detail", args=[item.pk]), {"monto": "10.00"}, format="json"),
+			"delete item": self.client.delete(reverse("item-cuota-detail", args=[item.pk])),
+			"edit cuota": self.client.patch(reverse("cuota-detail", args=[self.cuota.pk]), {"fecha_venc2": "2026-10-25"}, format="json"),
+			"delete cuota": self.client.delete(reverse("cuota-detail", args=[self.cuota.pk])),
+			"discount": self.assign(modalidad="MontoFijo", valor="10.00"),
+		}
+
+		for action, response in responses.items():
+			with self.subTest(action=action):
+				self.assertEqual(response.status_code, 400)
+				self.assertIn("paga", response.data["detail"])
+		self.assertTrue(Cuota.objects.filter(pk=self.cuota.pk).exists())
+		self.assertEqual(self.cuota.items.count(), 3)
+
+
 class BecasEnGeneracionDeCuotasTests(TestCase):
 	def setUp(self):
 		self.socio = crear_socio("70000001", con_jugador=True)
@@ -1734,3 +1820,52 @@ class PagoFechaHoraMigrationTests(TransactionTestCase):
 			NewPago.objects.get(pk=sin_movimiento.pk).fecha,
 			timezone.make_aware(datetime(2026, 10, 6)),
 		)
+
+
+class RefreshSettledCuotasMigrationTests(TransactionTestCase):
+	migrate_from = [("finanzas", "0024_remove_itemcuota_beca")]
+	migrate_to = [("finanzas", "0025_refresh_settled_cuotas")]
+
+	def migrate(self, targets):
+		executor = MigrationExecutor(connection)
+		executor.loader.build_graph()
+		executor.migrate(targets)
+		return executor.loader.project_state(targets).apps
+
+	def tearDown(self):
+		self.migrate(MigrationExecutor(connection).loader.graph.leaf_nodes())
+
+	def test_marks_only_settled_cuotas_as_paid(self):
+		old_apps = self.migrate(self.migrate_from)
+		OldCuota = old_apps.get_model("finanzas", "Cuota")
+		OldPago = old_apps.get_model("finanzas", "Pago")
+		OldMovimiento = old_apps.get_model("finanzas", "MovimientoCuenta")
+		OldImputacion = old_apps.get_model("finanzas", "Imputacion")
+
+		persona = Persona.objects.create(nombre="Eva", apellido="Norte", dni="93456789")
+		account_id = CuentaCorriente.objects.create(socio=Socio.objects.create(persona=persona)).pk
+
+		def cuota_with_charge(period, amount):
+			cuota = OldCuota.objects.create(estado_cuota="Vencida", fecha_venc1=date(2026, 9, 10), fecha_venc2=date(2026, 9, 20), periodo=period)
+			charge = OldMovimiento.objects.create(cuenta_corriente_id=account_id, cuota=cuota, tipo_movimiento="Cargo", fecha="2026-09-01T12:00:00Z", monto=Decimal(amount))
+			return cuota, charge
+
+		def pay(charge, amount):
+			payment = OldPago.objects.create(fecha=timezone.now())
+			credit = OldMovimiento.objects.create(cuenta_corriente_id=account_id, pago=payment, tipo_movimiento="Abono", fecha="2026-09-05T12:00:00Z", monto=Decimal(amount))
+			OldImputacion.objects.create(movimiento_origen=credit, movimiento_destino=charge, fecha="2026-09-05T12:00:00Z", monto_aplicado=Decimal(amount))
+			return credit
+
+		zero_net, _ = cuota_with_charge("2026-06", "0.00")
+		partially_paid, charge = cuota_with_charge("2026-07", "1000.00")
+		pay(charge, "400.00")
+		reverted, charge = cuota_with_charge("2026-08", "500.00")
+		credit = pay(charge, "500.00")
+		OldMovimiento.objects.create(cuenta_corriente_id=account_id, movimiento_revertido=credit, tipo_movimiento="Cargo", fecha="2026-09-06T12:00:00Z", monto=Decimal("500.00"))
+
+		new_apps = self.migrate(self.migrate_to)
+		NewCuota = new_apps.get_model("finanzas", "Cuota")
+
+		self.assertEqual(NewCuota.objects.get(pk=zero_net.pk).estado_cuota, "Paga")
+		self.assertEqual(NewCuota.objects.get(pk=partially_paid.pk).estado_cuota, "Vencida")
+		self.assertEqual(NewCuota.objects.get(pk=reverted.pk).estado_cuota, "Vencida")

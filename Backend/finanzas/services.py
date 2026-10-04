@@ -133,9 +133,24 @@ def create_cuota(socio, period, first_due_date=None, second_due_date=None, confi
     return cuota
 
 
+def has_payments(cuota):
+    return Imputacion.objects.filter(movimiento_destino__cuota=cuota).exists()
+
+
+def is_locked(cuota):
+    return cuota.estado_cuota == EstadoCuotaChoices.PAGA or has_payments(cuota)
+
+
+def applied_amount(cuota):
+    return Imputacion.objects.filter(
+        movimiento_destino__cuota=cuota,
+        movimiento_origen__reversion__isnull=True,
+    ).aggregate(total=Sum("monto_aplicado"))["total"] or Decimal("0.00")
+
+
 def ensure_cuota_without_payments(cuota):
-    if Imputacion.objects.filter(movimiento_destino__cuota=cuota).exists():
-        raise CuotaConPagosError("La cuota tiene pagos aplicados y no puede modificarse.")
+    if is_locked(cuota):
+        raise CuotaConPagosError("La cuota está paga o tiene pagos aplicados y no puede modificarse.")
 
 
 @transaction.atomic
@@ -146,6 +161,7 @@ def sync_cuota_charge(cuota):
     account.save(update_fields=["saldo"])
     movement.monto = amount
     movement.save(update_fields=["monto"])
+    refresh_cuota_state(cuota, amount - applied_amount(cuota))
 
 
 @transaction.atomic
@@ -588,13 +604,13 @@ def assign_benefit(cuota_id, kind, mode, value, concept, start_date, reason, end
     if mode == ModalidadMontoChoices.MONTO_FIJO and value >= base:
         raise BeneficioInvalidoError("El monto fijo debe ser menor al valor de la cuota.")
 
-    has_payments = Imputacion.objects.filter(movimiento_destino__cuota=cuota).exists()
+    locked = is_locked(cuota)
     available = max(base - total_discounts(items), Decimal("0.00"))
     amount = min(benefit_amount(mode, value, base), base)
 
     if kind == BENEFIT_DISCOUNT:
-        if has_payments:
-            raise CuotaConPagosError("La cuota tiene pagos aplicados y no puede recibir un descuento.")
+        if locked:
+            raise CuotaConPagosError("La cuota está paga o tiene pagos aplicados y no puede recibir un descuento.")
         if amount > available:
             raise BeneficioInvalidoError("El descuento supera el saldo de la cuota que todavía puede descontarse.")
         item = ItemCuota.objects.create(
@@ -620,7 +636,7 @@ def assign_benefit(cuota_id, kind, mode, value, concept, start_date, reason, end
     )
     item = None
     scholarship_amount = min(scholarship.discount_for(base), available)
-    if not has_payments and scholarship.covers_period(cuota_period_start(cuota)) and scholarship_amount > 0:
+    if not locked and scholarship.covers_period(cuota_period_start(cuota)) and scholarship_amount > 0:
         item = ItemCuota.objects.create(
             cuota=cuota,
             concepto=ConceptoItemChoices.BECA,
