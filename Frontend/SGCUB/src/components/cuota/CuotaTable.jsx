@@ -27,20 +27,9 @@ const STATUS_ORDER = { Vencida: 0, EnFecha: 1, Paga: 2 }
 const FILTER_CLASS = 'bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-sm font-medium focus:outline-none focus:border-primary cursor-pointer'
 const HEADER_CLASS = 'py-3 px-4'
 const COLUMN_COUNT = 7
+import { formatAmount, formatDate } from '../personas/format'
+
 const ALL = 'todos'
-
-const formatDate = (value) => {
-  if (!value) return '—'
-
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-
-  return new Intl.DateTimeFormat('es-AR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  }).format(date)
-}
 
 const socioName = (cuota) => {
   const socio = cuota?.socio
