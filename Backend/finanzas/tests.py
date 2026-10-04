@@ -1591,6 +1591,80 @@ class RecargosPorMoraTests(APITestCase):
 		self.assertEqual(response.data["recargos_primer_vencimiento"], 1)
 
 
+class CuotaVencimientosManualesTests(APITestCase):
+	"""Cuotas created or edited with due dates already past get their state and surcharges right away."""
+
+	def setUp(self):
+		self.client.force_authenticate(user=get_user_model().objects.create_user(username="tesorero"))
+		self.today = timezone.localdate()
+		self.socio = crear_socio("30000077", con_jugador=True)
+		ConfiguracionFinanciera.objects.update_or_create(pk=1, defaults={
+			"valor_recargo_1": "200.00",
+			"tipo_recargo_2": "Porcentaje",
+			"valor_recargo_2": "10.00",
+		})
+
+	def due(self, days):
+		return (self.today + timedelta(days=days)).isoformat()
+
+	def create(self, first_days, second_days):
+		return self.client.post(
+			reverse("cuota-list"),
+			{
+				"socio_id": self.socio.pk,
+				"periodo": self.today.strftime("%Y-%m"),
+				"fecha_venc1": self.due(first_days),
+				"fecha_venc2": self.due(second_days),
+			},
+			format="json",
+		)
+
+	def edit(self, cuota_id, first_days, second_days):
+		return self.client.patch(
+			reverse("cuota-detail", args=[cuota_id]),
+			{"fecha_venc1": self.due(first_days), "fecha_venc2": self.due(second_days)},
+			format="json",
+		)
+
+	def assert_cuota(self, response, state, amount):
+		self.assertIn(response.status_code, (200, 201), response.data)
+		self.assertEqual(response.data["estado_cuota"], state)
+		self.assertEqual(Decimal(str(response.data["monto_total"])), Decimal(amount))
+		self.assertEqual(CuentaCorriente.objects.get(socio=self.socio).saldo, -Decimal(amount))
+
+	def test_alta_con_primer_vencimiento_pasado_queda_vencida_con_primer_recargo(self):
+		response = self.create(-2, 4)
+
+		self.assert_cuota(response, EstadoCuotaChoices.VENCIDA, "2700.00")
+		self.assertEqual(Cuota.objects.get(pk=response.data["cuota_id"]).recargos_aplicados, 1)
+
+	def test_alta_con_ambos_vencimientos_pasados_aplica_los_dos_recargos(self):
+		response = self.create(-10, -3)
+
+		self.assert_cuota(response, EstadoCuotaChoices.VENCIDA, "2950.00")
+		self.assertEqual(Cuota.objects.get(pk=response.data["cuota_id"]).recargos_aplicados, 2)
+
+	def test_alta_con_vencimientos_futuros_queda_en_fecha_sin_recargos(self):
+		response = self.create(3, 10)
+
+		self.assert_cuota(response, EstadoCuotaChoices.EN_FECHA, "2500.00")
+		self.assertFalse(ItemCuota.objects.filter(cuota_id=response.data["cuota_id"], concepto="Mora").exists())
+
+	def test_editar_vencimientos_a_fechas_pasadas_la_marca_vencida(self):
+		cuota_id = self.create(3, 10).data["cuota_id"]
+
+		response = self.edit(cuota_id, -2, 4)
+
+		self.assert_cuota(response, EstadoCuotaChoices.VENCIDA, "2700.00")
+
+	def test_editar_vencimientos_a_fechas_futuras_la_vuelve_en_fecha_y_conserva_el_recargo(self):
+		cuota_id = self.create(-2, 4).data["cuota_id"]
+
+		response = self.edit(cuota_id, 5, 15)
+
+		self.assert_cuota(response, EstadoCuotaChoices.EN_FECHA, "2700.00")
+
+
 class TareasProgramadasTests(TestCase):
 	migracion = import_module("finanzas.migrations.0019_tareas_programadas")
 

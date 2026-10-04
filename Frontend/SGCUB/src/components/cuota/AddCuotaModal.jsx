@@ -5,7 +5,7 @@ function AddCuotaModal({ opened, onClose, onSubmit, formulario, onChange, loadin
   return (
     <Modal opened={opened} onClose={onClose} title="Generar cuota" centered size="md">
       <form onSubmit={onSubmit}>
-        <Stack gap="md">
+        <Stack spacing="md">
           <Select
             label="Socio"
             placeholder="Seleccione el socio"
@@ -50,7 +50,7 @@ function AddCuotaModal({ opened, onClose, onSubmit, formulario, onChange, loadin
             </Alert>
           )}
 
-          <Group justify="flex-end" mt="md">
+          <Group position="right" mt="md">
             <Button type="button" variant="default" onClick={onClose} disabled={loading}>
               Cancelar
             </Button>

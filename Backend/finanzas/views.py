@@ -1,4 +1,5 @@
 
+from django.db import transaction
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -49,6 +50,7 @@ from .services import (
 	CuotaDuplicadaError,
 	PagoInvalidoError,
 	SocioInactivoError,
+	apply_cuota_surcharges,
 	apply_surcharges,
 	assign_benefit,
 	correct_payment,
@@ -124,7 +126,10 @@ def cuota_detail(request, pk):
 	serializer = CuotaUpdateSerializer(cuota, data=request.data, partial=request.method == "PATCH")
 	if not serializer.is_valid():
 		return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-	serializer.save()
+	with transaction.atomic():
+		serializer.save()
+		# The new due dates may already be past (or no longer be): recalculate surcharges and state.
+		apply_cuota_surcharges(pk)
 	return Response(CuotaSerializer(_cuotas_queryset().get(pk=pk)).data)
 
 

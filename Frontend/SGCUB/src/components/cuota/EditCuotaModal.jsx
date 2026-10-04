@@ -13,7 +13,7 @@ function EditCuotaModal({ opened, onClose, onSubmit, formulario, onChange, loadi
   return (
     <Modal opened={opened} onClose={onClose} title="Editar cuota" centered size="md">
       <form onSubmit={onSubmit}>
-        <Stack gap="md">
+        <Stack spacing="md">
           <Group grow>
             <TextInput label="Socio" value={nombreSocio} disabled />
             <TextInput label="Período" value={formulario.periodo || ''} disabled />
@@ -36,17 +36,18 @@ function EditCuotaModal({ opened, onClose, onSubmit, formulario, onChange, loadi
             />
           </Group>
 
-          <Stack gap={4}>
+          <Stack spacing={4}>
             <Text size="sm" fw={500}>Ítems</Text>
-            <Table withTableBorder>
-              <Table.Tbody>
+            {/* Mantine v6: Table only styles a native table, it has no Table.Tbody / Table.Tr / Table.Td. */}
+            <Table withBorder>
+              <tbody>
                 {(cuota?.items ?? []).map((item) => (
-                  <Table.Tr key={item.item_cuota_id}>
-                    <Table.Td>{item.concepto_nombre ?? item.concepto}</Table.Td>
-                    <Table.Td ta="right">{formatAmount(item)}</Table.Td>
-                  </Table.Tr>
+                  <tr key={item.item_cuota_id}>
+                    <td>{item.concepto_nombre ?? item.concepto}</td>
+                    <td style={{ textAlign: 'right' }}>{formatAmount(item)}</td>
+                  </tr>
                 ))}
-              </Table.Tbody>
+              </tbody>
             </Table>
           </Stack>
 
@@ -56,7 +57,7 @@ function EditCuotaModal({ opened, onClose, onSubmit, formulario, onChange, loadi
             </Alert>
           )}
 
-          <Group justify="flex-end" mt="md">
+          <Group position="right" mt="md">
             <Button type="button" variant="default" onClick={onClose} disabled={loading}>
               Cancelar
             </Button>

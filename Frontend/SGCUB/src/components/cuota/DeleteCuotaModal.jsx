@@ -13,7 +13,7 @@ function DeleteCuotaModal({ opened, onClose, onConfirm, cuota, loading, error })
           {error}
         </Text>
       )}
-      <Group justify="flex-end" mt="xl">
+      <Group position="right" mt="xl">
         <Button variant="default" onClick={onClose} disabled={loading}>
           Cancelar
         </Button>

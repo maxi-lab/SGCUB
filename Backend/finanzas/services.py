@@ -96,8 +96,9 @@ def lock_cuota_charge(cuota):
 
 
 @transaction.atomic
-def create_cuota(socio, period, first_due_date=None, second_due_date=None, configuration=None):
+def create_cuota(socio, period, first_due_date=None, second_due_date=None, configuration=None, today=None):
     configuration = configuration or ConfiguracionFinanciera.load()
+    today = today or timezone.localdate()
     first_day = parse_period(period)
     period = first_day.strftime(PERIOD_FORMAT)
     items = GeneradorItemsCuota(socio, first_day, configuration).build_items()
@@ -130,6 +131,11 @@ def create_cuota(socio, period, first_due_date=None, second_due_date=None, confi
     account.save(update_fields=["saldo"])
     if amount <= 0:
         refresh_cuota_state(cuota, amount)
+    elif today > cuota.fecha_venc1:
+        # A cuota created with due dates already past gets its surcharges and state now,
+        # instead of waiting for the daily task.
+        apply_cuota_surcharges(cuota.pk, today, configuration)
+        cuota.refresh_from_db()
     return cuota
 
 
@@ -200,7 +206,7 @@ def generar_cuotas_mensuales(fecha=None):
 
     for socio in socios:
         try:
-            cuota = create_cuota(socio, period, configuration=configuration)
+            cuota = create_cuota(socio, period, configuration=configuration, today=fecha)
         except CuotaDuplicadaError:
             result["cuotas_existentes"] += 1
             continue
@@ -536,7 +542,9 @@ def lock_cuota(cuota_id):
 SURCHARGE_LABELS = {1: "primer", 2: "segundo"}
 
 
-def apply_cuota_surcharges(cuota_id, today, configuration):
+def apply_cuota_surcharges(cuota_id, today=None, configuration=None):
+    today = today or timezone.localdate()
+    configuration = configuration or ConfiguracionFinanciera.load()
     with transaction.atomic():
         cuota = lock_cuota(cuota_id)
         if pending_amounts([cuota])[cuota.pk] <= 0:
