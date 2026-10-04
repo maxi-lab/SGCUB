@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useRef } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { api } from '../api/conf'
+import { api, API_ORIGIN } from '../api/conf'
 import { getCargosDocente, getDocente, patchDocente, postDocente } from '../api/docentes'
 import { esCategoriaAsignable, etiquetaCategoria } from '../components/docentes/docentesUtils'
 import { BotonCambiarPersona, ListaSugerenciasPersona } from '../components/shared/PersonaSearchDNI'
@@ -26,6 +26,23 @@ const nuevaAsignacion = () => ({ clave: nuevaClave(), cargo: '', categorias: [] 
 const idCampoAsignacion = (fila, campo) => `${fila.clave}-${campo}`
 
 const formatearLegajo = (legajo) => `#${String(legajo).padStart(4, '0')}`
+
+const mediaUrl = (ruta) => (ruta?.startsWith('http') ? ruta : `${API_ORIGIN}${ruta}`)
+
+const NOMBRE_TIPO_ANTECEDENTES = 'Antecedentes Penales'
+
+let tipoAntecedentesCache = null
+
+async function obtenerTipoAntecedentes() {
+  if (tipoAntecedentesCache) return tipoAntecedentesCache
+  const { data } = await api.get('documental/tipos/')
+  const encontrado = data.find((t) => t.nombre === NOMBRE_TIPO_ANTECEDENTES)
+  if (!encontrado) {
+    throw new Error(`No existe el tipo de documento "${NOMBRE_TIPO_ANTECEDENTES}" en la base.`)
+  }
+  tipoAntecedentesCache = encontrado.id_tipo_documento
+  return tipoAntecedentesCache
+}
 
 const personaAFormulario = (persona) => {
   const datos = socioAFormulario(persona)
@@ -153,6 +170,15 @@ function DocenteForm() {
   const [cargando, setCargando] = useState(editando)
   const [errorCarga, setErrorCarga] = useState('')
   const busqueda = usePersonaSearchDNI({ habilitada: !editando })
+  const fileInputRef = useRef(null)
+  const [archivoAntecedente, setArchivoAntecedente] = useState(null)
+  const [documentoExistente, setDocumentoExistente] = useState(null)
+
+  const handleClearFile = () => {
+    setArchivoAntecedente(null)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
 
   useEffect(() => {
     let activo = true
@@ -166,11 +192,21 @@ function DocenteForm() {
     if (!editando) return undefined
     let activo = true
     getDocente(id)
-      .then((docente) => {
+      .then(async (docente) => {
         if (!activo) return
         setDocenteOriginal(docente)
         setFormulario(personaAFormulario(docente.persona_detalle ?? {}))
         setAsignaciones(asignacionesAFilas(docente.asignaciones))
+
+        try{
+          const tipoId = await obtenerTipoAntecedentes()
+          const { data } = await api.get(`documental/documentos/?persona_id=${docente.persona}`)
+          if (!activo) return
+          const antecedente = data.find((doc) => String(doc.tipo_documento) === String(tipoId))
+          setDocumentoExistente(antecedente ?? null)
+        }catch(err){
+          console.error('Error al cargar el antecedente penal:', err)
+        }
       })
       .catch((requestError) => {
         if (activo) setErrorCarga(requestError.response?.data?.detail || 'No se pudo cargar el docente.')
@@ -291,12 +327,16 @@ function DocenteForm() {
       ...validar(formulario, esGeneroOtro),
       ...validarAsignaciones(asignaciones),
     }
+    const faltaAntecedente = !archivoAntecedente && (!editando || !documentoExistente)
+    if (faltaAntecedente) {
+      nuevosErrores.antecedente_penal = 'Debe adjuntar el archivo PDF de antecedentes penales.'
+    }
     if (docenteDelDni || docenteSeleccionado) nuevosErrores.dni = 'Esta persona ya está registrada como docente.'
     if (dniSinSeleccionar) nuevosErrores.dni = 'Este DNI ya está registrado: seleccioná la persona en la lista de sugerencias.'
     setErrores(nuevosErrores)
 
     const ordenCampos = [
-      ...CAMPOS_OBLIGATORIOS, 'genero_otro',
+      ...CAMPOS_OBLIGATORIOS, 'genero_otro', 'antecedente_penal',
       ...asignaciones.flatMap((fila) => CAMPOS_ASIGNACION.map((campo) => idCampoAsignacion(fila, campo))),
     ]
     const primerError = ordenCampos.find((campo) => nuevosErrores[campo])
@@ -317,6 +357,20 @@ function DocenteForm() {
       try {
         await api.patch(`padron/persona/${docenteOriginal.persona}/`, datosPersona)
         await patchDocente(id, { asignaciones: filasAAsignaciones(asignaciones) })
+
+        if (archivoAntecedente) {
+          const tipoId = await obtenerTipoAntecedentes()
+          const formData = new FormData()
+          formData.append('persona', docenteOriginal.persona)
+          formData.append('tipo_documento', tipoId)
+          formData.append('archivoUrl', archivoAntecedente)
+          formData.append('fecha_recepcion', new Date().toISOString())
+          formData.append('fecha_emision', new Date().toISOString().split('T')[0])
+          await api.post('documental/documentos/', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+          })
+        }
+
         navigate(`/padron/docentes/${id}`)
       } catch (requestError) {
         setErrorGuardado(getErrorMessage(requestError, 'No se pudo modificar el docente.'))
@@ -336,9 +390,26 @@ function DocenteForm() {
 
       // El backend crea el docente y sus cargos en una sola operación y asigna el legajo
       const docente = await postDocente({ persona: personaId, asignaciones: filasAAsignaciones(asignaciones) })
+      const tipoId = await obtenerTipoAntecedentes()
+      const formData = new FormData()
+      formData.append('persona', personaId)
+      formData.append('tipo_documento', tipoId)
+      formData.append('archivoUrl', archivoAntecedente)
+      formData.append('fecha_recepcion', new Date().toISOString())
+          formData.append('fecha_emision', new Date().toISOString().split('T')[0])
+
+      await api.post('documental/documentos/', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+
       navigate(`/padron/docentes/${docente.docente_id}`)
     } catch (requestError) {
-      setErrorGuardado(getErrorMessage(requestError, 'No se pudo agregar el docente.'))
+      const mensaje = getErrorMessage(requestError, 'No se pudo agregar el docente.')
+      setErrorGuardado(
+        mensaje.includes('No existe el tipo')
+          ? mensaje
+          : `El docente se guardó, pero no se pudo adjuntar el antecedente penal. Detalle: ${mensaje}`
+      )
       window.scrollTo({ top: 0, behavior: 'smooth' })
     } finally {
       setGuardando(false)
@@ -541,6 +612,82 @@ function DocenteForm() {
             />
 
             <SeccionDomicilio bindInput={bindInput} errores={errores} localidades={localidades} />
+            <div className="flex flex-col gap-4 pt-4 border-t border-outline-variant/20">
+              <SeccionTitulo icono="gavel" titulo="Documentación" />
+
+              {editando && documentoExistente && (
+                <div className="bg-surface-container-low rounded-lg border border-outline-variant/40 p-3 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="material-symbols-outlined text-error text-2xl shrink-0">picture_as_pdf</span>
+                    <div className="min-w-0">
+                      <p className="text-base font-semibold text-on-surface truncate">
+                        {documentoExistente.nombre || 'Antecedentes penales'}
+                      </p>
+                      <p className="text-sm text-on-surface-variant">Documento cargado actualmente</p>
+                    </div>
+                  </div>
+                  <a
+                    href={mediaUrl(documentoExistente.archivoUrl)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-semibold text-primary border border-primary/40 hover:bg-primary/10 transition-colors shrink-0"
+                  >
+                    <span className="material-symbols-outlined text-base">open_in_new</span>
+                    Ver PDF
+                  </a>
+                </div>
+              )}
+
+              <Campo
+                id="antecedente_penal"
+                label={editando && documentoExistente ? 'Reemplazar antecedente penal (opcional)' : 'Antecedentes penales (PDF)'}
+                requerido={!editando || !documentoExistente}
+                hint={editando && documentoExistente ? '(dejalo vacío para conservar el actual)' : '(archivo PDF)'}
+                error={errores.antecedente_penal}
+              >
+                <div className="relative w-full flex items-center gap-2">
+                  <input
+                    id="antecedente_penal"
+                    type="file"
+                    accept="application/pdf"
+                    ref={fileInputRef}
+                    onChange={(e) => {
+                      setArchivoAntecedente(e.target.files?.[0] ?? null)
+                      limpiarError('antecedente_penal')
+                    }}
+                    className="hidden"
+                  />
+                  <div className={`relative flex-1 min-w-0 flex items-center bg-surface-container-low rounded-lg p-1.5 border ${errores.antecedente_penal ? 'border-error' : 'border-outline-variant/40'}`}>
+                    <button 
+                      type="button" 
+                      onClick={() => fileInputRef.current?.click()} 
+                      className="inline-flex items-center gap-2 h-9 px-4 bg-primary text-on-primary hover:bg-on-primary-container rounded-md text-sm font-semibold shadow-sm transition-colors cursor-pointer shrink-0"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">upload_file</span>
+                      <span>Seleccionar archivo</span>
+                    </button>
+                    <span className="ml-4 mr-2 text-sm text-on-surface-variant truncate">
+                      {archivoAntecedente ? archivoAntecedente.name : 'Ningún archivo seleccionado'}
+                    </span>
+                  </div>
+                  {archivoAntecedente && (
+                    <button 
+                      type="button" 
+                      onClick={handleClearFile}
+                      className="w-10 h-10 shrink-0 rounded-lg bg-surface-container-high hover:bg-error-container text-on-surface-variant hover:text-error flex items-center justify-center transition-colors cursor-pointer"
+                      title="Quitar archivo seleccionado"
+                    >
+                      <span className="material-symbols-outlined text-[20px]">close</span>
+                    </button>
+                  )}
+                </div>
+                {archivoAntecedente && (
+                  <p className="text-sm text-on-surface-variant mt-1">
+                    {archivoAntecedente.name} ({(archivoAntecedente.size / 1024).toFixed(0)} KB)
+                  </p>
+                )}
+              </Campo>
+            </div>
 
             <div className="flex flex-col gap-4 pt-4 border-t border-outline-variant/20">
               <SeccionTitulo
