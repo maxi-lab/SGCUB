@@ -43,7 +43,6 @@ function JugadorDetail() {
   const setJugador = (datos) => setCarga((actual) => ({ ...actual, datos }))
 
   const { localidades } = useLocalidades()
-  const financiero = useFinancialStatus(jugador?.socio?.socio_id)
   const { documentosActivos: activos } = useDocumentacion(jugador?.socio?.persona)
   const badgeConfig = React.useMemo(() => buildDocumentBadges(activos), [activos])
 
