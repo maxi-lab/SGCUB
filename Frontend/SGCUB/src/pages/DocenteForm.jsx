@@ -655,8 +655,21 @@ function DocenteForm() {
                       setArchivoAntecedente(e.target.files?.[0] ?? null)
                       limpiarError('antecedente_penal')
                     }}
-                    className={`block w-full text-sm text-on-surface-variant file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary-container file:text-on-primary-container hover:file:bg-primary hover:file:text-on-primary file:cursor-pointer file:transition-colors cursor-pointer bg-surface-container-low rounded-lg p-2 focus:outline-none ${errores.antecedente_penal ? 'border-2 border-error' : 'border border-outline-variant/50'}`}
+                    className="hidden"
                   />
+                  <div className={`relative flex-1 min-w-0 flex items-center bg-surface-container-low rounded-lg p-1.5 border ${errores.antecedente_penal ? 'border-error' : 'border-outline-variant/40'}`}>
+                    <button 
+                      type="button" 
+                      onClick={() => fileInputRef.current?.click()} 
+                      className="inline-flex items-center gap-2 h-9 px-4 bg-primary text-on-primary hover:bg-on-primary-container rounded-md text-sm font-semibold shadow-sm transition-colors cursor-pointer shrink-0"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">upload_file</span>
+                      <span>Seleccionar archivo</span>
+                    </button>
+                    <span className="ml-4 mr-2 text-sm text-on-surface-variant truncate">
+                      {archivoAntecedente ? archivoAntecedente.name : 'Ningún archivo seleccionado'}
+                    </span>
+                  </div>
                   {archivoAntecedente && (
                     <button 
                       type="button" 

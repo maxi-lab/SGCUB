@@ -110,8 +110,21 @@ export default function DocumentacionUploadModal({
                 accept=".pdf"
                 onChange={onChange}
                 ref={fileInputRef}
-                className="block w-full text-sm text-on-surface-variant file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary-container file:text-on-primary-container hover:file:bg-primary hover:file:text-on-primary file:cursor-pointer file:transition-colors cursor-pointer bg-surface-container-low rounded-lg p-2"
+                className="hidden"
               />
+              <div className="relative flex-1 min-w-0 flex items-center bg-surface-container-low rounded-lg p-1.5 border border-outline-variant/40">
+                <button 
+                  type="button" 
+                  onClick={() => fileInputRef.current?.click()} 
+                  className="inline-flex items-center gap-2 h-9 px-4 bg-primary text-on-primary hover:bg-on-primary-container rounded-md text-sm font-semibold shadow-sm transition-colors cursor-pointer shrink-0"
+                >
+                  <span className="material-symbols-outlined text-[18px]">upload_file</span>
+                  <span>Seleccionar</span>
+                </button>
+                <span className="ml-4 mr-2 text-sm text-on-surface-variant truncate">
+                  {form.archivo ? form.archivo.name : 'Ningún archivo seleccionado'}
+                </span>
+              </div>
               {form.archivo && (
                 <button 
                   type="button" 
