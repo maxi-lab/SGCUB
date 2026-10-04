@@ -21,7 +21,9 @@ from padron.models import (
 	Categoria,
 	EstadoAdministrativo,
 	EstadoDeportivo,
+	Genero,
 	Jugador,
+	Localidad,
 	Persona,
 	Socio,
 )
@@ -67,6 +69,14 @@ def crear_socio(dni, socio_inactivo=False, con_jugador=False, jugador_inactivo=F
 			estado=estado_deportivo,
 		)
 	return Socio.objects.get(pk=socio.pk)
+
+
+def account_for(socio, balance=None):
+	account = CuentaCorriente.objects.get(socio=socio)
+	if balance is not None:
+		account.saldo = balance
+		account.save(update_fields=["saldo"])
+	return account
 
 
 def crear_cuota_con_cargo(cuenta, periodo, monto, estado=EstadoCuotaChoices.EN_FECHA, venc1=date(2026, 9, 10), venc2=date(2026, 9, 20)):
@@ -404,7 +414,7 @@ class CorregirPagoTests(APITestCase):
 
 		persona = Persona.objects.create(nombre="Ana", apellido="Perez", dni="12345678")
 		socio = Socio.objects.create(persona=persona)
-		self.cuenta = CuentaCorriente.objects.create(socio=socio, saldo=Decimal("100.00"))
+		self.cuenta = account_for(socio, Decimal("100.00"))
 		self.cuota_original = crear_cuota_con_cargo(self.cuenta, "Original", "100.00", EstadoCuotaChoices.PAGA)
 		self.cuota_corregida = crear_cuota_con_cargo(self.cuenta, "Corregida", "50.00")
 
@@ -491,7 +501,7 @@ class PagoTestBase(APITestCase):
 		self.client.force_authenticate(user=get_user_model().objects.create_user(username="tesorero"))
 		persona = Persona.objects.create(nombre="Juan", apellido="Paz", dni="56789012")
 		self.socio = Socio.objects.create(persona=persona)
-		self.cuenta = CuentaCorriente.objects.create(socio=self.socio, saldo=Decimal("-2000.00"))
+		self.cuenta = account_for(self.socio, Decimal("-2000.00"))
 		self.septiembre = crear_cuota_con_cargo(self.cuenta, "2026-09", "1000.00")
 		self.agosto = crear_cuota_con_cargo(self.cuenta, "2026-08", "1000.00")
 
@@ -555,8 +565,8 @@ class RegistroPagoTests(PagoTestBase):
 		self.assertEqual(Pago.objects.count(), 1)
 
 	def test_no_permite_pagar_cuotas_de_otro_socio(self):
-		otra_cuenta = CuentaCorriente.objects.create(
-			socio=Socio.objects.create(persona=Persona.objects.create(nombre="Otro", apellido="Socio", dni="67890123")),
+		otra_cuenta = account_for(
+			Socio.objects.create(persona=Persona.objects.create(nombre="Otro", apellido="Socio", dni="67890123")),
 		)
 		ajena = crear_cuota_con_cargo(otra_cuenta, "2026-08", "1000.00")
 
@@ -1335,7 +1345,7 @@ class ReporteMorosidadTests(APITestCase):
 		self.hoy = timezone.localdate()
 		persona = Persona.objects.create(nombre="Rosa", apellido="Mora", dni="78901234")
 		self.socio = Socio.objects.create(persona=persona)
-		self.cuenta = CuentaCorriente.objects.create(socio=self.socio)
+		self.cuenta = account_for(self.socio)
 		self.vencida = crear_cuota_con_cargo(
 			self.cuenta, "2026-08", "1000.00",
 			venc1=self.hoy - timedelta(days=5), venc2=self.hoy + timedelta(days=5),
@@ -1378,6 +1388,7 @@ class ReporteMorosidadTests(APITestCase):
 
 	def test_socio_sin_deuda_vencida_no_figura(self):
 		crear_socio("78901235")
+		CuentaCorriente.objects.get(socio=crear_socio("78901236")).delete()
 
 		data = self.reporte()
 
@@ -1392,12 +1403,12 @@ class ReporteMorosidadPdfTests(APITestCase):
 		today = timezone.localdate()
 		self.debtor = Socio.objects.create(persona=Persona.objects.create(nombre="Rosa", apellido="Mora", dni="78901240"))
 		crear_cuota_con_cargo(
-			CuentaCorriente.objects.create(socio=self.debtor), "2026-08", "1000.00",
+			account_for(self.debtor), "2026-08", "1000.00",
 			venc1=today - timedelta(days=5), venc2=today + timedelta(days=5),
 		)
 		self.up_to_date = Socio.objects.create(persona=Persona.objects.create(nombre="Luis", apellido="Paz", dni="78901241"))
 		crear_cuota_con_cargo(
-			CuentaCorriente.objects.create(socio=self.up_to_date), "2026-08", "1000.00",
+			account_for(self.up_to_date), "2026-08", "1000.00",
 			venc1=today + timedelta(days=5), venc2=today + timedelta(days=15),
 		)
 
@@ -1443,7 +1454,7 @@ class RecargosPorMoraTests(APITestCase):
 		self.hoy = timezone.localdate()
 		persona = Persona.objects.create(nombre="Tomas", apellido="Rey", dni="89012345")
 		self.socio = Socio.objects.create(persona=persona)
-		self.cuenta = CuentaCorriente.objects.create(socio=self.socio, saldo=Decimal("-1000.00"))
+		self.cuenta = account_for(self.socio, Decimal("-1000.00"))
 		self.configurar(valor_recargo_1="200.00", tipo_recargo_2="Porcentaje", valor_recargo_2="10.00")
 
 	def configurar(self, **valores):
@@ -1612,7 +1623,7 @@ class NumeracionComprobanteTests(APITestCase):
 		self.client.force_authenticate(user=get_user_model().objects.create_user(username="tesorero"))
 		persona = Persona.objects.create(nombre="Luis", apellido="Gomez", dni="23456789")
 		self.socio = Socio.objects.create(persona=persona)
-		self.cuenta = CuentaCorriente.objects.create(socio=self.socio)
+		self.cuenta = account_for(self.socio)
 		self.cuotas = [crear_cuota_con_cargo(self.cuenta, f"2026-0{mes}", "100.00") for mes in (8, 9)]
 
 	def registrar_pago(self, cuota):
@@ -1670,7 +1681,7 @@ class MovimientoCuotaMigrationTests(TransactionTestCase):
 		OldMovimiento = old_apps.get_model("finanzas", "MovimientoCuenta")
 
 		persona = Persona.objects.create(nombre="Ana", apellido="Ruiz", dni="45678901")
-		cuenta = CuentaCorriente.objects.create(socio=Socio.objects.create(persona=persona))
+		cuenta = account_for(Socio.objects.create(persona=persona))
 		cuota = OldCuota.objects.create(
 			cuenta_corriente_id=cuenta.pk,
 			fecha_venc1=date(2026, 8, 10),
@@ -1764,7 +1775,7 @@ class DetalleImputacionMigrationTests(TransactionTestCase):
 		OldImputacion = old_apps.get_model("finanzas", "Imputacion")
 
 		persona = Persona.objects.create(nombre="Ana", apellido="Sur", dni="91234567")
-		cuenta = CuentaCorriente.objects.create(socio=Socio.objects.create(persona=persona))
+		cuenta = account_for(Socio.objects.create(persona=persona))
 		cuota = OldCuota.objects.create(fecha_venc1=date(2026, 10, 10), fecha_venc2=date(2026, 10, 20), periodo="2026-10")
 		for concepto, monto in (("CuotaSocial", "1000.00"), ("CuotaDeportiva", "1500.00"), ("Mora", "200.00")):
 			OldItemCuota.objects.create(cuota=cuota, concepto=concepto, fecha_aplicacion=date(2026, 10, 1), monto=Decimal(monto))
@@ -1804,7 +1815,7 @@ class PagoFechaHoraMigrationTests(TransactionTestCase):
 		OldMovimiento = old_apps.get_model("finanzas", "MovimientoCuenta")
 
 		persona = Persona.objects.create(nombre="Ana", apellido="Este", dni="92345678")
-		cuenta = CuentaCorriente.objects.create(socio=Socio.objects.create(persona=persona))
+		cuenta = account_for(Socio.objects.create(persona=persona))
 		con_movimiento = OldPago.objects.create(fecha=date(2026, 10, 5))
 		OldMovimiento.objects.create(cuenta_corriente_id=cuenta.pk, pago=con_movimiento, tipo_movimiento="Abono", fecha="2026-10-05T14:30:00Z", monto=Decimal("100.00"))
 		sin_movimiento = OldPago.objects.create(fecha=date(2026, 10, 6))
@@ -1843,7 +1854,7 @@ class RefreshSettledCuotasMigrationTests(TransactionTestCase):
 		OldImputacion = old_apps.get_model("finanzas", "Imputacion")
 
 		persona = Persona.objects.create(nombre="Eva", apellido="Norte", dni="93456789")
-		account_id = CuentaCorriente.objects.create(socio=Socio.objects.create(persona=persona)).pk
+		account_id = account_for(Socio.objects.create(persona=persona)).pk
 
 		def cuota_with_charge(period, amount):
 			cuota = OldCuota.objects.create(estado_cuota="Vencida", fecha_venc1=date(2026, 9, 10), fecha_venc2=date(2026, 9, 20), periodo=period)
@@ -1869,3 +1880,104 @@ class RefreshSettledCuotasMigrationTests(TransactionTestCase):
 		self.assertEqual(NewCuota.objects.get(pk=zero_net.pk).estado_cuota, "Paga")
 		self.assertEqual(NewCuota.objects.get(pk=partially_paid.pk).estado_cuota, "Vencida")
 		self.assertEqual(NewCuota.objects.get(pk=reverted.pk).estado_cuota, "Vencida")
+
+
+class CurrentAccountOpeningTests(APITestCase):
+	def setUp(self):
+		self.client.force_authenticate(user=get_user_model().objects.create_user(username="administrativo"))
+		self.genero = Genero.objects.create(nombre="Masculino")
+		self.localidad = Localidad.objects.create(nombre="Berisso")
+
+	def person_payload(self, dni, birth_date="1990-05-10"):
+		return {
+			"nombre": "Juan",
+			"apellido": "Perez",
+			"dni": dni,
+			"telefono": "221555000",
+			"email": f"{dni}@example.com",
+			"fecha_nacimiento": birth_date,
+			"genero": self.genero.pk,
+			"domicilio_calle": "Calle 7",
+			"domicilio_numero": "1234",
+			"domicilio_localidad": self.localidad.pk,
+		}
+
+	def test_new_socio_gets_an_empty_current_account(self):
+		response = self.client.post("/api/padron/socio/", self.person_payload("40111222"), format="json")
+
+		self.assertEqual(response.status_code, 201, response.data)
+		account = CuentaCorriente.objects.get(socio_id=response.data["socio_id"])
+		self.assertEqual(account.saldo, Decimal("0.00"))
+		self.assertEqual(account.estado_cuenta_corriente, "Activo")
+
+		status_response = self.client.get(reverse("estado-cuenta-socio", args=[response.data["socio_id"]]))
+
+		self.assertEqual(status_response.status_code, 200)
+		self.assertEqual(status_response.data["cuotas_generadas"], 0)
+		self.assertEqual(status_response.data["total_adeudado"], Decimal("0.00"))
+
+	def test_new_player_with_new_socio_gets_a_current_account(self):
+		categoria = Categoria.objects.create(nombre="Infantil", anio_vigente=2026, edad_maxima=12, genero="M")
+		payload = {
+			"nuevo_socio": self.person_payload("40111223", birth_date="2015-03-01"),
+			"categoria": categoria.categoria_id,
+			"obra_social": "OSDE",
+			"tallaIndumentaria": "M",
+			"vinculos_familiares": [{
+				"persona": {"dni": "20111222", "nombre": "Ana", "apellido": "Perez", "telefono": "221555"},
+				"relacion": "Madre",
+				"responsable_legal": True,
+			}],
+		}
+
+		response = self.client.post("/api/padron/jugador/", payload, format="json")
+
+		self.assertEqual(response.status_code, 201, response.data)
+		self.assertTrue(CuentaCorriente.objects.filter(socio__persona__dni="40111223").exists())
+
+	def test_saving_an_existing_socio_does_not_open_another_account(self):
+		socio = crear_socio("40111224")
+
+		socio.save()
+		socio.deactivate()
+
+		self.assertEqual(CuentaCorriente.objects.filter(socio=socio).count(), 1)
+
+	def test_accounts_cannot_be_created_manually(self):
+		socio = crear_socio("40111225")
+
+		response = self.client.post(reverse("cuenta-corriente-list"), {"socio": socio.pk}, format="json")
+
+		self.assertEqual(response.status_code, 405)
+
+
+class OpenMissingCurrentAccountsMigrationTests(TransactionTestCase):
+	migrate_from = [("finanzas", "0025_refresh_settled_cuotas")]
+	migrate_to = [("finanzas", "0026_open_missing_current_accounts")]
+
+	def migrate(self, targets):
+		executor = MigrationExecutor(connection)
+		executor.loader.build_graph()
+		executor.migrate(targets)
+		return executor.loader.project_state(targets).apps
+
+	def tearDown(self):
+		self.migrate(MigrationExecutor(connection).loader.graph.leaf_nodes())
+
+	def test_opens_an_account_only_for_socios_without_one(self):
+		old_apps = self.migrate(self.migrate_from)
+		OldPersona = old_apps.get_model("padron", "Persona")
+		OldSocio = old_apps.get_model("padron", "Socio")
+		OldCuentaCorriente = old_apps.get_model("finanzas", "CuentaCorriente")
+
+		without_account = OldSocio.objects.create(persona=OldPersona.objects.create(nombre="Sin", apellido="Cuenta", dni="94567890"), numero_socio=1)
+		with_account = OldSocio.objects.create(persona=OldPersona.objects.create(nombre="Con", apellido="Cuenta", dni="94567891"), numero_socio=2)
+		existing = OldCuentaCorriente.objects.create(socio=with_account, saldo=Decimal("-500.00"))
+
+		new_apps = self.migrate(self.migrate_to)
+		NewCuentaCorriente = new_apps.get_model("finanzas", "CuentaCorriente")
+
+		self.assertEqual(NewCuentaCorriente.objects.get(socio_id=without_account.pk).saldo, Decimal("0.00"))
+		self.assertEqual(NewCuentaCorriente.objects.filter(socio_id=with_account.pk).count(), 1)
+		self.assertEqual(NewCuentaCorriente.objects.get(socio_id=with_account.pk).pk, existing.pk)
+		self.assertEqual(NewCuentaCorriente.objects.get(pk=existing.pk).saldo, Decimal("-500.00"))

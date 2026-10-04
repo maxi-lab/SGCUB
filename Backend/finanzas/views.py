@@ -300,17 +300,11 @@ def comprobante_pdf(request, pk):
 	return response
 
 
-@extend_schema(tags=["Finanzas/CuentaCorriente"], request=CuentaCorrienteSerializer, responses=CuentaCorrienteSerializer)
-@api_view(["GET", "POST"])
-def cuenta_corriente_list_create(request):
-	if request.method == "GET":
-		cuentas = CuentaCorriente.objects.select_related("socio").order_by("pk")
-		return Response(CuentaCorrienteSerializer(cuentas, many=True).data)
-
-	serializer = CuentaCorrienteSerializer(data=request.data)
-	if not serializer.is_valid():
-		return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-	return Response(CuentaCorrienteSerializer(serializer.save()).data, status=status.HTTP_201_CREATED)
+@extend_schema(tags=["Finanzas/CuentaCorriente"], responses=CuentaCorrienteSerializer)
+@api_view(["GET"])
+def current_account_list(request):
+	accounts = CuentaCorriente.objects.select_related("socio").order_by("pk")
+	return Response(CuentaCorrienteSerializer(accounts, many=True).data)
 
 
 @extend_schema(tags=["Finanzas/CuentaCorriente"], request=CuentaCorrienteSerializer, responses=CuentaCorrienteSerializer)
