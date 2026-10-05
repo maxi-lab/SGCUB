@@ -74,7 +74,7 @@ export default function FinancialKpiSection({
             </KpiLink>
             <KpiLink to="/morosidad" ariaLabel="Ver reporte de morosidad">
               <StatCard
-                label="Socios en mora"
+                label="Socios con deuda"
                 value={sociosEnMora ?? '—'}
                 caption={moraPct}
                 icon="person_alert"
