@@ -1,18 +1,5 @@
 import { Link } from 'react-router-dom'
 
-/**
- * Static process entries shown in the dashboard.
- * When the automations backend is implemented, replace this
- * with a real API call and map the response to this shape.
- *
- * @type {Array<{
- *   id: string,
- *   nombre: string,
- *   descripcion: string,
- *   estado: 'ejecutando' | 'fallo' | 'inactivo',
- *   detalle: string,
- * }>}
- */
 const PROCESOS_ESTATICOS = [
   {
     id: 'comet-sync',
@@ -39,21 +26,21 @@ const PROCESOS_ESTATICOS = [
 
 const ESTADO_STYLES = {
   ejecutando: {
-    badge: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
-    dot: 'bg-emerald-600',
+    badge: 'bg-emerald-50 text-emerald-700',
+    dot: 'bg-emerald-500',
     label: 'En ejecución',
     icon: 'check_circle',
-    iconClass: 'text-emerald-600',
+    iconClass: 'text-emerald-700',
   },
   fallo: {
-    badge: 'bg-red-50 text-red-700 border border-red-200',
-    dot: 'bg-red-600',
+    badge: 'bg-error-container text-on-error-container',
+    dot: 'bg-error',
     label: 'Con fallo',
     icon: 'error',
-    iconClass: 'text-red-600',
+    iconClass: 'text-error',
   },
   inactivo: {
-    badge: 'bg-surface-container text-on-surface-variant border border-outline-variant/30',
+    badge: 'bg-surface-container-high text-on-surface-variant',
     dot: 'bg-outline',
     label: 'Inactivo',
     icon: 'pause_circle',
@@ -61,135 +48,93 @@ const ESTADO_STYLES = {
   },
 }
 
-const totalConFallo = PROCESOS_ESTATICOS.filter((p) => p.estado === 'fallo').length
-const totalEjecutando = PROCESOS_ESTATICOS.filter((p) => p.estado === 'ejecutando').length
+const procesosConFallo = PROCESOS_ESTATICOS.filter((p) => p.estado === 'fallo')
+const procesosEjecutando = PROCESOS_ESTATICOS.filter((p) => p.estado === 'ejecutando')
 
-/**
- * Dashboard card — Estado de Procesos (static placeholder).
- *
- * Displays the status of background automation tasks.
- * This component is intentionally static until the automations
- * backend endpoint is developed. The data shape and component
- * interface are already defined for easy future integration.
- */
 export default function ProcessStatusSection() {
   return (
     <section
       aria-labelledby="dashboard-process-title"
-      className="lg:col-span-7 bg-surface-container-lowest rounded-xl border border-outline-variant/30 flex flex-col overflow-hidden"
+      className="lg:col-span-7 bg-surface-container-lowest rounded-xl shadow-sm flex flex-col overflow-hidden"
     >
-      {/* Card header */}
-      <div className="p-space-lg border-b border-outline-variant/20 flex flex-col gap-3">
-        <div className="flex items-start justify-between gap-2">
-          <div>
-            <h2
-              id="dashboard-process-title"
-              className="font-headline-sm text-headline-sm text-on-surface font-semibold leading-tight"
-            >
-              Estado de Procesos
+      <div className="p-space-lg flex flex-col gap-space-md border-b border-surface-container">
+        <div className="flex items-center gap-space-sm">
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-surface-container-high text-primary">
+            <span className="material-symbols-outlined text-[18px]" aria-hidden="true">settings_suggest</span>
+          </div>
+          <div className="min-w-0">
+            <h2 id="dashboard-process-title" className="text-lg font-semibold text-on-surface">
+              Estado de procesos
             </h2>
-            <p className="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
-              Monitoreo de servicios en segundo plano y cron
-            </p>
+            <p className="text-sm text-on-surface-variant">Servicios en segundo plano y tareas programadas</p>
           </div>
           <Link
             to="/automatizaciones"
-            className="font-label-md text-label-md font-semibold text-primary hover:text-secondary inline-flex items-center gap-0.5 transition-colors shrink-0 pt-0.5"
+            className="ml-auto inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline shrink-0"
           >
             Ver automatizaciones
-            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">arrow_forward</span>
+            <span className="material-symbols-outlined text-[18px]" aria-hidden="true">arrow_forward</span>
           </Link>
         </div>
 
-        {/* Summary tiles */}
         <div className="grid grid-cols-2 gap-space-sm">
-          {/* Con fallo */}
-          <div className="bg-red-50 border border-red-200 rounded-lg p-space-sm flex flex-col justify-between">
-            <div className="flex items-center gap-1 text-red-700 font-label-sm text-label-sm font-semibold uppercase">
-              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">error</span>
-              <span>Con Fallo</span>
+          <div className="rounded-lg p-3 flex flex-col bg-error-container/40 text-error">
+            <div className="flex items-center gap-1 text-sm font-semibold uppercase tracking-wider">
+              <span className="material-symbols-outlined text-[18px]" aria-hidden="true">error</span>
+              <span>Con fallo</span>
             </div>
-            <div className="flex items-baseline justify-between mt-0.5">
-              <span className="font-headline-md text-headline-md text-red-800 font-bold">
-                {totalConFallo}
-              </span>
-              {totalConFallo > 0 && (
+            <div className="flex items-center justify-between mt-1">
+              <span className="text-2xl font-bold">{procesosConFallo.length}</span>
+              {procesosConFallo.length > 0 && (
                 <button
                   type="button"
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-red-700 text-white font-label-sm text-label-sm font-semibold hover:bg-red-800 transition-colors"
+                  className="inline-flex items-center gap-1 h-8 px-3 rounded-lg bg-error text-on-error text-sm font-semibold hover:opacity-90 transition-opacity cursor-pointer"
                   title="Reintentar procesos con fallo"
-                  onClick={() => {/* TODO: connect to automations API */}}
                 >
-                  <span className="material-symbols-outlined text-[13px]" aria-hidden="true">refresh</span>
+                  <span className="material-symbols-outlined text-[16px]" aria-hidden="true">refresh</span>
                   Reintentar
                 </button>
               )}
             </div>
-            <span className="font-body-sm text-body-sm text-red-700/80 mt-1">
-              {PROCESOS_ESTATICOS.filter((p) => p.estado === 'fallo').map((p) => p.nombre).join(', ')}
-            </span>
+            <span className="text-sm opacity-80">{procesosConFallo.map((p) => p.nombre).join(', ')}</span>
           </div>
 
-          {/* En ejecución */}
-          <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-space-sm flex flex-col justify-between">
-            <div className="flex items-center gap-1 text-emerald-700 font-label-sm text-label-sm font-semibold uppercase">
-              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">check_circle</span>
-              <span>En Ejecución</span>
+          <div className="rounded-lg p-3 flex flex-col bg-emerald-50 text-emerald-700">
+            <div className="flex items-center gap-1 text-sm font-semibold uppercase tracking-wider">
+              <span className="material-symbols-outlined text-[18px]" aria-hidden="true">check_circle</span>
+              <span>En ejecución</span>
             </div>
-            <div className="flex items-baseline justify-between mt-0.5">
-              <span className="font-headline-md text-headline-md text-emerald-800 font-bold">
-                {totalEjecutando}
-              </span>
-              <span className="inline-flex items-center gap-1 text-label-sm font-label-sm text-emerald-700 font-medium px-1.5 py-0.5 rounded bg-emerald-50 border border-emerald-200">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" aria-hidden="true" />
-                Activo
-              </span>
-            </div>
-            <span className="font-body-sm text-body-sm text-emerald-800/80 mt-1">
-              {PROCESOS_ESTATICOS.filter((p) => p.estado === 'ejecutando').map((p) => p.nombre).join(', ')}
-            </span>
+            <span className="text-2xl font-bold mt-1">{procesosEjecutando.length}</span>
+            <span className="text-sm opacity-80">{procesosEjecutando.map((p) => p.nombre).join(', ')}</span>
           </div>
         </div>
       </div>
 
-      {/* Process list */}
       <div className="flex flex-col flex-1">
-        <div className="px-space-md py-2 border-b border-outline-variant/10 bg-surface-container-low/50">
-          <span className="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider font-semibold">
-            Detalle de procesos
-          </span>
+        <div className="py-3 px-4 bg-surface-container-low/60 border-b border-outline-variant/30 text-sm font-semibold text-on-surface-variant uppercase tracking-wider">
+          Detalle de procesos
         </div>
 
-        <div className="flex flex-col divide-y divide-outline-variant/10">
+        <div className="flex flex-col divide-y divide-outline-variant/20">
           {PROCESOS_ESTATICOS.map((proceso) => {
             const style = ESTADO_STYLES[proceso.estado] ?? ESTADO_STYLES.inactivo
             return (
-              <div
-                key={proceso.id}
-                className="flex items-center justify-between gap-3 px-space-md py-3"
-              >
+              <div key={proceso.id} className="flex items-center justify-between gap-3 py-3 px-4">
                 <div className="flex items-center gap-3 min-w-0">
-                  <span
-                    className={`material-symbols-outlined text-[20px] shrink-0 ${style.iconClass}`}
-                    aria-hidden="true"
-                  >
+                  <span className={`material-symbols-outlined text-[20px] shrink-0 ${style.iconClass}`} aria-hidden="true">
                     {style.icon}
                   </span>
                   <div className="flex flex-col min-w-0">
-                    <span className="font-body-md text-body-md text-on-surface font-medium truncate">
-                      {proceso.nombre}
-                    </span>
-                    <span className="font-body-sm text-body-sm text-on-surface-variant truncate">
-                      {proceso.descripcion}
-                    </span>
+                    <span className="font-medium text-base text-on-surface truncate">{proceso.nombre}</span>
+                    <span className="text-sm text-on-surface-variant truncate">{proceso.descripcion}</span>
                   </div>
                 </div>
-                <div className="flex flex-col items-end shrink-0 gap-0.5">
-                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded font-label-sm text-label-sm font-semibold ${style.badge}`}>
+                <div className="flex flex-col items-end shrink-0 gap-1">
+                  <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-sm font-semibold ${style.badge}`}>
                     <span className={`w-1.5 h-1.5 rounded-full ${style.dot}`} aria-hidden="true" />
                     {style.label}
                   </span>
-                  <span className="font-label-sm text-label-sm text-on-surface-variant">{proceso.detalle}</span>
+                  <span className="text-sm text-on-surface-variant">{proceso.detalle}</span>
                 </div>
               </div>
             )
@@ -197,11 +142,10 @@ export default function ProcessStatusSection() {
         </div>
       </div>
 
-      {/* Static notice footer */}
-      <div className="px-space-lg py-space-sm border-t border-outline-variant/20 bg-surface-container-low/50 flex items-center gap-2 mt-auto">
-        <span className="material-symbols-outlined text-[15px] text-on-surface-variant" aria-hidden="true">info</span>
-        <span className="font-body-sm text-body-sm text-on-surface-variant">
-          Los datos de procesos son de referencia. La integración en tiempo real está pendiente de desarrollo.
+      <div className="p-space-md bg-surface-container-low flex items-center gap-2 mt-auto">
+        <span className="material-symbols-outlined text-[18px] text-on-surface-variant" aria-hidden="true">info</span>
+        <span className="text-sm text-on-surface-variant">
+          Datos de referencia. La integración en tiempo real está pendiente de desarrollo.
         </span>
       </div>
     </section>

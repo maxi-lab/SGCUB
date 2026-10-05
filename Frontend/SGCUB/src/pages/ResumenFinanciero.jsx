@@ -5,6 +5,7 @@ import { getResumenFinanciero } from '../api/resumenFinanciero'
 import { getSocios } from '../api/socios'
 import { formatAmount, formatDni, getErrorMessage } from '../components/personas/format'
 import PageHeader from '../components/shared/PageHeader'
+import StatCard from '../components/shared/StatCard'
 import DataTable from '../components/shared/DataTable'
 import TableMessageRow from '../components/shared/TableMessageRow'
 import TablePagination from '../components/shared/TablePagination'
@@ -12,56 +13,28 @@ import TableSearchInput from '../components/shared/TableSearchInput'
 import usePagination from '../hooks/usePagination'
 
 const summaryCards = [
-  {
-    label: 'Socios en mora',
-    key: 'socios_en_mora',
-    suffix: 'socios',
-    icon: 'warning',
-    tone: 'rose',
-    format: 'number',
-  },
-  {
-    label: 'Monto adeudado total',
-    key: 'monto_adeudado_total',
-    icon: 'payments',
-    tone: 'amber',
-    format: 'amount',
-  },
-  {
-    label: 'Cuotas vencidas',
-    key: 'cuotas_vencidas',
-    suffix: '',
-    icon: 'receipt_long',
-    tone: 'blue',
-    format: 'number',
-  },
+  { label: 'Socios en mora', key: 'socios_en_mora', caption: 'socios', icon: 'person_alert', tone: 'warning', format: 'number' },
+  { label: 'Monto adeudado total', key: 'monto_adeudado_total', icon: 'pending_actions', tone: 'warning', format: 'amount' },
+  { label: 'Cuotas vencidas', key: 'cuotas_vencidas', icon: 'event_busy', tone: 'error', format: 'number' },
 ]
 
 const collectionMethods = [
-
   {
     label: 'Transferencia bancaria',
     key: 'transferencia_bancaria',
     detail: 'Cobros por transferencia desde cuentas bancarias',
-    
-    tone: 'sky',
     icon: 'account_balance',
-    bankLogo: 'B',
   },
   {
     label: 'Billetera virtual',
     key: 'billetera_virtual',
     detail: 'Cobros digitales instantáneos con QR institucional',
-    
-    tone: 'sky',
-    icon: 'shopping_bag',
+    icon: 'qr_code_2',
   },
   {
     label: 'Pago en efectivo',
     key: 'pago_efectivo',
     detail: 'Ventanilla y caja de cobro por administración',
-    
-    tone: 'violet',
     icon: 'payments',
   },
 ]
@@ -153,64 +126,40 @@ function ResumenFinanciero() {
         )}
       />
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {summaryCards.map((card) => (
-          <div
-            key={card.label}
-            className="rounded-xl border border-outline-variant/40 bg-surface-container-lowest p-4 shadow-sm"
-          >
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2 text-on-surface-variant text-sm font-medium">
-                <span className={`material-symbols-outlined rounded-md p-2 text-lg ${card.tone === 'rose' ? 'bg-rose-100 text-rose-700' : card.tone === 'amber' ? 'bg-amber-100 text-amber-700' : 'bg-sky-100 text-sky-700'}`} aria-hidden="true">
-                  {card.icon}
-                </span>
-                <span>{card.label}</span>
-              </div>
-            </div>
-            <div className="flex items-end gap-2">
-              <span className="text-4xl font-bold text-on-surface tracking-tight">
-                {card.format === 'amount'
-                  ? formatAmount(resumen?.[card.key] ?? 0)
-                  : Number(resumen?.[card.key] ?? 0).toLocaleString('es-AR')}
-              </span>
-              {card.suffix && <span className="pb-1 text-sm text-on-surface-variant">{card.suffix}</span>}
-            </div>
-          </div>
+          <StatCard
+            key={card.key}
+            label={card.label}
+            value={card.format === 'amount'
+              ? formatAmount(resumen?.[card.key] ?? 0)
+              : Number(resumen?.[card.key] ?? 0).toLocaleString('es-AR')}
+            caption={card.caption}
+            icon={card.icon}
+            tone={card.tone}
+          />
         ))}
       </div>
       {errorResumen && <p className="text-sm text-error" role="alert">{errorResumen}</p>}
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {collectionMethods.map((method) => (
           <div
-            key={method.label}
-            className="rounded-xl border border-outline-variant/40 bg-surface-container-lowest p-3 shadow-sm"
+            key={method.key}
+            className="min-w-0 bg-surface-container-lowest border border-outline-variant/30 rounded-lg p-4 flex flex-col gap-2 shadow-xs"
           >
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-3">
-                {method.bankLogo ? (
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-700 to-sky-500 text-sm font-bold text-white shadow-sm">
-                    {method.bankLogo}
-                  </div>
-                ) : (
-                  <span className={`material-symbols-outlined rounded-md p-1.5 text-base ${method.tone === 'emerald' ? 'bg-emerald-100 text-emerald-700' : method.tone === 'sky' ? 'bg-sky-100 text-sky-700' : 'bg-violet-100 text-violet-700'}`} aria-hidden="true">
-                    {method.icon}
-                  </span>
-                )}
-                <div className="min-w-0">
-                  <span className="block text-xs font-semibold text-on-surface sm:text-sm">{method.label}</span>
-                  {method.bankName && (
-                    <span className="block text-[11px] text-on-surface-variant">{method.bankName}</span>
-                  )}
-                </div>
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex flex-col min-w-0">
+                <span className="text-base leading-tight font-medium text-on-surface-variant uppercase tracking-wider break-words">{method.label}</span>
+                <span className="text-xl sm:text-2xl font-bold text-on-surface truncate mt-0.5">
+                  {formatAmount(resumen?.[method.key] ?? 0)}
+                </span>
               </div>
-              
-              
+              <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 bg-surface-container-high text-primary">
+                <span className="material-symbols-outlined text-[22px]" aria-hidden="true">{method.icon}</span>
+              </div>
             </div>
-            <div className="text-2xl font-bold text-on-surface leading-none">
-              {formatAmount(resumen?.[method.key] ?? 0)}
-            </div>
-            <p className="mt-2 text-xs text-on-surface-variant">{method.detail}</p>
+            <p className="text-sm text-on-surface-variant">{method.detail}</p>
           </div>
         ))}
       </div>
