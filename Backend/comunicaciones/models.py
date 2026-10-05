@@ -18,11 +18,6 @@ class Notificacion(models.Model):
     titulo = models.CharField(max_length=150)
     asunto = models.CharField(max_length=150, blank=True, null=True)
     contenido = models.TextField()
-    canal = models.CharField(
-        max_length=20,
-        choices=CanalNotificacion.choices,
-        default=CanalNotificacion.WHATSAPP,
-    )
     estado = models.CharField(
         max_length=20,
         choices=EstadoNotificacion.choices,
