@@ -59,14 +59,11 @@ export default function ProcessStatusSection() {
     >
       <div className="p-space-lg flex flex-col gap-space-md border-b border-surface-container">
         <div className="flex items-center gap-space-sm">
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-surface-container-high text-primary">
-            <span className="material-symbols-outlined text-[18px]" aria-hidden="true">settings_suggest</span>
-          </div>
           <div className="min-w-0">
-            <h2 id="dashboard-process-title" className="text-lg font-semibold text-on-surface">
+            <h2 id="dashboard-process-title" className="text-xl font-semibold text-on-surface">
               Estado de procesos
             </h2>
-            <p className="text-sm text-on-surface-variant">Servicios en segundo plano y tareas programadas</p>
+            <p className="text-base text-on-surface-variant">Servicios en segundo plano y tareas programadas</p>
           </div>
           <Link
             to="/automatizaciones"

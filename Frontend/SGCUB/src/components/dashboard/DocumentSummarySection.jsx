@@ -79,14 +79,11 @@ export default function DocumentSummarySection({ isLoading, vencidos, proximosAV
     >
       <div className="p-space-lg flex flex-col gap-space-md border-b border-surface-container">
         <div className="flex items-center gap-space-sm">
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-error-container text-error">
-            <span className="material-symbols-outlined text-[18px]" aria-hidden="true">folder_shared</span>
-          </div>
           <div className="min-w-0">
-            <h2 id="dashboard-doc-summary-title" className="text-lg font-semibold text-on-surface">
+            <h2 id="dashboard-doc-summary-title" className="text-xl font-semibold text-on-surface">
               Resumen documental
             </h2>
-            <p className="text-sm text-on-surface-variant">Aptos físicos y legajos de deportistas</p>
+            <p className="text-base text-on-surface-variant">Aptos físicos y legajos de deportistas</p>
           </div>
           <span className="ml-auto text-sm px-2.5 py-0.5 rounded-full font-semibold bg-error text-on-error">
             {isLoading ? '—' : totalAlerts}

@@ -28,7 +28,6 @@ function KpiLink({ to, ariaLabel, children }) {
 
 export default function FinancialKpiSection({
   isLoading,
-  mesLabel,
   totalRecaudadoMes,
   sociosEnMora,
   montoAdeudadoTotal,
@@ -38,20 +37,29 @@ export default function FinancialKpiSection({
   const moraPct = sociosEnMora != null && totalSociosActivos > 0
     ? `${((sociosEnMora / totalSociosActivos) * 100).toFixed(1)}% del padrón`
     : undefined
-  const periodo = mesLabel ? mesLabel.charAt(0).toUpperCase() + mesLabel.slice(1) : '—'
 
   return (
-    <section aria-labelledby="dashboard-financial-title" className="flex flex-col gap-4">
-      <div className="flex items-center gap-space-sm">
-        <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-surface-container-high text-primary">
-          <span className="material-symbols-outlined text-[18px]" aria-hidden="true">payments</span>
+    <section
+      aria-labelledby="dashboard-financial-title"
+      className="bg-surface-container-lowest rounded-xl shadow-sm flex flex-col overflow-hidden"
+    >
+      <div className="p-space-lg flex items-center gap-space-sm border-b border-surface-container">
+        <div className="min-w-0">
+          <h2 id="dashboard-financial-title" className="text-xl font-semibold text-on-surface">
+            Resumen de cobranzas
+          </h2>
+          <p className="text-base text-on-surface-variant">Recaudación del mes y estado de la deuda de socios</p>
         </div>
-        <h2 id="dashboard-financial-title" className="text-lg font-semibold text-on-surface">
-          Resumen de cobranzas
-        </h2>
+        <Link
+          to="/resumen-financiero"
+          className="ml-auto inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline shrink-0"
+        >
+          Ver resumen financiero
+          <span className="material-symbols-outlined text-[18px]" aria-hidden="true">arrow_forward</span>
+        </Link>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="p-space-lg grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         {isLoading ? (
           Array.from({ length: 4 }).map((_, index) => <KpiSkeleton key={index} />)
         ) : (

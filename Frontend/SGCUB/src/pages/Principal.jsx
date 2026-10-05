@@ -14,7 +14,6 @@ const DATE_LABEL = new Date().toLocaleDateString('es-AR', {
 export default function Principal() {
   const {
     isLoading,
-    mesLabel,
     totalRecaudadoMes,
     sociosEnMora,
     montoAdeudadoTotal,
@@ -40,7 +39,6 @@ export default function Principal() {
 
       <FinancialKpiSection
         isLoading={isLoading}
-        mesLabel={mesLabel}
         totalRecaudadoMes={totalRecaudadoMes}
         sociosEnMora={sociosEnMora}
         montoAdeudadoTotal={montoAdeudadoTotal}
