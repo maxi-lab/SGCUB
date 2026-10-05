@@ -179,8 +179,9 @@ def delete_cuota(cuota):
     cuota.delete()
 
 
-def generar_cuotas_mensuales(fecha=None):
-    fecha = fecha or timezone.localdate()
+def generar_cuotas_mensuales(fecha=None, today=None):
+    today = today or timezone.localdate()
+    fecha = fecha or today
     if not isinstance(fecha, date):
         raise TypeError("La fecha de generación debe ser una fecha.")
 
@@ -206,7 +207,7 @@ def generar_cuotas_mensuales(fecha=None):
 
     for socio in socios:
         try:
-            cuota = create_cuota(socio, period, configuration=configuration, today=fecha)
+            cuota = create_cuota(socio, period, configuration=configuration, today=today)
         except CuotaDuplicadaError:
             result["cuotas_existentes"] += 1
             continue
