@@ -157,7 +157,7 @@ class ConfiguracionFinancieraTests(APITestCase):
 		self.assertEqual(response.status_code, 200, response.data)
 		socio = crear_socio("40000001", con_jugador=True)
 
-		generar_cuotas_mensuales(date(2026, 11, 1))
+		generar_cuotas_mensuales(date(2026, 11, 1), today=date(2026, 11, 1))
 
 		cuota = Cuota.objects.get(movimiento__cuenta_corriente__socio=socio)
 		self.assertEqual(cuota.fecha_venc1, date(2026, 11, 5))
@@ -250,7 +250,7 @@ class GeneracionCuotasMensualesTests(TestCase):
 		jugador_activo = crear_socio("10000003", con_jugador=True)
 		socio_de_baja = crear_socio("10000004", socio_inactivo=True, con_jugador=True)
 
-		resultado = generar_cuotas_mensuales(date(2026, 10, 5))
+		resultado = generar_cuotas_mensuales(date(2026, 10, 5), today=date(2026, 10, 5))
 
 		self.assertEqual(resultado["cuotas_creadas"], 3)
 		self.assertEqual(resultado["items_sociales"], 3)
@@ -268,8 +268,8 @@ class GeneracionCuotasMensualesTests(TestCase):
 	def test_jugador_activo_generacion_repetida_no_duplica(self):
 		socio = crear_socio("10000011", con_jugador=True)
 
-		primer_resultado = generar_cuotas_mensuales(date(2026, 10, 1))
-		segundo_resultado = generar_cuotas_mensuales(date(2026, 10, 31))
+		primer_resultado = generar_cuotas_mensuales(date(2026, 10, 1), today=date(2026, 10, 1))
+		segundo_resultado = generar_cuotas_mensuales(date(2026, 10, 31), today=date(2026, 10, 31))
 
 		cuenta = CuentaCorriente.objects.get(socio=socio)
 		cuota = Cuota.objects.get(movimiento__cuenta_corriente=cuenta, periodo="2026-10")
@@ -282,6 +282,28 @@ class GeneracionCuotasMensualesTests(TestCase):
 		self.assertEqual(cuota.movimiento.tipo_movimiento, "Cargo")
 		self.assertEqual(cuota.movimiento.monto, Decimal("2500.00"))
 		self.assertEqual(cuenta.saldo, Decimal("-2500.00"))
+
+	def test_generar_periodo_pasado_crea_cuotas_vencidas_con_recargo(self):
+		configuracion = ConfiguracionFinanciera.load()
+		configuracion.valor_recargo_1 = Decimal("200.00")
+		configuracion.save()
+		socio = crear_socio("10000013")
+
+		generar_cuotas_mensuales(date(2026, 9, 1), today=date(2026, 10, 5))
+
+		cuota = Cuota.objects.get(movimiento__cuenta_corriente__socio=socio, periodo="2026-09")
+		self.assertEqual(cuota.estado_cuota, EstadoCuotaChoices.VENCIDA)
+		self.assertEqual(cuota.recargos_aplicados, 2)
+		self.assertTrue(cuota.items.filter(concepto="Mora", monto=Decimal("200.00")).exists())
+
+	def test_generar_periodo_actual_deja_cuotas_en_fecha(self):
+		socio = crear_socio("10000014")
+
+		generar_cuotas_mensuales(date(2026, 10, 1), today=date(2026, 10, 1))
+
+		cuota = Cuota.objects.get(movimiento__cuenta_corriente__socio=socio, periodo="2026-10")
+		self.assertEqual(cuota.estado_cuota, EstadoCuotaChoices.EN_FECHA)
+		self.assertEqual(cuota.recargos_aplicados, 0)
 
 	def test_endpoint_manual_ejecuta_generacion(self):
 		crear_socio("10000012")
@@ -981,7 +1003,7 @@ class BecasEnGeneracionDeCuotasTests(TestCase):
 	def test_beca_vigente_descuenta_en_la_cuota_generada(self):
 		self.beca(date(2026, 10, 1), date(2026, 12, 31), porcentaje=Decimal("50"), concepto="CuotaDeportiva")
 
-		generar_cuotas_mensuales(date(2026, 11, 1))
+		generar_cuotas_mensuales(date(2026, 11, 1), today=date(2026, 11, 1))
 
 		cuota = self.cuota("2026-11")
 		item = cuota.items.get(concepto="Beca")
@@ -994,8 +1016,8 @@ class BecasEnGeneracionDeCuotasTests(TestCase):
 	def test_beca_finalizada_deja_de_aplicarse_y_conserva_el_historial(self):
 		self.beca(date(2026, 10, 1), date(2026, 11, 30), monto=Decimal("500.00"))
 
-		generar_cuotas_mensuales(date(2026, 11, 1))
-		generar_cuotas_mensuales(date(2026, 12, 1))
+		generar_cuotas_mensuales(date(2026, 11, 1), today=date(2026, 11, 1))
+		generar_cuotas_mensuales(date(2026, 12, 1), today=date(2026, 12, 1))
 
 		self.assertEqual(self.descuentos(self.cuota("2026-11")), [Decimal("500.00")])
 		self.assertEqual(self.descuentos(self.cuota("2026-12")), [])
@@ -1004,8 +1026,8 @@ class BecasEnGeneracionDeCuotasTests(TestCase):
 	def test_beca_que_empieza_a_mitad_de_mes_cubre_ese_periodo(self):
 		self.beca(date(2026, 11, 20), date(2027, 3, 31), monto=Decimal("300.00"))
 
-		generar_cuotas_mensuales(date(2026, 10, 1))
-		generar_cuotas_mensuales(date(2026, 11, 1))
+		generar_cuotas_mensuales(date(2026, 10, 1), today=date(2026, 10, 1))
+		generar_cuotas_mensuales(date(2026, 11, 1), today=date(2026, 11, 1))
 
 		self.assertEqual(self.descuentos(self.cuota("2026-10")), [])
 		self.assertEqual(self.descuentos(self.cuota("2026-11")), [Decimal("300.00")])
@@ -1016,7 +1038,7 @@ class BecasEnGeneracionDeCuotasTests(TestCase):
 		self.socio = Socio.objects.get(pk=self.socio.pk)
 		self.beca(date(2026, 10, 1), date(2026, 12, 31), monto=Decimal("1200.00"))
 
-		generar_cuotas_mensuales(date(2026, 11, 1))
+		generar_cuotas_mensuales(date(2026, 11, 1), today=date(2026, 11, 1))
 
 		cuota = self.cuota("2026-11")
 		self.assertEqual(self.descuentos(cuota), [Decimal("1000.00")])
@@ -1027,7 +1049,7 @@ class BecasEnGeneracionDeCuotasTests(TestCase):
 		self.beca(date(2026, 10, 1), date(2026, 12, 31), porcentaje=Decimal("80"))
 		self.beca(date(2026, 10, 1), date(2026, 12, 31), monto=Decimal("1000.00"))
 
-		generar_cuotas_mensuales(date(2026, 11, 1))
+		generar_cuotas_mensuales(date(2026, 11, 1), today=date(2026, 11, 1))
 
 		cuota = self.cuota("2026-11")
 		self.assertEqual(self.descuentos(cuota), [Decimal("2000.00"), Decimal("500.00")])
@@ -1037,7 +1059,7 @@ class BecasEnGeneracionDeCuotasTests(TestCase):
 		otro = crear_socio("70000002")
 		Beca.objects.create(socio=otro, monto=Decimal("400.00"), fecha_aplicacion=date(2026, 10, 1), fecha_fin=date(2026, 12, 31), motivo="Otro")
 
-		generar_cuotas_mensuales(date(2026, 11, 1))
+		generar_cuotas_mensuales(date(2026, 11, 1), today=date(2026, 11, 1))
 
 		self.assertEqual(self.descuentos(self.cuota("2026-11")), [])
 		otra_cuota = Cuota.objects.get(movimiento__cuenta_corriente__socio=otro, periodo="2026-11")
@@ -1059,7 +1081,7 @@ class BecasEnGeneracionDeCuotasTests(TestCase):
 		Beca.objects.create(socio=self.socio, monto=Decimal("100.00"), fecha_aplicacion=date(2026, 10, 1), fecha_fin=date(2026, 12, 31), motivo="Uno")
 
 		with CaptureQueriesContext(connection) as consultas:
-			generar_cuotas_mensuales(date(2026, 11, 1))
+			generar_cuotas_mensuales(date(2026, 11, 1), today=date(2026, 11, 1))
 
 		consultas_becas = [q["sql"] for q in consultas.captured_queries if '"beca"' in q["sql"] and q["sql"].lstrip().upper().startswith("SELECT")]
 		self.assertEqual(len(consultas_becas), 1)
