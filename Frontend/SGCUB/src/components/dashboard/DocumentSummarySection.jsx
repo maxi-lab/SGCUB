@@ -67,7 +67,6 @@ function MetricTile({ icon, label, value, caption, className }) {
 }
 
 export default function DocumentSummarySection({ isLoading, vencidos, proximosAVencer, getNombreTipo }) {
-  const totalAlerts = vencidos.length + proximosAVencer.length
   const sortedExpired = [...vencidos].sort((a, b) => b.diasVencido - a.diasVencido)
   const sortedUpcoming = [...proximosAVencer].sort((a, b) => a.diasRestantes - b.diasRestantes)
   const urgentDocs = [...sortedExpired, ...sortedUpcoming].slice(0, TOP_URGENT_COUNT)
@@ -85,9 +84,13 @@ export default function DocumentSummarySection({ isLoading, vencidos, proximosAV
             </h2>
             <p className="text-base text-on-surface-variant">Aptos físicos y legajos de deportistas</p>
           </div>
-          <span className="ml-auto text-sm px-2.5 py-0.5 rounded-full font-semibold bg-error text-on-error">
-            {isLoading ? '—' : totalAlerts}
-          </span>
+          <Link
+            to="/documental"
+            className="ml-auto inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline shrink-0"
+          >
+            Ver control documental
+            <span className="material-symbols-outlined text-[18px]" aria-hidden="true">arrow_forward</span>
+          </Link>
         </div>
 
         <div className="grid grid-cols-2 gap-space-sm">
@@ -137,13 +140,6 @@ export default function DocumentSummarySection({ isLoading, vencidos, proximosAV
             })}
           </div>
         )}
-      </div>
-
-      <div className="p-space-md bg-surface-container-low flex items-center justify-end mt-auto">
-        <Link to="/documental" className="inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline">
-          Ir al control documental
-          <span className="material-symbols-outlined text-[18px]" aria-hidden="true">arrow_forward</span>
-        </Link>
       </div>
     </section>
   )

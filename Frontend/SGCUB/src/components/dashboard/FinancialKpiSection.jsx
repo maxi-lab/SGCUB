@@ -59,7 +59,7 @@ export default function FinancialKpiSection({
         </Link>
       </div>
 
-      <div className="p-space-lg grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="p-space-lg bg-surface-container-low grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         {isLoading ? (
           Array.from({ length: 4 }).map((_, index) => <KpiSkeleton key={index} />)
         ) : (
