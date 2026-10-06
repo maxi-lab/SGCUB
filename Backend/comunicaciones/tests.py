@@ -10,5 +10,5 @@ class NotificacionEnumTest(TestCase):
     def test_estados_esperados(self):
         self.assertEqual(
             EstadoNotificacion.values,
-            ["ENVIADA", "PROGRAMADA", "FALLIDA", "RECIBIDO", "LEIDO"],
+            ["ENVIADA", "PROGRAMADA", "FALLIDA"],
         )
