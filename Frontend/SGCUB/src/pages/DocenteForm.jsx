@@ -591,7 +591,7 @@ function DocenteForm() {
                         <p className="text-base">
                           <strong>{`${socioVinculado.nombre ?? ''} ${socioVinculado.apellido ?? ''}`.trim()}</strong>
                           {' '}ya es socio (N° {formatNumber(socioVinculado.numero_socio)}). Se lo registrará como docente:
-                          {' '}solo se pueden modificar el teléfono y el correo electrónico.
+                          {' '}solo se pueden modificar el teléfono, el correo electrónico y el domicilio.
                         </p>
                       </div>
                       <BotonCambiarPersona onClick={quitarSeleccion} />
