@@ -1,5 +1,5 @@
 import { useId, useMemo, useState } from 'react'
-import { formatAmount, formatDate, formatDni, formatNumber } from '../personas/format'
+import { collectErrorMessages, formatAmount, formatDate, formatDni, formatNumber } from '../personas/format'
 import { PrimaryButton, SecondaryButton } from '../personas/tabs/parts'
 import { formatPeriod } from '../shared/periodFormat'
 import ComprobantePago from './ComprobantePago'
@@ -21,14 +21,6 @@ const amountInput = (value) => (value > 0 ? roundCents(value).toFixed(2) : '')
 const emptyPaymentRow = (monto = '') => ({ medio: '', monto, edited: false })
 
 const isRowComplete = (row) => Boolean(row.medio) && Number(row.monto) > 0
-
-const errorMessages = (data) => {
-  if (!data) return []
-  if (typeof data === 'string') return [data]
-  if (Array.isArray(data)) return data.flatMap(errorMessages)
-  if (typeof data === 'object') return Object.values(data).flatMap(errorMessages)
-  return []
-}
 
 const todayIso = () => {
   const today = new Date()
@@ -277,7 +269,7 @@ function PagoForm({ socio = null, cuenta = null, emptyHeader = null, initialCuot
       })
       onSuccess?.(response)
     } catch (error) {
-      setSubmitError(errorMessages(error.response?.data).join(' ') || 'No se pudo registrar el pago.')
+      setSubmitError(collectErrorMessages(error.response?.data).join(' ') || 'No se pudo registrar el pago.')
     } finally {
       setSaving(false)
     }

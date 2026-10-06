@@ -387,6 +387,7 @@ function DocenteForm() {
       return
     }
 
+    let docente = null
     try {
       const personaExistente = personaEncontrada
         ?? (await api.get(`padron/persona/?dni=${dniIngresado}`)).data?.[0]
@@ -395,14 +396,18 @@ function DocenteForm() {
         : (await api.post('padron/persona/', datosPersona)).data.persona_id
 
       // El backend crea el docente y sus cargos en una sola operación y asigna el legajo
-      const docente = await postDocente({ persona: personaId, asignaciones: filasAAsignaciones(asignaciones) })
-      await saveCriminalRecord(personaId)
+      docente = await postDocente({ persona: personaId, asignaciones: filasAAsignaciones(asignaciones) })
+      
+      if (archivoAntecedente || criminalRecordDelivered) {
+        await saveCriminalRecord(personaId)
+      }
 
       navigate(`/padron/docentes/${docente.docente_id}`)
     } catch (requestError) {
       const mensaje = getErrorMessage(requestError, 'No se pudo agregar el docente.')
+      // Only report a partial save when the docente was actually created and the attachment failed
       setErrorGuardado(
-        mensaje.includes('No existe el tipo')
+        !docente || mensaje.includes('No existe el tipo')
           ? mensaje
           : `El docente se guardó, pero no se pudo registrar el antecedente penal. Detalle: ${mensaje}`
       )
@@ -476,11 +481,11 @@ function DocenteForm() {
         </div>
       )}
 
-      <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/30 shadow-sm">
-        <div className="px-6 py-4 rounded-t-lg border-b border-outline-variant/20 bg-surface-container-low/40 flex items-center justify-between">
+      <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/30 shadow-sm overflow-hidden">
+        <div className="px-6 py-4 border-b border-outline-variant/20 bg-surface-container-low/40 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="material-symbols-outlined text-primary text-base">badge</span>
-            <h2 className="text-base font-semibold text-on-surface">Datos Personales y Deportivos</h2>
+            <h2 className="text-base font-semibold text-on-surface">Datos Personales y de Contacto</h2>
           </div>
         </div>
 
@@ -728,7 +733,7 @@ function DocenteForm() {
             <div className="flex flex-col gap-4 pt-4 border-t border-outline-variant/20">
               <SeccionTitulo
                 icono="sports_soccer"
-                titulo="Datos Deportivos"
+                titulo="Cargos Deportivos"
                 extra={(
                   <button
                     type="button"
