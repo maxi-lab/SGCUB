@@ -1,4 +1,5 @@
 
+from datetime import datetime
 from decimal import Decimal
 
 from django.db import transaction
@@ -23,11 +24,13 @@ from .models import (
 	ItemCuota,
 	MovimientoCuenta,
 	Pago,
+	EstadoCuotaChoices,
 	EstadoPagoChoices,
 	MedioDePagoChoices,
 )
 from .delinquency import ReporteMorosidadInvalidoError, delinquency_report, parse_delinquency_params
 from .delinquency_pdf import delinquency_filename, render_delinquency_pdf
+from .financial_summary_pdf import financial_summary_filename, render_financial_summary_pdf
 from .receipts import receipt_filename, render_receipt_pdf
 from .serializers import (
 	BecaSerializer,
@@ -134,7 +137,6 @@ def cuota_detail(request, pk):
 		return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 	with transaction.atomic():
 		serializer.save()
-		# The new due dates may already be past (or no longer be): recalculate surcharges and state.
 		apply_cuota_surcharges(pk)
 	return Response(CuotaSerializer(_cuotas_queryset().get(pk=pk)).data)
 
@@ -439,3 +441,123 @@ def beca_list(request):
 			return Response({"detail": "El socio indicado no es válido."}, status=status.HTTP_400_BAD_REQUEST)
 		becas = becas.filter(socio_id=int(socio_id))
 	return Response(BecaSerializer(becas, many=True).data)
+
+MONTHS_ES = [
+    "enero", "febrero", "marzo", "abril", "mayo", "junio",
+    "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+]
+
+
+def _period_label(period_date):
+    return f"{MONTHS_ES[period_date.month - 1].capitalize()} {period_date.year}"
+
+
+def _build_financial_report(period_date):
+    """Build the data dict consumed by render_financial_summary_pdf."""
+    period_str = period_date.strftime("%Y-%m")
+
+    period_cuotas = list(Cuota.objects.filter(periodo=period_str))
+    cuotas_generadas = len(period_cuotas)
+    cuotas_pagas = sum(1 for c in period_cuotas if c.estado_cuota == EstadoCuotaChoices.PAGA)
+
+    total_recaudado_periodo = (
+        Comprobante.objects.filter(
+            fecha_emision__year=period_date.year,
+            fecha_emision__month=period_date.month,
+            pago__estado_pago=EstadoPagoChoices.ACREDITADO,
+        ).aggregate(total=Sum("monto_total"))["total"]
+        or Decimal("0.00")
+    )
+
+    reporte_mora = delinquency_report("activos")
+    filas_mora = reporte_mora["filas"]
+
+    pagos_por_medio = {
+        item["medio_de_pago"]: item["total"]
+        for item in ItemPago.objects.filter(
+            pago__estado_pago=EstadoPagoChoices.ACREDITADO,
+        ).values("medio_de_pago").annotate(total=Sum("monto"))
+    }
+
+    unpaid_cuotas = list(
+        Cuota.objects.filter(
+            estado_cuota__in=[EstadoCuotaChoices.EN_FECHA, EstadoCuotaChoices.VENCIDA],
+        )
+        .select_related("movimiento__cuenta_corriente__socio__persona")
+        .prefetch_related("items")
+    )
+    pending = pending_amounts(unpaid_cuotas)
+
+    by_socio = {}
+    for cuota in unpaid_cuotas:
+        amount = pending.get(cuota.pk, Decimal("0.00"))
+        if amount <= 0:
+            continue
+        movement = getattr(cuota, "movimiento", None)
+        if not movement:
+            continue
+        socio = movement.cuenta_corriente.socio
+        if socio.socio_id not in by_socio:
+            by_socio[socio.socio_id] = {
+                "numero_socio": socio.numero_socio,
+                "nombre": socio.persona.nombre,
+                "apellido": socio.persona.apellido,
+                "dni": socio.persona.dni,
+                "deuda_en_fecha": Decimal("0.00"),
+                "cuotas_vencidas": 0,
+                "deuda_vencida": Decimal("0.00"),
+            }
+        row = by_socio[socio.socio_id]
+        if cuota.estado_cuota == EstadoCuotaChoices.EN_FECHA:
+            row["deuda_en_fecha"] += amount
+        else:
+            row["cuotas_vencidas"] += 1
+            row["deuda_vencida"] += amount
+
+    debtors = sorted(by_socio.values(), key=lambda r: (r["apellido"], r["nombre"]))
+
+    return {
+        "periodo_label": _period_label(period_date),
+        "fecha": timezone.localtime(),
+        "cuotas_generadas": cuotas_generadas,
+        "cuotas_pagas": cuotas_pagas,
+        "cuotas_impagas": cuotas_generadas - cuotas_pagas,
+        "total_recaudado_periodo": total_recaudado_periodo,
+        "socios_en_mora": len(filas_mora),
+        "monto_adeudado_total": sum((f["monto_adeudado"] for f in filas_mora), Decimal("0.00")),
+        "cuotas_vencidas": sum(f["cuotas_vencidas"] for f in filas_mora),
+        "transferencia_bancaria": pagos_por_medio.get(MedioDePagoChoices.TRANSFERENCIA, Decimal("0.00")),
+        "billetera_virtual": pagos_por_medio.get(MedioDePagoChoices.BILLETERA_VIRTUAL, Decimal("0.00")),
+        "pago_efectivo": pagos_por_medio.get(MedioDePagoChoices.EFECTIVO, Decimal("0.00")),
+        "deudores": debtors,
+    }
+
+
+@extend_schema(tags=["Finanzas/Resumen"], responses={(200, "application/pdf"): bytes})
+@api_view(["GET"])
+def resumen_financiero_pdf(request):
+    """
+    Generate and download the financial summary PDF for a given period.
+
+    Query params:
+        periodo (str): Period in YYYY-MM format. Defaults to the current month.
+    """
+    periodo_str = request.query_params.get("periodo", "").strip()
+    if periodo_str:
+        try:
+            period_date = datetime.strptime(periodo_str, "%Y-%m").date()
+        except ValueError:
+            return Response(
+                {"detail": "El período debe tener el formato AAAA-MM."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+    else:
+        today = timezone.localdate()
+        period_date = today.replace(day=1)
+
+    report = _build_financial_report(period_date)
+    pdf_bytes = render_financial_summary_pdf(report)
+    filename = financial_summary_filename(period_date.strftime("%Y-%m"))
+    response = HttpResponse(pdf_bytes, content_type="application/pdf")
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response
