@@ -2,7 +2,9 @@ import { useId, useMemo, useState } from 'react'
 import { collectErrorMessages, formatAmount, formatDate, formatDni, formatNumber } from '../personas/format'
 import { PrimaryButton, SecondaryButton } from '../personas/tabs/parts'
 import { formatPeriod } from '../shared/periodFormat'
+import { BenefitButton } from '../personas/HeaderPersona'
 import ComprobantePago from './ComprobantePago'
+import { FIELD_CLASS, NO_SPINNER_CLASS, StepSection, SUMMARY_GROUP_CLASS, SummaryLine } from './formParts'
 import { registrarPago } from '../../api/pagos'
 import { getComprobante } from '../../api/comprobantes'
 
@@ -40,23 +42,7 @@ const dueText = (cuota, today) => {
   return `Venció el ${formatDate(first)}`
 }
 
-function StepSection({ step, title, description, disabled = false, children }) {
-  const titleId = useId()
-  return (
-    <fieldset disabled={disabled} aria-labelledby={titleId} className={`min-w-0 flex flex-col gap-3 transition-opacity ${disabled ? 'opacity-50' : ''}`}>
-      <div className="flex flex-col gap-0.5">
-        <div className="flex items-center gap-3">
-          <span className={`w-7 h-7 rounded-full text-sm font-bold flex items-center justify-center shrink-0 ${disabled ? 'bg-surface-container-high text-on-surface-variant' : 'bg-primary text-on-primary'}`} aria-hidden="true">
-            {step}
-          </span>
-          <h3 id={titleId} className="text-lg font-bold text-on-surface">{title}</h3>
-        </div>
-        <p className="text-sm text-on-surface-variant pl-10">{description}</p>
-      </div>
-      {children}
-    </fieldset>
-  )
-}
+const LINK_BUTTON_CLASS = 'inline-flex items-center gap-1 px-2 py-1 rounded-md text-sm font-semibold text-primary hover:bg-primary/5 transition-colors cursor-pointer'
 
 function CuotaOption({ cuota, today, selected, onToggle }) {
   const total = Number(cuota.monto_total || 0)
@@ -99,10 +85,6 @@ function CuotaOption({ cuota, today, selected, onToggle }) {
   )
 }
 
-const FIELD_CLASS = 'w-full h-10 bg-surface-container-low rounded-lg border text-base text-on-surface focus:outline-none focus:border-primary'
-
-const LINK_BUTTON_CLASS = 'inline-flex items-center gap-1 px-2 py-1 rounded-md text-sm font-semibold text-primary hover:bg-primary/5 transition-colors cursor-pointer'
-
 function PaymentRow({ row, index, takenMethods, missingAmount, canRemove, showErrors, onChange, onRemove }) {
   const methodError = showErrors && !row.medio
   const amountError = showErrors && !(Number(row.monto) > 0)
@@ -143,7 +125,7 @@ function PaymentRow({ row, index, takenMethods, missingAmount, canRemove, showEr
             placeholder="0.00"
             aria-label={`Monto del medio de pago ${index + 1}`}
             aria-invalid={amountError || undefined}
-            className={`${FIELD_CLASS} pl-7 pr-3 font-semibold text-right ${amountError ? 'border-error' : 'border-outline-variant/50'}`}
+            className={`${FIELD_CLASS} ${NO_SPINNER_CLASS} pl-7 pr-3 font-semibold text-right ${amountError ? 'border-error' : 'border-outline-variant/50'}`}
           />
         </div>
 
@@ -173,17 +155,6 @@ function PaymentRow({ row, index, takenMethods, missingAmount, canRemove, showEr
   )
 }
 
-const SUMMARY_GROUP_CLASS = 'mb-1 text-sm font-semibold uppercase tracking-wider text-outline'
-
-function SummaryLine({ label, value, isTotal = false }) {
-  return (
-    <div className="flex items-baseline justify-between gap-3">
-      <span className={isTotal ? 'text-base font-bold text-on-surface' : 'text-base text-on-surface-variant'}>{label}</span>
-      <span className={isTotal ? 'text-lg font-bold text-on-surface' : 'text-base font-semibold text-on-surface'}>{value}</span>
-    </div>
-  )
-}
-
 const NO_CUOTAS = []
 
 const pendingTotal = (cuotas, ids) => roundCents(cuotas
@@ -192,7 +163,7 @@ const pendingTotal = (cuotas, ids) => roundCents(cuotas
 
 // Without `socio`, renders the empty layout (disabled steps, empty summary) with `emptyHeader`
 // in place of the socio data, so the payment modal keeps its shape while a socio is chosen.
-function PagoForm({ socio = null, cuenta = null, emptyHeader = null, initialCuotaIds = NO_CUOTAS, onCancel, onSuccess }) {
+function PagoForm({ socio = null, cuenta = null, emptyHeader = null, initialCuotaIds = NO_CUOTAS, onCancel, onSuccess, onAssignBenefit }) {
   const today = todayIso()
   const pendingCuotas = useMemo(
     () => (cuenta?.cuotas ?? [])
@@ -222,6 +193,13 @@ function PagoForm({ socio = null, cuenta = null, emptyHeader = null, initialCuot
     setSelectedIds(nextIds)
     const nextTotal = totalOf(nextIds)
     setPaymentRows((rows) => (rows.length === 1 && !rows[0].edited ? [{ ...rows[0], monto: amountInput(nextTotal) }] : rows))
+  }
+
+  // A benefit applied from here reloads the account: keep the selection and follow the new balances
+  const [syncedCuenta, setSyncedCuenta] = useState(cuenta)
+  if (cuenta !== syncedCuenta) {
+    setSyncedCuenta(cuenta)
+    applySelection(selectedIds.filter((id) => pendingCuotas.some((cuota) => cuota.cuota_id === id)))
   }
 
   const toggleCuota = (cuotaId, checked) => {
@@ -296,10 +274,7 @@ function PagoForm({ socio = null, cuenta = null, emptyHeader = null, initialCuot
             <div className="mt-1">{emptyHeader}</div>
           )}
         </div>
-        <div className="flex flex-col items-end justify-center px-4 py-3 rounded-lg border border-error/20 bg-error-container/30 text-right">
-          <span className="text-sm uppercase tracking-wider font-semibold text-on-surface-variant whitespace-nowrap">Deuda total</span>
-          <span className={`text-2xl font-bold whitespace-nowrap ${cuenta ? 'text-error' : 'text-outline'}`}>{cuenta ? formatAmount(cuenta.total_adeudado) : '—'}</span>
-        </div>
+        <BenefitButton onClick={onAssignBenefit} disabled={!socio || !onAssignBenefit} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_380px] gap-6 items-start">

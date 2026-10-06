@@ -360,7 +360,8 @@ class Beca(models.Model):
     concepto = models.CharField(
         max_length=40,
         choices=ConceptoItemChoices.choices,
-        default=ConceptoItemChoices.CUOTA_SOCIAL,
+        null=True,
+        blank=True,
     )
     monto = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     porcentaje = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)

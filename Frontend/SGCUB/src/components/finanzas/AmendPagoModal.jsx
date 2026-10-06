@@ -3,6 +3,7 @@ import { Modal } from '@mantine/core'
 import { getEstadoCuenta } from '../../api/estadoCuenta'
 import { corregirPago } from '../../api/pagos'
 import { formatAmount, formatDate } from '../personas/format'
+import { NO_SPINNER_CLASS } from './formParts'
 
 const PAYMENT_METHODS = [
   { value: 'Efectivo', label: 'Efectivo' },
@@ -144,7 +145,7 @@ function AmendPagoModal({ comprobante, pago, detail, opened, onClose, onSuccess 
         </fieldset>
 
         <label className="flex flex-col gap-1.5 text-sm font-semibold text-on-surface">Monto corregido
-          <input type="number" min="0.01" step="0.01" value={totalAmount} onChange={(event) => setTotalAmount(event.target.value)} className="h-10 px-3 bg-surface-container-lowest border border-outline-variant/50 rounded-md font-normal focus:outline-none focus:border-primary" />
+          <input type="number" min="0.01" step="0.01" value={totalAmount} onChange={(event) => setTotalAmount(event.target.value)} className={`${NO_SPINNER_CLASS} h-10 px-3 bg-surface-container-lowest border border-outline-variant/50 rounded-md font-normal focus:outline-none focus:border-primary`} />
         </label>
 
         <fieldset className="flex flex-col gap-2">
@@ -155,7 +156,7 @@ function AmendPagoModal({ comprobante, pago, detail, opened, onClose, onSuccess 
                 <option value="">Seleccionar medio</option>
                 {PAYMENT_METHODS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
               </select>
-              <input type="number" min="0.01" step="0.01" value={method.monto} onChange={(event) => updateMethod(index, 'monto', event.target.value)} aria-label={`Monto del medio ${index + 1}`} placeholder="Monto" className="h-10 w-32 px-3 bg-surface-container-lowest border border-outline-variant/50 rounded-md" />
+              <input type="number" min="0.01" step="0.01" value={method.monto} onChange={(event) => updateMethod(index, 'monto', event.target.value)} aria-label={`Monto del medio ${index + 1}`} placeholder="Monto" className={`${NO_SPINNER_CLASS} h-10 w-32 px-3 bg-surface-container-lowest border border-outline-variant/50 rounded-md`} />
               {methods.length > 1 && <button type="button" onClick={() => setMethods((current) => current.filter((_, position) => position !== index))} aria-label="Quitar medio de pago" className="h-10 w-10 text-error hover:bg-error-container rounded"><span className="material-symbols-outlined">delete</span></button>}
             </div>
           ))}

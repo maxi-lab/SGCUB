@@ -3,6 +3,7 @@ import { Modal } from '@mantine/core'
 import { useMediaQuery } from '@mantine/hooks'
 import { getSocio } from '../../api/socios'
 import { getEstadoCuenta } from '../../api/estadoCuenta'
+import useAssignBenefit from '../../hooks/useAssignBenefit'
 import { isActiveStatus } from '../personas/format'
 import PagoForm from './PagoForm'
 import SocioPicker from './SocioPicker'
@@ -25,6 +26,7 @@ function RegisterPaymentModal({ opened, initialSocioId = null, initialCuotaIds, 
   const isMobile = useMediaQuery('(max-width: 640px)')
   const [socioId, setSocioId] = useState(initialSocioId)
   const [load, setLoad] = useState(EMPTY_LOAD)
+  const { openBenefit } = useAssignBenefit()
 
   useEffect(() => {
     if (!opened || !socioId) return undefined
@@ -35,10 +37,21 @@ function RegisterPaymentModal({ opened, initialSocioId = null, initialCuotaIds, 
     return () => { active = false }
   }, [opened, socioId])
 
+  const reloadAccount = (loadedSocioId) => getEstadoCuenta(loadedSocioId)
+    .then((cuenta) => setLoad((current) => (current.socioId === loadedSocioId ? { ...current, cuenta } : current)))
+    .catch(() => {})
+
+  const assignBenefit = () => openBenefit({
+    socioId: load.socioId,
+    onSuccess: () => {
+      reloadAccount(load.socioId)
+      onSuccess?.()
+    },
+  })
+
   const loading = Boolean(socioId) && load.socioId !== socioId
   const loaded = Boolean(socioId) && !loading && !load.error && load.socio && load.cuenta
   const ready = loaded && isActiveStatus(load.socio.estado_administrativo_nombre)
-  const canChangeSocio = !initialSocioId && Boolean(socioId)
 
   const emptyHeader = () => {
     if (!socioId) return <SocioPicker compact onSelect={(socio) => setSocioId(socio.socio_id)} />
@@ -54,13 +67,14 @@ function RegisterPaymentModal({ opened, initialSocioId = null, initialCuotaIds, 
       opened={opened}
       onClose={onClose}
       aria-label="Registrar pago"
-      title={canChangeSocio && (
+      title={(
         <button
           type="button"
           onClick={() => setSocioId(null)}
-          className="inline-flex items-center gap-1 px-2 py-1 -ml-2 rounded-md text-sm font-semibold text-primary hover:bg-primary/5 transition-colors cursor-pointer"
+          disabled={!socioId}
+          className="inline-flex items-center gap-1 ml-2 rounded-md text-sm font-semibold text-primary hover:bg-primary/5 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-default disabled:hover:bg-transparent"
         >
-          <span className="material-symbols-outlined text-[18px]" aria-hidden="true">arrow_back</span>
+          <span className="material-symbols-outlined text-[18px] -ml-1" aria-hidden="true">arrow_back</span>
           Elegir otro socio
         </button>
       )}
@@ -78,6 +92,7 @@ function RegisterPaymentModal({ opened, initialSocioId = null, initialCuotaIds, 
           initialCuotaIds={initialCuotaIds}
           onCancel={onClose}
           onSuccess={onSuccess}
+          onAssignBenefit={assignBenefit}
         />
       ) : (
         <PagoForm key="empty" emptyHeader={emptyHeader()} onCancel={onClose} />

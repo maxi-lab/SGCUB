@@ -1,7 +1,3 @@
-// Pie de tabla con filas por página y botones de página (mismo diseño que SociosTable)
-
-const ROWS_PER_PAGE_OPTIONS = [25, 50, 100]
-
 const visiblePages = (currentPage, totalPages) => {
   if (totalPages <= 5) return Array.from({ length: totalPages }, (_, i) => i + 1)
   const pages = new Set([1, totalPages, currentPage, currentPage - 1, currentPage + 1])
@@ -16,7 +12,9 @@ const visiblePages = (currentPage, totalPages) => {
 
 const navButtonClass = 'w-8 h-8 flex items-center justify-center rounded border border-outline-variant/30 text-on-surface-variant hover:bg-surface-container-low transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer'
 
-export default function TablePagination({ page, totalPages, rowsPerPage, onPageChange, onRowsPerPageChange, id = 'rows-per-page' }) {
+export default function TablePagination({ page, totalPages, rowsPerPage, onPageChange, onRowsPerPageChange, id = 'rows-per-page', rowsPerPageOptions = [25, 50, 100] }) {
+  const options = rowsPerPageOptions.includes(rowsPerPage) ? rowsPerPageOptions : [...rowsPerPageOptions, rowsPerPage].sort((a, b) => a - b)
+
   return (
     <div className="p-4 border-t border-outline-variant/20 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-on-surface-variant">
       <div className="flex items-center gap-2">
@@ -27,7 +25,7 @@ export default function TablePagination({ page, totalPages, rowsPerPage, onPageC
           value={rowsPerPage}
           onChange={(event) => onRowsPerPageChange(Number(event.target.value))}
         >
-          {ROWS_PER_PAGE_OPTIONS.map((option) => (
+          {options.map((option) => (
             <option key={option} value={option}>{option}</option>
           ))}
         </select>

@@ -245,6 +245,13 @@ def comprobante_list(request):
 	comprobantes = Comprobante.objects.select_related(
 		"pago__movimiento__cuenta_corriente__socio__persona",
 	).order_by("pk")
+	cuota_id = request.query_params.get("cuota_id")
+	if cuota_id:
+		if not cuota_id.isdigit():
+			return Response({"detail": "La cuota indicada no es válida."}, status=status.HTTP_400_BAD_REQUEST)
+		comprobantes = comprobantes.filter(
+			pago__movimiento__imputaciones_origen__movimiento_destino__cuota_id=int(cuota_id),
+		).distinct()
 	return Response(ComprobanteListSerializer(comprobantes, many=True).data)
 
 
@@ -415,7 +422,6 @@ def cuota_beneficio(request, pk):
 			data["tipo"],
 			data["modalidad"],
 			data["valor"],
-			data["concepto"],
 			data["fecha_aplicacion"],
 			data["motivo"],
 			data.get("fecha_fin"),

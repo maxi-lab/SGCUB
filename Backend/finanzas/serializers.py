@@ -14,11 +14,18 @@ from .models import (
     MovimientoCuenta,
     Pago,
     EstadoCuotaChoices,
-    ConceptoItemChoices,
     MedioDePagoChoices,
     ModalidadMontoChoices,
 )
-from .services import BENEFIT_DISCOUNT, BENEFIT_SCHOLARSHIP, net_amount, parse_period, pending_amounts, receipt_detail
+from .services import (
+    BENEFIT_DISCOUNT,
+    BENEFIT_SCHOLARSHIP,
+    discountable_pending,
+    net_amount,
+    parse_period,
+    pending_amounts,
+    receipt_detail,
+)
 
 
 def monto_total_cuota(cuota):
@@ -110,6 +117,7 @@ class CuotaSerializer(serializers.ModelSerializer):
     monto_total = serializers.SerializerMethodField()
     monto_pagado = serializers.SerializerMethodField()
     saldo_pendiente = serializers.SerializerMethodField()
+    saldo_sin_recargo = serializers.SerializerMethodField()
 
     class Meta:
         model = Cuota
@@ -125,6 +133,7 @@ class CuotaSerializer(serializers.ModelSerializer):
             "monto_total",
             "monto_pagado",
             "saldo_pendiente",
+            "saldo_sin_recargo",
         ]
         read_only_fields = fields
 
@@ -143,6 +152,9 @@ class CuotaSerializer(serializers.ModelSerializer):
 
     def get_saldo_pendiente(self, obj):
         return self._pending(obj)
+
+    def get_saldo_sin_recargo(self, obj):
+        return discountable_pending(obj, list(obj.items.all()), self._pending(obj))
 
     def _pending(self, obj):
         pending = self.context.get("pending")
@@ -410,11 +422,6 @@ class BeneficioSerializer(serializers.Serializer):
     tipo = serializers.ChoiceField(choices=[BENEFIT_SCHOLARSHIP, BENEFIT_DISCOUNT])
     modalidad = serializers.ChoiceField(choices=ModalidadMontoChoices.choices)
     valor = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=Decimal("0.01"))
-    concepto = serializers.ChoiceField(choices=[
-        ConceptoItemChoices.CUOTA_SOCIAL,
-        ConceptoItemChoices.CUOTA_DEPORTIVA,
-        ConceptoItemChoices.OTRO,
-    ])
     fecha_aplicacion = serializers.DateField()
     fecha_fin = serializers.DateField(required=False, allow_null=True)
     motivo = serializers.CharField(max_length=180, trim_whitespace=True)
