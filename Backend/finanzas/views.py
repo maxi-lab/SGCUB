@@ -415,7 +415,6 @@ def cuota_beneficio(request, pk):
 			data["tipo"],
 			data["modalidad"],
 			data["valor"],
-			data["concepto"],
 			data["fecha_aplicacion"],
 			data["motivo"],
 			data.get("fecha_fin"),

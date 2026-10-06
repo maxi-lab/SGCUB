@@ -760,7 +760,6 @@ class BeneficioCuotaTests(APITestCase):
 			"tipo": "Descuento",
 			"modalidad": "MontoFijo",
 			"valor": "500.00",
-			"concepto": "CuotaSocial",
 			"fecha_aplicacion": "2026-10-01",
 			"motivo": "Hermanos en el club",
 		}
@@ -779,7 +778,7 @@ class BeneficioCuotaTests(APITestCase):
 		self.assertEqual(response.status_code, 201, response.data)
 		self.assertIsNone(response.data["beca"])
 		self.assertEqual(response.data["item"]["concepto"], "DescuentoUnico")
-		self.assertIn("Cuota Social", response.data["item"]["motivo"])
+		self.assertEqual(response.data["item"]["motivo"], "Hermanos en el club")
 		self.assertEqual(self.cargo(), Decimal("2000.00"))
 		self.assertEqual(self.saldo(), Decimal("-2000.00"))
 
@@ -824,12 +823,13 @@ class BeneficioCuotaTests(APITestCase):
 		self.assertEqual(beca.socio, self.socio)
 		self.assertEqual(beca.porcentaje, Decimal("50.00"))
 		self.assertIsNone(beca.monto)
+		self.assertIsNone(beca.concepto)
 		self.assertEqual(beca.usuario, self.usuario)
 		self.assertTrue(response.data["aplicado_a_cuota"])
 		item = self.cuota.items.get(concepto="Beca")
 		self.assertTrue(item.es_descuento)
 		self.assertEqual(item.monto, Decimal("1250.00"))
-		self.assertEqual(item.motivo, "Cuota Social: Hermanos en el club")
+		self.assertEqual(item.motivo, "Hermanos en el club")
 		self.assertEqual(self.cargo(), Decimal("1250.00"))
 
 	def test_beca_fuera_de_la_vigencia_no_modifica_la_cuota(self):
@@ -883,7 +883,6 @@ class CuotaSettledStateTests(APITestCase):
 			"tipo": "Descuento",
 			"modalidad": "Porcentaje",
 			"valor": "100",
-			"concepto": "CuotaSocial",
 			"fecha_aplicacion": "2026-10-01",
 			"motivo": "Beneficio total",
 		}
@@ -962,7 +961,6 @@ class ItemCuotaLabelTests(APITestCase):
 			"tipo": "Descuento",
 			"modalidad": "MontoFijo",
 			"valor": "100.00",
-			"concepto": "CuotaSocial",
 			"fecha_aplicacion": "2026-10-01",
 			"motivo": "Hermanos en el club",
 		}, format="json")
@@ -1001,7 +999,7 @@ class BecasEnGeneracionDeCuotasTests(TestCase):
 		return list(cuota.items.filter(es_descuento=True).values_list("monto", flat=True))
 
 	def test_beca_vigente_descuenta_en_la_cuota_generada(self):
-		self.beca(date(2026, 10, 1), date(2026, 12, 31), porcentaje=Decimal("50"), concepto="CuotaDeportiva")
+		self.beca(date(2026, 10, 1), date(2026, 12, 31), porcentaje=Decimal("50"))
 
 		generar_cuotas_mensuales(date(2026, 11, 1), today=date(2026, 11, 1))
 
@@ -1009,7 +1007,7 @@ class BecasEnGeneracionDeCuotasTests(TestCase):
 		item = cuota.items.get(concepto="Beca")
 		self.assertTrue(item.es_descuento)
 		self.assertEqual(item.monto, Decimal("1250.00"))
-		self.assertEqual(item.motivo, "Cuota Deportiva: Rendimiento deportivo")
+		self.assertEqual(item.motivo, "Rendimiento deportivo")
 		self.assertEqual(cuota.movimiento.monto, Decimal("1250.00"))
 		self.assertEqual(CuentaCorriente.objects.get(socio=self.socio).saldo, Decimal("-1250.00"))
 
@@ -1105,7 +1103,7 @@ class ComprobanteTestBase(APITestCase):
 		return self.client.post(
 			reverse("cuota-beneficio", args=[self.cuota.pk]),
 			{
-				"tipo": "Beca", "modalidad": "MontoFijo", "valor": monto, "concepto": "CuotaDeportiva",
+				"tipo": "Beca", "modalidad": "MontoFijo", "valor": monto,
 				"fecha_aplicacion": "2026-10-01", "fecha_fin": "2026-12-31", "motivo": "Beca deportiva",
 			},
 			format="json",

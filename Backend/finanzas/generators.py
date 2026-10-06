@@ -6,8 +6,8 @@ from padron.models import ESTADO_ADMINISTRATIVO_ACTIVO, ESTADO_DEPORTIVO_ACTIVO
 from .models import Beca, ConceptoItemChoices, ConfiguracionFinanciera, ItemCuota
 
 
-def benefit_reason(concept, reason):
-    return f"{ConceptoItemChoices(concept).label}: {reason}"[:200]
+def benefit_reason(reason):
+    return reason[:200]
 
 
 def period_bounds(first_day):
@@ -54,7 +54,7 @@ class GeneradorItemsCuota:
                 ConceptoItemChoices.BECA,
                 amount,
                 is_discount=True,
-                reason=benefit_reason(scholarship.concepto, scholarship.motivo),
+                reason=benefit_reason(scholarship.motivo),
             ))
             available -= amount
         return benefits

@@ -14,7 +14,6 @@ from .models import (
     MovimientoCuenta,
     Pago,
     EstadoCuotaChoices,
-    ConceptoItemChoices,
     MedioDePagoChoices,
     ModalidadMontoChoices,
 )
@@ -410,11 +409,6 @@ class BeneficioSerializer(serializers.Serializer):
     tipo = serializers.ChoiceField(choices=[BENEFIT_SCHOLARSHIP, BENEFIT_DISCOUNT])
     modalidad = serializers.ChoiceField(choices=ModalidadMontoChoices.choices)
     valor = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=Decimal("0.01"))
-    concepto = serializers.ChoiceField(choices=[
-        ConceptoItemChoices.CUOTA_SOCIAL,
-        ConceptoItemChoices.CUOTA_DEPORTIVA,
-        ConceptoItemChoices.OTRO,
-    ])
     fecha_aplicacion = serializers.DateField()
     fecha_fin = serializers.DateField(required=False, allow_null=True)
     motivo = serializers.CharField(max_length=180, trim_whitespace=True)

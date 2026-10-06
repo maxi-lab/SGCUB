@@ -606,7 +606,7 @@ def benefit_amount(mode, value, base):
 
 
 @transaction.atomic
-def assign_benefit(cuota_id, kind, mode, value, concept, start_date, reason, end_date=None, user=None):
+def assign_benefit(cuota_id, kind, mode, value, start_date, reason, end_date=None, user=None):
     cuota = lock_cuota(cuota_id)
     items = list(cuota.items.all())
     base = discount_base(items)
@@ -628,14 +628,13 @@ def assign_benefit(cuota_id, kind, mode, value, concept, start_date, reason, end
             es_descuento=True,
             fecha_aplicacion=start_date,
             monto=amount,
-            motivo=benefit_reason(concept, reason),
+            motivo=benefit_reason(reason),
         )
         sync_cuota_charge(cuota)
         return None, item
 
     scholarship = Beca.objects.create(
         socio_id=cuota.movimiento.cuenta_corriente.socio_id,
-        concepto=concept,
         monto=value if mode == ModalidadMontoChoices.MONTO_FIJO else None,
         porcentaje=value if mode == ModalidadMontoChoices.PORCENTAJE else None,
         fecha_aplicacion=start_date,
@@ -652,7 +651,7 @@ def assign_benefit(cuota_id, kind, mode, value, concept, start_date, reason, end
             es_descuento=True,
             fecha_aplicacion=start_date,
             monto=scholarship_amount,
-            motivo=benefit_reason(concept, reason),
+            motivo=benefit_reason(reason),
         )
         sync_cuota_charge(cuota)
     return scholarship, item
