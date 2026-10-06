@@ -30,7 +30,7 @@ HTML_EMAIL_TEMPLATE = """<!DOCTYPE html>
       box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
     }
     .header {
-      background: #0f172a;
+      background: #00A9D8;
       padding: 24px 32px;
       color: #ffffff;
     }
@@ -43,8 +43,8 @@ HTML_EMAIL_TEMPLATE = """<!DOCTYPE html>
     .header p {
       margin: 4px 0 0;
       font-size: 13px;
-      color: #94a3b8;
-    }
+      color: #ffffff;
+    }    
     .content {
       padding: 32px;
       font-size: 15px;
@@ -74,6 +74,12 @@ HTML_EMAIL_TEMPLATE = """<!DOCTYPE html>
       color: #64748b;
       border-top: 1px solid #e2e8f0;
     }
+    .footer img {
+      display: block;
+      margin: 0 auto 12px;
+      width: 110px;
+      height: auto;
+    }
   </style>
 </head>
 <body>
@@ -87,7 +93,7 @@ HTML_EMAIL_TEMPLATE = """<!DOCTYPE html>
       <div class="message-body">{{ contenido }}</div>
     </div>
     <div class="footer">
-      <p>Este es un comunicado institucional automático generado por SGCUB a través de Brevo.</p>
+      <p>Este es un comunicado institucional automático generado por el Sistema de Gestion Club Universitario Bereiso.</p>
       <p>Por favor, no responda directamente a este correo.</p>
     </div>
   </div>
@@ -107,7 +113,11 @@ def enviar_email_individual(destinatario: str, asunto: str, contenido: str, envi
     try:
         # Renderizar plantilla HTML
         template = Template(HTML_EMAIL_TEMPLATE)
-        context = Context({"asunto": asunto, "contenido": contenido})
+        context = Context({
+            "asunto": asunto,
+            "contenido": contenido + "\nSaludos,\nClub Social y Deportivo - SGCUB",
+            
+        })
         html_content = template.render(context)
         text_content = f"{asunto}\n\n{contenido}\n\n---\nClub Social y Deportivo - SGCUB"
 
