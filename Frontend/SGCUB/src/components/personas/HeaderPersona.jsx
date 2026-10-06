@@ -59,7 +59,7 @@ export default function PersonHeader({ breadcrumb = [], name, surname, status, m
             </div>
           </div>
 
-          {actions && <div className="flex items-center gap-2 shrink-0 flex-wrap">{actions}</div>}
+          {actions && <div className="flex items-center gap-2 shrink-0 flex-wrap-reverse sm:flex-wrap">{actions}</div>}
         </div>
       </div>
     </>
@@ -90,6 +90,24 @@ export function PayButton({ onClick, children = 'Registrar pago' }) {
       <span>{children}</span>
     </button>
   )
+}
+
+export function BenefitButton({ onClick, children = 'Asignar beca o descuento' }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-flex items-center gap-2 h-10 px-4 bg-surface-container-lowest text-primary border border-primary/40 hover:bg-primary/5 rounded-lg text-base font-semibold shadow-sm transition-colors cursor-pointer select-none"
+    >
+      <span className="material-symbols-outlined text-[20px]">redeem</span>
+      <span>{children}</span>
+    </button>
+  )
+}
+
+// Separates the record actions from the finance ones
+export function ActionsDivider() {
+  return <span className="hidden sm:block w-px h-8 mx-1 bg-outline-variant/60" aria-hidden="true" />
 }
 
 export function DeactivateButton({ onClick, icon = 'person_off', children = 'Dar de baja' }) {

@@ -7,6 +7,7 @@ import DeleteCuotaModal from '../components/cuota/DeleteCuotaModal'
 import EditCuotaModal from '../components/cuota/EditCuotaModal'
 import PageHeader from '../components/shared/PageHeader'
 import StatCard from '../components/shared/StatCard'
+import useAssignBenefit from '../hooks/useAssignBenefit'
 import useRegisterPayment from '../hooks/useRegisterPayment'
 
 const FORMULARIO_INICIAL = {
@@ -20,6 +21,7 @@ const esSocioActivo = (socio) => (socio.estado_administrativo_nombre ?? '').toLo
 
 function Cuotas() {
   const { openPayment } = useRegisterPayment()
+  const { openBenefit } = useAssignBenefit()
   const [cuotas, setCuotas] = useState([])
   const [socios, setSocios] = useState([])
   const [isLoading, setIsLoading] = useState(true)
@@ -180,6 +182,7 @@ function Cuotas() {
             setModalEliminar(true)
           }}
           onPay={(cuota) => openPayment({ socioId: cuota.socio.socio_id, cuotaIds: [cuota.cuota_id], onSuccess: cargarDatos })}
+          onAssignBenefit={(cuota) => openBenefit({ socioId: cuota.socio.socio_id, cuotaId: cuota.cuota_id, onSuccess: cargarDatos })}
         />
       </section>
 

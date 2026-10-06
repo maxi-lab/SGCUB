@@ -49,7 +49,9 @@ const dueText = (cuota, today) => {
   return `Venció el ${formatDate(first)}`
 }
 
-function CuotaOption({ cuota, today, selected, onToggle }) {
+const LINK_BUTTON_CLASS = 'inline-flex items-center gap-1 px-2 py-1 rounded-md text-sm font-semibold text-primary hover:bg-primary/5 transition-colors cursor-pointer'
+
+function CuotaOption({ cuota, today, selected, onToggle, onAssignBenefit }) {
   const total = Number(cuota.monto_total || 0)
   const fee = lateFee(cuota)
   const paid = Number(cuota.monto_pagado || 0)
@@ -63,34 +65,42 @@ function CuotaOption({ cuota, today, selected, onToggle }) {
   ].filter(Boolean)
 
   return (
-    <label className={`flex items-center gap-3 p-3 sm:p-4 rounded-lg border cursor-pointer transition-colors ${selected ? 'border-primary bg-primary/5' : 'border-outline-variant/40 bg-surface-container-lowest hover:bg-surface-container-low'}`}>
-      <input
-        type="checkbox"
-        checked={selected}
-        onChange={(event) => onToggle(cuota.cuota_id, event.target.checked)}
-        className="h-4 w-4 accent-primary shrink-0"
-      />
-      <div className="flex flex-col min-w-0 flex-1">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-base font-semibold text-on-surface">Cuota {formatPeriod(cuota.periodo)}</span>
-          {overdue && (
-            <span className="px-2 py-0.5 rounded text-xs font-bold bg-error-container text-on-error-container">Vencida</span>
+    <div className={`flex flex-col sm:flex-row sm:items-center rounded-lg border transition-colors ${selected ? 'border-primary bg-primary/5' : 'border-outline-variant/40 bg-surface-container-lowest hover:bg-surface-container-low'}`}>
+      <label className="flex items-center gap-3 p-3 sm:p-4 flex-1 min-w-0 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={(event) => onToggle(cuota.cuota_id, event.target.checked)}
+          className="h-4 w-4 accent-primary shrink-0"
+        />
+        <div className="flex flex-col min-w-0 flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-base font-semibold text-on-surface">Cuota {formatPeriod(cuota.periodo)}</span>
+            {overdue && (
+              <span className="px-2 py-0.5 rounded text-xs font-bold bg-error-container text-on-error-container">Vencida</span>
+            )}
+          </div>
+          <span className={`text-sm ${overdue ? 'text-error' : 'text-on-surface-variant'}`}>{dueText(cuota, today)}</span>
+          {breakdown.length > 1 && (
+            <span className="text-xs text-on-surface-variant mt-0.5">{breakdown.join(' · ')}</span>
           )}
         </div>
-        <span className={`text-sm ${overdue ? 'text-error' : 'text-on-surface-variant'}`}>{dueText(cuota, today)}</span>
-        {breakdown.length > 1 && (
-          <span className="text-xs text-on-surface-variant mt-0.5">{breakdown.join(' · ')}</span>
-        )}
-      </div>
-      <div className="text-right shrink-0">
-        <span className="block text-xs text-on-surface-variant">Saldo</span>
-        <span className="text-base font-bold text-on-surface">{formatAmount(pending)}</span>
-      </div>
-    </label>
+        <div className="text-right shrink-0">
+          <span className="block text-xs text-on-surface-variant">Saldo</span>
+          <span className="text-base font-bold text-on-surface">{formatAmount(pending)}</span>
+        </div>
+      </label>
+      {onAssignBenefit && (
+        <div className="px-3 pb-3 sm:pb-0 sm:pl-0 sm:pr-4 shrink-0">
+          <button type="button" onClick={() => onAssignBenefit(cuota)} className={LINK_BUTTON_CLASS}>
+            <span className="material-symbols-outlined text-[18px]" aria-hidden="true">redeem</span>
+            Beca o descuento
+          </button>
+        </div>
+      )}
+    </div>
   )
 }
-
-const LINK_BUTTON_CLASS = 'inline-flex items-center gap-1 px-2 py-1 rounded-md text-sm font-semibold text-primary hover:bg-primary/5 transition-colors cursor-pointer'
 
 function PaymentRow({ row, index, takenMethods, missingAmount, canRemove, showErrors, onChange, onRemove }) {
   const methodError = showErrors && !row.medio
@@ -170,7 +180,7 @@ const pendingTotal = (cuotas, ids) => roundCents(cuotas
 
 // Without `socio`, renders the empty layout (disabled steps, empty summary) with `emptyHeader`
 // in place of the socio data, so the payment modal keeps its shape while a socio is chosen.
-function PagoForm({ socio = null, cuenta = null, emptyHeader = null, initialCuotaIds = NO_CUOTAS, onCancel, onSuccess }) {
+function PagoForm({ socio = null, cuenta = null, emptyHeader = null, initialCuotaIds = NO_CUOTAS, onCancel, onSuccess, onAssignBenefit }) {
   const today = todayIso()
   const pendingCuotas = useMemo(
     () => (cuenta?.cuotas ?? [])
@@ -200,6 +210,13 @@ function PagoForm({ socio = null, cuenta = null, emptyHeader = null, initialCuot
     setSelectedIds(nextIds)
     const nextTotal = totalOf(nextIds)
     setPaymentRows((rows) => (rows.length === 1 && !rows[0].edited ? [{ ...rows[0], monto: amountInput(nextTotal) }] : rows))
+  }
+
+  // A benefit applied from here reloads the account: keep the selection and follow the new balances
+  const [syncedCuenta, setSyncedCuenta] = useState(cuenta)
+  if (cuenta !== syncedCuenta) {
+    setSyncedCuenta(cuenta)
+    applySelection(selectedIds.filter((id) => pendingCuotas.some((cuota) => cuota.cuota_id === id)))
   }
 
   const toggleCuota = (cuotaId, checked) => {
@@ -297,6 +314,7 @@ function PagoForm({ socio = null, cuenta = null, emptyHeader = null, initialCuot
                     today={today}
                     selected={selectedIds.includes(cuota.cuota_id)}
                     onToggle={toggleCuota}
+                    onAssignBenefit={onAssignBenefit}
                   />
                 ))
                 : (

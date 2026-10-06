@@ -4,7 +4,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { activateJugador, deactivateJugador, getJugador, patchJugador } from '../api/jugadores'
 import ActivateJugadorModal from '../components/jugadores/ActivateJugadorModal'
 import DeactivateJugadorModal from '../components/jugadores/DeactivateJugadorModal'
-import PersonHeader, { EditButton, DeactivateButton, ActivateButton, PayButton } from '../components/personas/HeaderPersona'
+import PersonHeader, { ActionsDivider, ActivateButton, BenefitButton, DeactivateButton, EditButton, PayButton } from '../components/personas/HeaderPersona'
 import PersonTabs from '../components/personas/TabsNavPersonas'
 import PersonalDataTab from '../components/personas/tabs/PersonalDataTab'
 import FamilyTab from '../components/personas/tabs/FamilyTab'
@@ -14,6 +14,7 @@ import { EmptyState } from '../components/personas/tabs/parts'
 import { LoadingFile, ErrorFile } from '../components/personas/FileStatus'
 import { isActiveStatus, formatDni, formatDate, formatNumber, getErrorMessage } from '../components/personas/format'
 import useLocalidades from '../hooks/useLocalidades'
+import useAssignBenefit from '../hooks/useAssignBenefit'
 import useRegisterPayment from '../hooks/useRegisterPayment'
 import useDocumentacion from "../hooks/useDocumentacion"
 import { buildDocumentBadges } from '../components/documental/documentBadges'
@@ -45,8 +46,10 @@ function JugadorDetail() {
 
   const { localidades } = useLocalidades()
   const { openPayment } = useRegisterPayment()
+  const { openBenefit } = useAssignBenefit()
   // Bumped after a payment so the financial tab reloads the account
   const [paymentsVersion, setPaymentsVersion] = useState(0)
+  const refreshFinances = () => setPaymentsVersion((version) => version + 1)
   const { documentosActivos: activos } = useDocumentacion(jugador?.socio?.persona)
   const badgeConfig = React.useMemo(() => buildDocumentBadges(activos), [activos])
 
@@ -173,7 +176,7 @@ function JugadorDetail() {
       label: 'Financiero',
       icon: 'account_balance_wallet',
       content: socio.socio_id
-        ? <FinancialTab key={paymentsVersion} socio={socio} enableBenefits />
+        ? <FinancialTab key={paymentsVersion} socio={socio} />
         : <EmptyState icon="account_balance_wallet" title="Sin datos de socio" description="El jugador no tiene un socio asociado." />,
     },
   ]
@@ -197,16 +200,20 @@ function JugadorDetail() {
         ]}
         actions={activo ? (
           <>
-            {socio.socio_id && (
-              <PayButton onClick={() => openPayment({ socioId: socio.socio_id, onSuccess: () => setPaymentsVersion((version) => version + 1) })} />
-            )}
-            <EditButton onClick={() => navigate(`/padron/jugadores/${jugador.jugador_id}/editar`)} />
             <DeactivateButton
               onClick={() => {
                 setErrorBaja('')
                 setModalBajaAbierto(true)
               }}
             />
+            <EditButton onClick={() => navigate(`/padron/jugadores/${jugador.jugador_id}/editar`)} />
+            {socio.socio_id && (
+              <>
+                <ActionsDivider />
+                <BenefitButton onClick={() => openBenefit({ socioId: socio.socio_id, onSuccess: refreshFinances })} />
+                <PayButton onClick={() => openPayment({ socioId: socio.socio_id, onSuccess: refreshFinances })} />
+              </>
+            )}
           </>
         ) : (
           <ActivateButton

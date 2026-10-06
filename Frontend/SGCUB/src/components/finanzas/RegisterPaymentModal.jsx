@@ -3,6 +3,7 @@ import { Modal } from '@mantine/core'
 import { useMediaQuery } from '@mantine/hooks'
 import { getSocio } from '../../api/socios'
 import { getEstadoCuenta } from '../../api/estadoCuenta'
+import useAssignBenefit from '../../hooks/useAssignBenefit'
 import { isActiveStatus } from '../personas/format'
 import PagoForm from './PagoForm'
 import SocioPicker from './SocioPicker'
@@ -25,6 +26,7 @@ function RegisterPaymentModal({ opened, initialSocioId = null, initialCuotaIds, 
   const isMobile = useMediaQuery('(max-width: 640px)')
   const [socioId, setSocioId] = useState(initialSocioId)
   const [load, setLoad] = useState(EMPTY_LOAD)
+  const { openBenefit } = useAssignBenefit()
 
   useEffect(() => {
     if (!opened || !socioId) return undefined
@@ -34,6 +36,19 @@ function RegisterPaymentModal({ opened, initialSocioId = null, initialCuotaIds, 
       .catch(() => active && setLoad({ socioId, socio: null, cuenta: null, error: 'No se pudo cargar la cuenta corriente del socio.' }))
     return () => { active = false }
   }, [opened, socioId])
+
+  const reloadAccount = (loadedSocioId) => getEstadoCuenta(loadedSocioId)
+    .then((cuenta) => setLoad((current) => (current.socioId === loadedSocioId ? { ...current, cuenta } : current)))
+    .catch(() => {})
+
+  const assignBenefit = (cuota) => openBenefit({
+    socioId: load.socioId,
+    cuotaId: cuota.cuota_id,
+    onSuccess: () => {
+      reloadAccount(load.socioId)
+      onSuccess?.()
+    },
+  })
 
   const loading = Boolean(socioId) && load.socioId !== socioId
   const loaded = Boolean(socioId) && !loading && !load.error && load.socio && load.cuenta
@@ -78,6 +93,7 @@ function RegisterPaymentModal({ opened, initialSocioId = null, initialCuotaIds, 
           initialCuotaIds={initialCuotaIds}
           onCancel={onClose}
           onSuccess={onSuccess}
+          onAssignBenefit={assignBenefit}
         />
       ) : (
         <PagoForm key="empty" emptyHeader={emptyHeader()} onCancel={onClose} />
