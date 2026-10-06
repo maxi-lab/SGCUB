@@ -46,6 +46,7 @@ from .models import (
 )
 from .pdf_utils import format_amount
 from .services import apply_surcharges, generar_cuotas_mensuales, next_receipt_number, sync_cuota_charge
+from .views import _build_financial_report
 
 
 def crear_socio(dni, socio_inactivo=False, con_jugador=False, jugador_inactivo=False):
@@ -1539,7 +1540,7 @@ class ReporteMorosidadTests(APITestCase):
 		self.socio = Socio.objects.create(persona=persona)
 		self.cuenta = account_for(self.socio)
 		self.vencida = crear_cuota_con_cargo(
-			self.cuenta, "2026-08", "1000.00",
+			self.cuenta, "2026-08", "1000.00", EstadoCuotaChoices.VENCIDA_1,
 			venc1=self.hoy - timedelta(days=5), venc2=self.hoy + timedelta(days=5),
 		)
 		crear_cuota_con_cargo(
@@ -1560,7 +1561,23 @@ class ReporteMorosidadTests(APITestCase):
 
 		self.assertEqual(fila["monto_adeudado"], Decimal("1000.00"))
 		self.assertEqual(fila["cuotas_vencidas"], 1)
+		self.assertEqual(fila["cuotas_vencidas_1"], 1)
+		self.assertEqual(fila["cuotas_vencidas_2"], 0)
 		self.assertEqual(fila["dias_mora"], 5)
+
+	def test_distingue_cuotas_vencidas_en_segundo_vencimiento(self):
+		crear_cuota_con_cargo(
+			self.cuenta, "2026-07", "500.00", EstadoCuotaChoices.VENCIDA_2,
+			venc1=self.hoy - timedelta(days=20), venc2=self.hoy - timedelta(days=10),
+		)
+
+		fila = self.fila(self.reporte())
+
+		self.assertEqual(fila["monto_adeudado"], Decimal("1500.00"))
+		self.assertEqual(fila["cuotas_vencidas"], 2)
+		self.assertEqual(fila["cuotas_vencidas_1"], 1)
+		self.assertEqual(fila["cuotas_vencidas_2"], 1)
+		self.assertEqual(fila["dias_mora"], 20)
 
 	def test_monto_adeudado_descuenta_pagos_parciales(self):
 		self.client.post(
@@ -1599,6 +1616,7 @@ class ResumenFinancieroTests(APITestCase):
 			cuenta,
 			"2026-08",
 			"1000.00",
+			EstadoCuotaChoices.VENCIDA_1,
 			venc1=today - timedelta(days=5),
 			venc2=today + timedelta(days=5),
 		)
@@ -1624,10 +1642,51 @@ class ResumenFinancieroTests(APITestCase):
 			"socios_en_mora": 1,
 			"monto_adeudado_total": Decimal("1000.00"),
 			"cuotas_vencidas": 1,
+			"cuotas_vencidas_1": 1,
+			"cuotas_vencidas_2": 0,
 			"transferencia_bancaria": Decimal("1200.00"),
 			"billetera_virtual": Decimal("350.00"),
 			"pago_efectivo": Decimal("150.00"),
 		})
+
+
+class ResumenFinancieroPdfTests(APITestCase):
+	def setUp(self):
+		self.client.force_authenticate(user=get_user_model().objects.create_user(username="tesorero"))
+		today = timezone.localdate()
+		cuenta = account_for(Socio.objects.create(persona=Persona.objects.create(nombre="Rosa", apellido="Mora", dni="78901250")))
+		crear_cuota_con_cargo(
+			cuenta, "2026-07", "700.00", EstadoCuotaChoices.VENCIDA_2,
+			venc1=today - timedelta(days=20), venc2=today - timedelta(days=10),
+		)
+		crear_cuota_con_cargo(
+			cuenta, "2026-08", "800.00", EstadoCuotaChoices.VENCIDA_1,
+			venc1=today - timedelta(days=5), venc2=today + timedelta(days=5),
+		)
+		crear_cuota_con_cargo(
+			cuenta, "2026-09", "900.00",
+			venc1=today + timedelta(days=5), venc2=today + timedelta(days=15),
+		)
+
+	def test_separa_deuda_en_fecha_y_vencidas_por_vencimiento(self):
+		report = _build_financial_report(date(2026, 9, 1))
+
+		self.assertEqual(report["cuotas_vencidas"], 2)
+		self.assertEqual(report["cuotas_vencidas_1"], 1)
+		self.assertEqual(report["cuotas_vencidas_2"], 1)
+		self.assertEqual(len(report["deudores"]), 1)
+		deudor = report["deudores"][0]
+		self.assertEqual(deudor["deuda_en_fecha"], Decimal("900.00"))
+		self.assertEqual(deudor["cuotas_vencidas_1"], 1)
+		self.assertEqual(deudor["cuotas_vencidas_2"], 1)
+		self.assertEqual(deudor["deuda_vencida"], Decimal("1500.00"))
+
+	def test_descarga_pdf(self):
+		response = self.client.get(reverse("resumen-financiero-pdf"), {"periodo": "2026-09"})
+
+		self.assertEqual(response.status_code, 200)
+		self.assertEqual(response["Content-Type"], "application/pdf")
+		self.assertIn(b"Mora, Rosa", response.content)
 
 
 class ReporteMorosidadPdfTests(APITestCase):
@@ -1636,7 +1695,7 @@ class ReporteMorosidadPdfTests(APITestCase):
 		today = timezone.localdate()
 		self.debtor = Socio.objects.create(persona=Persona.objects.create(nombre="Rosa", apellido="Mora", dni="78901240"))
 		crear_cuota_con_cargo(
-			account_for(self.debtor), "2026-08", "1000.00",
+			account_for(self.debtor), "2026-08", "1000.00", EstadoCuotaChoices.VENCIDA_1,
 			venc1=today - timedelta(days=5), venc2=today + timedelta(days=5),
 		)
 		self.up_to_date = Socio.objects.create(persona=Persona.objects.create(nombre="Luis", apellido="Paz", dni="78901241"))
