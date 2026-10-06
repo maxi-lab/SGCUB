@@ -7,8 +7,8 @@ import { FIELD_CLASS, NO_SPINNER_CLASS, StepSection, SUMMARY_GROUP_CLASS, Summar
 import { isPaid } from './accountStatement'
 
 const KINDS = [
-  { value: 'descuento', label: 'Descuento', icon: 'sell', description: 'Se aplica una sola vez, sobre esta cuota.' },
-  { value: 'beca', label: 'Beca', icon: 'school', description: 'Se aplica a esta cuota y a las siguientes mientras esté vigente.' },
+  { value: 'descuento', label: 'Descuento', description: 'Se aplica una sola vez, sobre esta cuota.' },
+  { value: 'beca', label: 'Beca', description: 'Se aplica a esta cuota y a las siguientes mientras esté vigente.' },
 ]
 
 const MODES = [
@@ -88,10 +88,7 @@ function KindOption({ kind, selected, disabled, onSelect }) {
         className="mt-1 h-4 w-4 accent-primary shrink-0"
       />
       <div className="flex flex-col gap-0.5 min-w-0">
-        <span className="flex items-center gap-2 text-base font-semibold text-on-surface">
-          <span className="material-symbols-outlined text-[20px] text-primary" aria-hidden="true">{kind.icon}</span>
-          {kind.label}
-        </span>
+        <span className="text-base font-semibold text-on-surface">{kind.label}</span>
         <span className="text-sm text-on-surface-variant">{kind.description}</span>
       </div>
     </label>
@@ -386,7 +383,7 @@ function BenefitForm({ socio = null, cuenta = null, initialCuotaId = null, onCan
           {submitError && <p className="text-sm text-error bg-error-container p-3 rounded-lg" role="alert">{submitError}</p>}
 
           <div className="mt-2 flex flex-col gap-3 [&>button]:justify-center">
-            <PrimaryButton icon={saving ? 'progress_activity' : 'savings'} type="submit" disabled={!socio || saving}>
+            <PrimaryButton type="submit" disabled={!socio || saving}>
               {saving ? 'Aplicando...' : `Aplicar ${isScholarship ? 'beca' : 'descuento'}${requestedAmount > 0 ? ` · ${formatAmount(requestedAmount)}` : ''}`}
             </PrimaryButton>
             <SecondaryButton icon="close" onClick={onCancel} disabled={saving}>Cancelar</SecondaryButton>

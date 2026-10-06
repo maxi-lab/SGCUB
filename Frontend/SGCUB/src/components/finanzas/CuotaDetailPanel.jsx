@@ -10,6 +10,8 @@ const ICON_BUTTON_CLASS = 'w-9 h-9 shrink-0 inline-flex items-center justify-cen
 
 const isAnnulled = (comprobante) => comprobante.estado === 'Anulado'
 
+const PAID_HINT = 'La cuota ya está paga'
+
 function ReceiptRow({ comprobante, onOpen }) {
   const [downloading, setDownloading] = useState(false)
   const [error, setError] = useState('')
@@ -63,7 +65,8 @@ function CuotaDetailPanel({ cuota, colSpan, onPay, onAssignBenefit }) {
   const [receipts, setReceipts] = useState({ loading: true, error: '', items: [] })
   const [selected, setSelected] = useState(null)
   const [detail, setDetail] = useState({ loading: false, error: null, data: null })
-  const payable = !isPaid(cuota) && Number(cuota.saldo_pendiente ?? 0) > 0
+  const paid = isPaid(cuota)
+  const payable = !paid && Number(cuota.saldo_pendiente ?? 0) > 0
 
   useEffect(() => {
     let active = true
@@ -111,13 +114,21 @@ function CuotaDetailPanel({ cuota, colSpan, onPay, onAssignBenefit }) {
 
           <div className="flex flex-col sm:flex-row lg:flex-col gap-2 lg:w-64 shrink-0 [&>button]:justify-center">
             <h4 className={`${SUMMARY_GROUP_CLASS} hidden lg:block`}>Acciones</h4>
-            {payable && onPay && (
-              <PrimaryButton icon="payments" onClick={() => onPay(cuota)}>
-                Pagar · {formatAmount(Number(cuota.saldo_pendiente ?? 0))}
+            {onPay && (
+              <PrimaryButton icon="payments" onClick={() => onPay(cuota)} disabled={!payable} title={payable ? undefined : PAID_HINT}>
+                {payable ? `Pagar · ${formatAmount(Number(cuota.saldo_pendiente ?? 0))}` : 'Pagar'}
               </PrimaryButton>
             )}
-            {onAssignBenefit && !isPaid(cuota) && (
-              <SecondaryButton icon="redeem" onClick={() => onAssignBenefit(cuota)}>Asignar beca o descuento</SecondaryButton>
+            {onAssignBenefit && (
+              <SecondaryButton icon="sell" onClick={() => onAssignBenefit(cuota)} disabled={paid} title={paid ? PAID_HINT : undefined}>
+                Asignar beca o descuento
+              </SecondaryButton>
+            )}
+            {paid && (onPay || onAssignBenefit) && (
+              <p className="flex items-center gap-1.5 text-sm text-on-surface-variant">
+                <span className="material-symbols-outlined text-[18px] text-emerald-700" aria-hidden="true">task_alt</span>
+                {PAID_HINT}.
+              </p>
             )}
           </div>
         </div>
