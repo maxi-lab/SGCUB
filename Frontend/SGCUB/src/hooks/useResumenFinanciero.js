@@ -2,13 +2,12 @@ import { useEffect, useMemo, useState } from 'react'
 import { getComprobantes } from '../api/comprobantes'
 import { getCuotas } from '../api/cuotas'
 import { getResumenFinanciero } from '../api/resumenFinanciero'
+import { formatPeriod, periodOptions } from '../components/shared/periodFormat'
 
-function periodLabel(period) {
-  if (!period) return '—'
-  const [year, month] = period.split('-')
-  const date = new Date(Number(year), Number(month) - 1, 1)
-  const label = date.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })
-  return label.charAt(0).toUpperCase() + label.slice(1)
+// Local 'YYYY-MM' of today (toISOString would use UTC and may shift the month)
+function currentPeriod() {
+  const today = new Date()
+  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
 }
 
 export default function useResumenFinanciero() {
@@ -17,7 +16,7 @@ export default function useResumenFinanciero() {
   const [comprobantes, setComprobantes] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [errors, setErrors] = useState({})
-  const [selectedPeriod, setSelectedPeriod] = useState(null)
+  const [selectedPeriod, setSelectedPeriod] = useState(currentPeriod)
 
   useEffect(() => {
     let active = true
@@ -38,10 +37,7 @@ export default function useResumenFinanciero() {
       }
 
       if (cuotasResult.status === 'fulfilled') {
-        const cuotasData = cuotasResult.value
-        setCuotas(cuotasData)
-        const periods = [...new Set(cuotasData.map((c) => c.periodo))].sort().reverse()
-        if (periods.length > 0) setSelectedPeriod(periods[0])
+        setCuotas(cuotasResult.value)
       } else {
         setErrors((prev) => ({ ...prev, cuotas: cuotasResult.reason }))
       }
@@ -59,12 +55,13 @@ export default function useResumenFinanciero() {
     return () => { active = false }
   }, [])
 
+  // The current month is always offered, even before its cuotas are generated
   const availablePeriods = useMemo(
-    () => [...new Set(cuotas.map((c) => c.periodo))].sort().reverse(),
+    () => periodOptions([...cuotas, { periodo: currentPeriod() }], (c) => c.periodo),
     [cuotas],
   )
 
-  const selectedPeriodLabel = useMemo(() => periodLabel(selectedPeriod), [selectedPeriod])
+  const selectedPeriodLabel = useMemo(() => formatPeriod(selectedPeriod), [selectedPeriod])
 
   const periodKpis = useMemo(() => {
     const periodCuotas = cuotas.filter((c) => c.periodo === selectedPeriod)

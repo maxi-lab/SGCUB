@@ -7,6 +7,8 @@ import PageHeader from '../components/shared/PageHeader'
 import TableMessageRow from '../components/shared/TableMessageRow'
 import TablePagination from '../components/shared/TablePagination'
 import TableSearchInput from '../components/shared/TableSearchInput'
+import FilterSelect from '../components/shared/FilterSelect'
+import { formatPeriod } from '../components/shared/periodFormat'
 import useResumenFinanciero from '../hooks/useResumenFinanciero'
 import usePagination from '../hooks/usePagination'
 import useOrdenTabla from '../hooks/useOrdenTabla'
@@ -22,10 +24,10 @@ const INITIAL_SORT = { columna: 'numero', direccion: 'desc' }
 
 function StatCardSkeleton() {
   return (
-    <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-lg p-4 flex items-center justify-between gap-3 shadow-xs animate-pulse min-h-[104px]">
+    <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-lg p-4 flex items-center justify-between gap-3 shadow-xs animate-pulse min-h-[82px]">
       <div className="flex flex-col min-w-0 flex-1">
-        <div className="h-4 w-1/2 bg-surface-container-high rounded mb-2"></div>
-        <div className="h-8 w-3/4 bg-surface-container-high rounded"></div>
+        <div className="h-3.5 w-1/2 bg-surface-container-high rounded mb-1.5"></div>
+        <div className="h-6 w-3/4 bg-surface-container-high rounded"></div>
       </div>
       <div className="w-10 h-10 rounded-full bg-surface-container-high shrink-0"></div>
     </div>
@@ -53,10 +55,32 @@ function CollectionCard({ label, amount, detail, icon, dotClass }) {
 }
 
 const COLLECTION_METHODS = [
-  { key: 'transferencia_bancaria', label: 'Transferencia bancaria', icon: 'account_balance', dotClass: 'bg-primary' },
-  { key: 'billetera_virtual', label: 'Billetera virtual', icon: 'wallet', dotClass: 'bg-secondary-container' },
-  { key: 'pago_efectivo', label: 'Pago en efectivo', icon: 'payments', dotClass: 'bg-tertiary' },
+  { key: 'transferencia_bancaria', label: 'Transferencia bancaria', icon: 'account_balance', dotClass: 'bg-primary', detail: 'Recaudado · acumulado histórico' },
+  { key: 'billetera_virtual', label: 'Billetera virtual', icon: 'wallet', dotClass: 'bg-secondary-container', detail: 'Recaudado · acumulado histórico' },
+  { key: 'pago_efectivo', label: 'Pago en efectivo', icon: 'payments', dotClass: 'bg-tertiary', detail: 'Recaudado · acumulado histórico' },
 ]
+
+const FILTER_CLASS = 'bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-sm font-medium focus:outline-none focus:border-primary cursor-pointer'
+
+function SummaryBlock({ id, title, subtitle, icon, controls, children }) {
+  return (
+    <section className="min-w-0 bg-surface-container-lowest border border-outline-variant/30 rounded-xl shadow-sm overflow-hidden" aria-labelledby={id}>
+      <div className="p-5 border-b border-outline-variant/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h2 id={id} className="text-2xl font-bold text-on-surface">{title}</h2>
+          <p className="text-base text-on-surface-variant">{subtitle}</p>
+        </div>
+        <div className="flex items-center gap-3">
+          {controls}
+          <span className="material-symbols-outlined text-primary text-2xl" aria-hidden="true">{icon}</span>
+        </div>
+      </div>
+      <div className="p-5 flex flex-col gap-space-md">
+        {children}
+      </div>
+    </section>
+  )
+}
 
 // Debtor status filter options
 const DEBT_FILTERS = [
@@ -140,6 +164,9 @@ function ResumenFinanciero() {
                 {isExporting ? 'hourglass_top' : 'download'}
               </span>
               {isExporting ? 'Generando...' : 'Exportar informe contable'}
+              {!isExporting && selectedPeriod && (
+                <span className="text-on-surface-variant font-normal">· {selectedPeriodLabel}</span>
+              )}
             </button>
           </>
         )}
@@ -149,70 +176,71 @@ function ResumenFinanciero() {
         <p className="text-sm text-error" role="alert">{exportError}</p>
       )}
 
-      <section aria-label="KPIs del período">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
-          <div className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-[20px] text-primary" aria-hidden="true">calendar_month</span>
-            <h2 className="font-headline-sm text-headline-sm text-on-surface font-semibold">
-              Período
-            </h2>
-            {selectedPeriodLabel && (
-              <span className="px-2.5 py-0.5 rounded-full bg-primary/10 text-primary font-label-sm text-label-sm font-semibold">
-                {selectedPeriodLabel}
-              </span>
-            )}
-          </div>
-
-          <div className="relative">
-            <input
-              type="month"
-              value={selectedPeriod ?? ''}
-              onChange={(e) => setSelectedPeriod(e.target.value)}
-              aria-label="Seleccionar período"
-              className="h-9 px-3 bg-surface-container-low text-on-surface rounded-lg font-body-sm text-body-sm focus:outline-none focus:ring-2 focus:ring-primary/40 cursor-pointer border border-outline-variant/30"
-            />
-          </div>
-        </div>
-
+      <SummaryBlock
+        id="period-block-title"
+        title="Resumen del período"
+        subtitle="Métricas de las cuotas del período seleccionado."
+        icon="date_range"
+        controls={(
+          <FilterSelect
+            etiqueta="Período:"
+            className={FILTER_CLASS}
+            value={selectedPeriod}
+            onChange={(e) => setSelectedPeriod(e.target.value)}
+            disabled={isLoading}
+          >
+            {availablePeriods.map((period) => (
+              <option key={period} value={period}>{formatPeriod(period)}</option>
+            ))}
+          </FilterSelect>
+        )}
+      >
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-space-md">
           {isLoading ? (
             Array.from({ length: 4 }).map((_, i) => <StatCardSkeleton key={i} />)
           ) : (
             <>
-              <StatCard tone="neutral" icon="receipt_long" label="Cuotas generadas" value={periodKpis.cuotasGeneradas} />
-              <StatCard tone="positive" icon="check_circle" label="Cuotas pagas" value={periodKpis.cuotasPagas} />
-              <StatCard tone="warning" icon="pending" label="Cuotas sin pagar" value={periodKpis.cuotasImpagas} />
-              <StatCard tone="neutral" icon="payments" label="Total recaudado" value={formatAmount(periodKpis.totalRecaudadoPeriodo)} />
+              <StatCard size="sm" tone="neutral" icon="receipt_long" label="Cuotas generadas" value={periodKpis.cuotasGeneradas} />
+              <StatCard size="sm" tone="positive" icon="check_circle" label="Cuotas pagas" value={periodKpis.cuotasPagas} />
+              <StatCard size="sm" tone="warning" icon="pending" label="Cuotas sin pagar" value={periodKpis.cuotasImpagas} />
+              <StatCard size="sm" tone="neutral" icon="payments" label="Total recaudado" value={formatAmount(periodKpis.totalRecaudadoPeriodo)} />
             </>
           )}
         </div>
-      </section>
+      </SummaryBlock>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-space-md">
-        {isLoading ? (
-          Array.from({ length: 3 }).map((_, i) => <StatCardSkeleton key={i} />)
-        ) : (
-          <>
-            <StatCard tone="warning" icon="person_alert" label="Socios con deuda" value={Number(resumen?.socios_en_mora ?? 0).toLocaleString('es-AR')} />
-            <StatCard tone="warning" icon="pending_actions" label="Monto adeudado total" value={formatAmount(resumen?.monto_adeudado_total ?? 0)} />
-            <StatCard tone="neutral" icon="event_busy" label="Cuotas vencidas a la fecha" value={Number(resumen?.cuotas_vencidas ?? 0).toLocaleString('es-AR')} />
-          </>
-        )}
-      </div>
-      {errors.resumen && <p className="text-sm text-error" role="alert">{getErrorMessage(errors.resumen, 'No se pudieron cargar las métricas financieras.')}</p>}
+      <SummaryBlock
+        id="general-block-title"
+        title="Situación general"
+        subtitle="Información historica · no depende del período seleccionado."
+        icon="monitoring"
+      >
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-space-md">
+          {isLoading ? (
+            Array.from({ length: 3 }).map((_, i) => <StatCardSkeleton key={i} />)
+          ) : (
+            <>
+              <StatCard size="sm" tone="warning" icon="person_alert" label="Socios con deuda" value={Number(resumen?.socios_en_mora ?? 0).toLocaleString('es-AR')} />
+              <StatCard size="sm" tone="warning" icon="pending_actions" label="Monto adeudado total" value={formatAmount(resumen?.monto_adeudado_total ?? 0)} />
+              <StatCard size="sm" tone="neutral" icon="event_busy" label="Cuotas vencidas a la fecha" value={Number(resumen?.cuotas_vencidas ?? 0).toLocaleString('es-AR')} />
+            </>
+          )}
+        </div>
+        {errors.resumen && <p className="text-sm text-error" role="alert">{getErrorMessage(errors.resumen, 'No se pudieron cargar las métricas financieras.')}</p>}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-space-md">
-        {COLLECTION_METHODS.map((method) => (
-          <CollectionCard
-            key={method.key}
-            label={method.label}
-            amount={resumen ? resumen[method.key] : null}
-            detail={method.detail}
-            icon={method.icon}
-            dotClass={method.dotClass}
-          />
-        ))}
-      </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-space-md">
+          {COLLECTION_METHODS.map((method) => (
+            <CollectionCard
+              key={method.key}
+              label={method.label}
+              amount={resumen ? resumen[method.key] : null}
+              detail={method.detail}
+              icon={method.icon}
+              dotClass={method.dotClass}
+            />
+          ))}
+        </div>
+      </SummaryBlock>
 
       <section
         aria-labelledby="debtors-table-title"
