@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Modal } from '@mantine/core'
-import { formatAmount } from '../personas/format'
+import { collectErrorMessages, formatAmount } from '../personas/format'
 
 const fechaHoy = () => {
   const hoy = new Date()
@@ -20,14 +20,6 @@ const formularioInicial = () => ({
 const baseDescontable = (cuota) => (cuota?.items ?? [])
   .filter((item) => !item.es_descuento && item.concepto !== 'Mora')
   .reduce((total, item) => total + Number(item.monto ?? 0), 0)
-
-const mensajesDeError = (data) => {
-  if (!data) return []
-  if (typeof data === 'string') return [data]
-  if (Array.isArray(data)) return data.flatMap(mensajesDeError)
-  if (typeof data === 'object') return Object.values(data).flatMap(mensajesDeError)
-  return []
-}
 
 const CONCEPTOS = [
   { value: 'CuotaSocial', label: 'Cuota social' },
@@ -100,7 +92,7 @@ function BecaDescuentoModal({ opened, cuota, onClose, onSubmit, isSaving }) {
         motivo: formulario.motivo.trim(),
       })
     } catch (requestError) {
-      setError(mensajesDeError(requestError.response?.data).join(' ') || requestError.message || 'No se pudo aplicar el beneficio.')
+      setError(collectErrorMessages(requestError.response?.data).join(' ') || requestError.message || 'No se pudo aplicar el beneficio.')
     }
   }
 

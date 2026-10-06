@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { EmptyState, PrimaryButton, SecondaryButton, TabHeader } from './parts'
 import useDocumentacion from '../../../hooks/useDocumentacion'
+import { collectErrorMessages } from '../format'
 import DocumentacionUploadModal from '../../documental/DocumentacionUploadModal'
 import DocumentacionDeleteModal from '../../documental/DocumentacionDeleteModal'
 import PersonaDocumentsTable from '../../documental/PersonaDocumentsTable'
@@ -21,7 +22,7 @@ const getSaveErrorMessage = (requestError) => {
   if (!data) return requestError.response ? SAVE_ERROR_MESSAGE : 'No se pudo conectar con el servidor.'
   if (typeof data === 'string') return SAVE_ERROR_MESSAGE
   if (data.detail) return data.detail
-  return Object.values(data).flat().join(' ') || SAVE_ERROR_MESSAGE
+  return collectErrorMessages(data).join(' ') || SAVE_ERROR_MESSAGE
 }
 
 export default function DocumentationTab({ personaId, personaType, personaInfo }) {
