@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import PageHeader from '../components/shared/PageHeader'
 import ComunicacionesKPIs from '../components/comunicaciones/ComunicacionesKPIs'
 import ScopeSelector from '../components/comunicaciones/ScopeSelector'
@@ -9,22 +10,13 @@ import CoverageAlerts from '../components/comunicaciones/CoverageAlerts'
 import MessageComposer from '../components/comunicaciones/MessageComposer'
 import ConfirmSendModal from '../components/comunicaciones/ConfirmSendModal'
 import ExcludedListModal from '../components/comunicaciones/ExcludedListModal'
-import HistorialModal from '../components/comunicaciones/HistorialModal'
 import PreviewModal from '../components/comunicaciones/PreviewModal'
-import HistorialComunicacionesTable from '../components/comunicaciones/HistorialComunicacionesTable'
 import useCategorias from '../hooks/useCategorias'
 import useSocio from '../hooks/useSocio'
-import {
-  getComunicacionesKPIs,
-  getHistorialNotificaciones,
-  postEnviarNotificacion,
-} from '../api/comunicaciones'
+import { getComunicacionesKPIs, postEnviarNotificacion } from '../api/comunicaciones'
 
 export default function Comunicaciones() {
-  // Pestaña activa del apartado: 'componer' | 'historial'
-  const [activeTab, setActiveTab] = useState('componer')
-  const [isLoadingHistorial, setIsLoadingHistorial] = useState(false)
-  const [historialError, setHistorialError] = useState(null)
+  const navigate = useNavigate()
 
   // Datos reales del padrón obtenidos directamente del Backend
   const { categorias } = useCategorias()
@@ -32,7 +24,6 @@ export default function Comunicaciones() {
 
   // Estados de datos de comunicaciones
   const [kpis, setKpis] = useState(null)
-  const [historial, setHistorial] = useState([])
 
   // Alcance: 'segmentada' o 'individual'
   const [scope, setScope] = useState('segmentada')
@@ -55,32 +46,12 @@ export default function Comunicaciones() {
   // Modales
   const [isConfirmOpen, setIsConfirmOpen] = useState(false)
   const [isExcluidosOpen, setIsExcluidosOpen] = useState(false)
-  const [isHistorialOpen, setIsHistorialOpen] = useState(false)
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
   const [isSending, setIsSending] = useState(false)
 
-  // Toast de éxito
-  const [toastMessage, setToastMessage] = useState('')
-  const [showToast, setShowToast] = useState(false)
-
-  // Cargar notificaciones desde el backend
-  const fetchHistorial = async () => {
-    setIsLoadingHistorial(true)
-    setHistorialError(null)
-    try {
-      const data = await getHistorialNotificaciones()
-      setHistorial(data)
-    } catch (err) {
-      setHistorialError(err)
-    } finally {
-      setIsLoadingHistorial(false)
-    }
-  }
-
-  // Cargar KPIs e Historial al inicio
+  // Cargar métricas al inicio
   useEffect(() => {
     getComunicacionesKPIs().then(setKpis)
-    fetchHistorial()
   }, [])
 
   // Inicializar selección de categorías con las primeras cargadas del backend
@@ -322,15 +293,11 @@ export default function Comunicaciones() {
       await postEnviarNotificacion(payload)
       setIsConfirmOpen(false)
 
-      // Limpiar formulario y refrescar historial real desde la base de datos
+      // Limpiar el formulario y abrir la vista del historial
       setAsunto('')
       setCuerpo('')
-      await fetchHistorial()
-      setActiveTab('historial')
-
-      setToastMessage(`Notificación despachada y guardada con éxito (${destinatariosCount} destinatarios)`)
-      setShowToast(true)
-      setTimeout(() => setShowToast(false), 4500)
+      const successMessage = `Notificación despachada y guardada con éxito (${destinatariosCount} destinatarios)`
+      navigate('/comunicaciones/historial', { state: { toastMessage: successMessage } })
     } catch (err) {
       console.error('Error al persistir notificación:', err)
       alert('Ocurrió un error al enviar la notificación. Verifique la conexión con el backend.')
@@ -341,105 +308,19 @@ export default function Comunicaciones() {
 
   return (
     <div className="w-full flex flex-col gap-5 pb-8">
-      {/* 1. PageHeader Compartido */}
       <div className="flex flex-col gap-1 max-w-full">
         <PageHeader
           breadcrumb={[{ label: 'Comunicaciones' }]}
-          title="Comunicaciones"
-          actions={(
-            <div className="flex items-center gap-2.5">
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveTab('historial')
-                  fetchHistorial()
-                }}
-                className={`inline-flex items-center gap-2 border px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer shadow-xs ${
-                  activeTab === 'historial'
-                    ? 'border-primary/50 bg-primary/10 text-primary'
-                    : 'border-outline-variant/50 bg-surface-container-lowest text-on-surface hover:bg-surface-container-low'
-                }`}
-              >
-                <span className="material-symbols-outlined text-[18px]">
-                  history
-                </span>
-                <span>Ver historial de envíos</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveTab('componer')
-                  setAsunto('')
-                  setCuerpo('')
-                }}
-                className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg shadow-sm text-sm font-medium transition-colors cursor-pointer ${
-                  activeTab === 'componer'
-                    ? 'bg-primary text-on-primary hover:bg-primary/90'
-                    : 'border border-outline-variant/50 bg-surface-container-lowest text-on-surface hover:bg-surface-container-low'
-                }`}
-              >
-                <span className="material-symbols-outlined text-[18px]">add</span>
-                <span>Nueva notificación</span>
-              </button>
-            </div>
-          )}
+          title="Nueva notificación"
         />
         <p className="text-sm text-on-surface-variant -mt-1.5">
           Canal oficial de avisos y notificaciones operativas institucionales para socios y familias vinculadas.
         </p>
       </div>
 
-      {/* 2. Tarjetas de Métricas Rápidas */}
       <ComunicacionesKPIs kpis={computedKPIs} />
 
-      {/* 3. Navegación de Apartados */}
-      <div className="flex items-center justify-between border-b border-outline-variant/30 pb-1">
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setActiveTab('componer')}
-            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
-              activeTab === 'componer'
-                ? 'bg-primary text-on-primary shadow-xs'
-                : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low'
-            }`}
-          >
-            <span className="material-symbols-outlined text-[18px]">edit_note</span>
-            <span>Componer Notificación</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTab('historial')
-              fetchHistorial()
-            }}
-            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
-              activeTab === 'historial'
-                ? 'bg-primary text-on-primary shadow-xs'
-                : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low'
-            }`}
-          >
-            <span className="material-symbols-outlined text-[18px]">history</span>
-            <span>Historial de Envíos</span>
-            {historial?.length > 0 && (
-              <span
-                className={`text-xs px-2 py-0.5 rounded-full font-bold ${
-                  activeTab === 'historial'
-                    ? 'bg-on-primary/20 text-on-primary'
-                    : 'bg-surface-container-high text-on-surface'
-                }`}
-              >
-                {historial.length}
-              </span>
-            )}
-          </button>
-        </div>
-      </div>
-
-      {/* 4. Apartado Activo */}
-      {activeTab === 'componer' ? (
-        <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-lg shadow-sm p-5 md:p-6 flex flex-col gap-6">
+      <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-lg shadow-sm p-5 md:p-6 flex flex-col gap-6">
         {/* Encabezado de la tarjeta */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-outline-variant/20">
           <div className="flex items-center gap-3">
@@ -533,14 +414,6 @@ export default function Comunicaciones() {
           }}
         />
       </div>
-    ) : (
-      <HistorialComunicacionesTable
-        notificaciones={historial}
-        isLoading={isLoadingHistorial}
-        error={historialError}
-        onRefresh={fetchHistorial}
-      />
-    )}
 
       {/* Modales */}
       <ConfirmSendModal
@@ -560,12 +433,6 @@ export default function Comunicaciones() {
         excluidos={excluidos}
       />
 
-      <HistorialModal
-        isOpen={isHistorialOpen}
-        onClose={() => setIsHistorialOpen(false)}
-        historial={historial}
-      />
-
       <PreviewModal
         isOpen={isPreviewOpen}
         onClose={() => setIsPreviewOpen(false)}
@@ -574,15 +441,6 @@ export default function Comunicaciones() {
         canales={canalesParaPreview}
       />
 
-      {/* Toast Flotante de Éxito */}
-      {showToast && (
-        <div className="fixed bottom-6 right-6 z-50 bg-inverse-surface text-inverse-on-surface px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 animate-fade-in border border-outline-variant/20">
-          <span className="material-symbols-outlined text-primary-container text-[20px]">
-            check_circle
-          </span>
-          <span className="text-sm font-medium">{toastMessage}</span>
-        </div>
-      )}
     </div>
   )
 }
