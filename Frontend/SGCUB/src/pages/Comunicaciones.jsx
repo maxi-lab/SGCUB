@@ -11,6 +11,7 @@ import ConfirmSendModal from '../components/comunicaciones/ConfirmSendModal'
 import ExcludedListModal from '../components/comunicaciones/ExcludedListModal'
 import HistorialModal from '../components/comunicaciones/HistorialModal'
 import PreviewModal from '../components/comunicaciones/PreviewModal'
+import HistorialComunicacionesTable from '../components/comunicaciones/HistorialComunicacionesTable'
 import useCategorias from '../hooks/useCategorias'
 import useSocio from '../hooks/useSocio'
 import {
@@ -20,6 +21,11 @@ import {
 } from '../api/comunicaciones'
 
 export default function Comunicaciones() {
+  // Pestaña activa del apartado: 'componer' | 'historial'
+  const [activeTab, setActiveTab] = useState('componer')
+  const [isLoadingHistorial, setIsLoadingHistorial] = useState(false)
+  const [historialError, setHistorialError] = useState(null)
+
   // Datos reales del padrón obtenidos directamente del Backend
   const { categorias } = useCategorias()
   const { socios, isLoading: isLoadingSocios } = useSocio()
@@ -57,10 +63,24 @@ export default function Comunicaciones() {
   const [toastMessage, setToastMessage] = useState('')
   const [showToast, setShowToast] = useState(false)
 
+  // Cargar notificaciones desde el backend
+  const fetchHistorial = async () => {
+    setIsLoadingHistorial(true)
+    setHistorialError(null)
+    try {
+      const data = await getHistorialNotificaciones()
+      setHistorial(data)
+    } catch (err) {
+      setHistorialError(err)
+    } finally {
+      setIsLoadingHistorial(false)
+    }
+  }
+
   // Cargar KPIs e Historial al inicio
   useEffect(() => {
     getComunicacionesKPIs().then(setKpis)
-    getHistorialNotificaciones().then(setHistorial)
+    fetchHistorial()
   }, [])
 
   // Inicializar selección de categorías con las primeras cargadas del backend
@@ -305,7 +325,8 @@ export default function Comunicaciones() {
       // Limpiar formulario y refrescar historial real desde la base de datos
       setAsunto('')
       setCuerpo('')
-      getHistorialNotificaciones().then(setHistorial)
+      await fetchHistorial()
+      setActiveTab('historial')
 
       setToastMessage(`Notificación despachada y guardada con éxito (${destinatariosCount} destinatarios)`)
       setShowToast(true)
@@ -329,10 +350,17 @@ export default function Comunicaciones() {
             <div className="flex items-center gap-2.5">
               <button
                 type="button"
-                onClick={() => setIsHistorialOpen(true)}
-                className="inline-flex items-center gap-2 border border-outline-variant/50 bg-surface-container-lowest text-on-surface hover:bg-surface-container-low px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer shadow-xs"
+                onClick={() => {
+                  setActiveTab('historial')
+                  fetchHistorial()
+                }}
+                className={`inline-flex items-center gap-2 border px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer shadow-xs ${
+                  activeTab === 'historial'
+                    ? 'border-primary/50 bg-primary/10 text-primary'
+                    : 'border-outline-variant/50 bg-surface-container-lowest text-on-surface hover:bg-surface-container-low'
+                }`}
               >
-                <span className="material-symbols-outlined text-[18px] text-on-surface-variant">
+                <span className="material-symbols-outlined text-[18px]">
                   history
                 </span>
                 <span>Ver historial de envíos</span>
@@ -340,11 +368,15 @@ export default function Comunicaciones() {
               <button
                 type="button"
                 onClick={() => {
+                  setActiveTab('componer')
                   setAsunto('')
                   setCuerpo('')
-                  window.scrollTo({ top: 320, behavior: 'smooth' })
                 }}
-                className="inline-flex items-center gap-2 bg-primary text-on-primary hover:bg-primary/90 px-4 py-2 rounded-lg shadow-sm text-sm font-medium transition-colors cursor-pointer"
+                className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg shadow-sm text-sm font-medium transition-colors cursor-pointer ${
+                  activeTab === 'componer'
+                    ? 'bg-primary text-on-primary hover:bg-primary/90'
+                    : 'border border-outline-variant/50 bg-surface-container-lowest text-on-surface hover:bg-surface-container-low'
+                }`}
               >
                 <span className="material-symbols-outlined text-[18px]">add</span>
                 <span>Nueva notificación</span>
@@ -360,8 +392,54 @@ export default function Comunicaciones() {
       {/* 2. Tarjetas de Métricas Rápidas */}
       <ComunicacionesKPIs kpis={computedKPIs} />
 
-      {/* 3. Formulario Central de Composición */}
-      <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-lg shadow-sm p-5 md:p-6 flex flex-col gap-6">
+      {/* 3. Navegación de Apartados */}
+      <div className="flex items-center justify-between border-b border-outline-variant/30 pb-1">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setActiveTab('componer')}
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
+              activeTab === 'componer'
+                ? 'bg-primary text-on-primary shadow-xs'
+                : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low'
+            }`}
+          >
+            <span className="material-symbols-outlined text-[18px]">edit_note</span>
+            <span>Componer Notificación</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('historial')
+              fetchHistorial()
+            }}
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
+              activeTab === 'historial'
+                ? 'bg-primary text-on-primary shadow-xs'
+                : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low'
+            }`}
+          >
+            <span className="material-symbols-outlined text-[18px]">history</span>
+            <span>Historial de Envíos</span>
+            {historial?.length > 0 && (
+              <span
+                className={`text-xs px-2 py-0.5 rounded-full font-bold ${
+                  activeTab === 'historial'
+                    ? 'bg-on-primary/20 text-on-primary'
+                    : 'bg-surface-container-high text-on-surface'
+                }`}
+              >
+                {historial.length}
+              </span>
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* 4. Apartado Activo */}
+      {activeTab === 'componer' ? (
+        <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-lg shadow-sm p-5 md:p-6 flex flex-col gap-6">
         {/* Encabezado de la tarjeta */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-outline-variant/20">
           <div className="flex items-center gap-3">
@@ -455,6 +533,14 @@ export default function Comunicaciones() {
           }}
         />
       </div>
+    ) : (
+      <HistorialComunicacionesTable
+        notificaciones={historial}
+        isLoading={isLoadingHistorial}
+        error={historialError}
+        onRefresh={fetchHistorial}
+      />
+    )}
 
       {/* Modales */}
       <ConfirmSendModal
