@@ -11,7 +11,7 @@ const SIZES = {
   lg: { row: 'mt-2', value: 'font-display-lg text-display-lg leading-none', caption: 'text-base' },
 }
 
-export default function StatCard({ label, value, icon, tone = 'neutral', size = 'md', eyebrow, caption }) {
+export default function StatCard({ label, value, icon, tone = 'neutral', size = 'md', eyebrow, caption, wrapContent = false }) {
   const style = TONES[tone] ?? TONES.neutral
   const sizeStyle = SIZES[size] ?? SIZES.md
   return (
@@ -21,10 +21,10 @@ export default function StatCard({ label, value, icon, tone = 'neutral', size = 
           <span className={`text-sm font-semibold uppercase tracking-wider ${style.accent ?? 'text-outline'}`}>{eyebrow}</span>
         )}
         <span className="text-base xl:text-xl leading-tight font-medium text-on-surface-variant uppercase tracking-wider break-words">{label}</span>
-        <div className={`flex items-baseline gap-1.5 min-w-0 ${sizeStyle.row}`}>
-          <span className={`${sizeStyle.value} font-bold truncate ${style.accent ?? 'text-on-surface'}`}>{value}</span>
+        <div className={`flex items-baseline gap-1.5 min-w-0 ${wrapContent ? 'flex-wrap' : ''} ${sizeStyle.row}`}>
+          <span className={`${sizeStyle.value} font-bold ${wrapContent ? 'shrink-0' : 'truncate'} ${style.accent ?? 'text-on-surface'}`}>{value}</span>
           {caption && (
-            <span className={`${sizeStyle.caption} font-medium truncate ${style.accent ?? 'text-on-surface-variant'}`}>{caption}</span>
+            <span className={`${sizeStyle.caption} font-medium ${wrapContent ? 'whitespace-normal break-words' : 'truncate'} ${style.accent ?? 'text-on-surface-variant'}`}>{caption}</span>
           )}
         </div>
       </div>

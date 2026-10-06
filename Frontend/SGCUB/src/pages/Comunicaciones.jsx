@@ -90,6 +90,7 @@ export default function Comunicaciones() {
     const sinContactoCount = excluidos.length
     const conContactoCount = totalSocios - sinContactoCount
     const tasa = totalSocios > 0 ? ((conContactoCount / totalSocios) * 100).toFixed(1) : 100
+    const envios_mes = kpis?.envios_mes ?? 0
 
     return {
       envios_mes: kpis?.envios_mes ?? 0,
@@ -97,6 +98,7 @@ export default function Comunicaciones() {
       tasa_entrega: tasa,
       canales_activos_texto: 'Email corporativo y WhatsApp',
       sin_contacto: sinContactoCount,
+      envios_mes: envios_mes,
     }
   }, [kpis, excluidos, socios])
 

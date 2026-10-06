@@ -16,9 +16,10 @@ export default function ComunicacionesKPIs({ kpis }) {
         eyebrow="Envíos del Mes"
         label="Campañas activadas"
         value={data.envios_mes}
-        caption={`${data.mensajes_entregados.toLocaleString('es-AR')} entregados con éxito`}
+        caption={`mensajes enviados con éxito`}
         icon="outbox"
         tone="neutral"
+        wrapContent
       />
       <StatCard
         size="lg"
@@ -28,15 +29,17 @@ export default function ComunicacionesKPIs({ kpis }) {
         caption={data.canales_activos_texto}
         icon="verified"
         tone="warning"
+        wrapContent
       />
       <StatCard
         size="lg"
         eyebrow="Atención Requerida"
         label="Sin Contacto Validado"
         value={data.sin_contacto}
-        caption="requieren actualizar legajo"
+        caption="requieren actualizar datos de contacto"
         icon="phonelink_erase"
         tone="error"
+        wrapContent
       />
     </div>
   )
