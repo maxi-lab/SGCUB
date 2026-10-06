@@ -102,6 +102,7 @@ export default function useResumenFinanciero() {
       if (!bySocio.has(id)) {
         bySocio.set(id, {
           socio_id: id,
+          jugador_id: socio.jugador_id ?? null,
           numero_socio: socio.numero_socio,
           nombre: socio.nombre,
           apellido: socio.apellido,
