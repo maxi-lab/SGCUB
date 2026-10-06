@@ -10,10 +10,14 @@ from .views import (
     log_operaciones_view,
     partidos_view,
     resultados_view,
+    status_view,
     tablas_view,
 )
 
 urlpatterns = [
+    # --- Estado ---
+    path("status/", status_view, name="comet-status"),
+
     # --- Jugadores ---
     path("jugadores/", jugadores_view, name="comet-jugadores"),
     path("jugador/<int:pk>/exportar/", exportar_jugador_view, name="comet-exportar-jugador"),

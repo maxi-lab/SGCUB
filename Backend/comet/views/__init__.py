@@ -8,6 +8,7 @@ from .players import (
 )
 from .registrations import inscripciones_view
 from .standings import tablas_view
+from .status import status_view
 from .teams import equipos_view
 
 __all__ = [
@@ -23,4 +24,6 @@ __all__ = [
     "partidos_view",
     "resultados_view",
     "tablas_view",
+    # Estado
+    "status_view",
 ]
