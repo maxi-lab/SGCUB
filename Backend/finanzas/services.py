@@ -244,14 +244,18 @@ def pending_amounts(cuotas, ignored_origin=None):
     return pending
 
 
-def refresh_cuota_state(cuota, pending, today=None):
-    today = today or timezone.localdate()
+def cuota_state(cuota, pending, today):
     if pending <= 0:
-        state = EstadoCuotaChoices.PAGA
-    elif today > cuota.fecha_venc1:
-        state = EstadoCuotaChoices.VENCIDA
-    else:
-        state = EstadoCuotaChoices.EN_FECHA
+        return EstadoCuotaChoices.PAGA
+    if today > cuota.fecha_venc2:
+        return EstadoCuotaChoices.VENCIDA_2
+    if today > cuota.fecha_venc1:
+        return EstadoCuotaChoices.VENCIDA_1
+    return EstadoCuotaChoices.EN_FECHA
+
+
+def refresh_cuota_state(cuota, pending, today=None):
+    state = cuota_state(cuota, pending, today or timezone.localdate())
     if cuota.estado_cuota != state:
         cuota.estado_cuota = state
         cuota.save(update_fields=["estado_cuota"])
