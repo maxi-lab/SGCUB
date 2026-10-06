@@ -36,35 +36,47 @@ export default function HistorialModal({ isOpen, onClose, historial }) {
             </p>
           ) : (
             <div className="flex flex-col divide-y divide-outline-variant/20">
-              {historial.map((item) => (
-                <div
-                  key={item.id}
-                  className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-surface-container-low transition-colors"
-                >
-                  <div className="flex flex-col max-w-md">
-                    <span className="font-semibold text-sm text-on-surface">
-                      {item.asunto}
-                    </span>
-                    <span className="text-xs text-on-surface-variant mt-0.5">
-                      Alcance: {item.alcance} • Canales: {item.canales} • Fecha:{' '}
-                      {new Date(item.fecha).toLocaleDateString('es-AR')}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-4 self-start sm:self-auto">
-                    <div className="flex flex-col items-end">
-                      <span className="text-sm font-bold text-primary">
-                        {item.destinatarios_count}
+              {historial.map((item) => {
+                const titulo = item.asunto || item.titulo || 'Notificación oficial'
+                const fecha = item.fecha_creacion || item.fecha
+                const fechaTexto = fecha ? new Date(fecha).toLocaleString('es-AR') : 'Reciente'
+                const enviosCount = item.envios?.length ?? item.destinatarios_count ?? 1
+                const estado = item.estado || 'ENVIADA'
+
+                return (
+                  <div
+                    key={item.id}
+                    className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-surface-container-low transition-colors"
+                  >
+                    <div className="flex flex-col max-w-md">
+                      <span className="font-semibold text-sm text-on-surface">
+                        {titulo}
                       </span>
-                      <span className="text-[11px] text-on-surface-variant">
-                        contactos
+                      <span className="text-xs text-on-surface-variant mt-0.5">
+                        Registrado: {fechaTexto} • Estado: {estado}
+                      </span>
+                      {item.contenido && (
+                        <p className="text-xs text-on-surface-variant/80 mt-1 line-clamp-2">
+                          {item.contenido}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-4 self-start sm:self-auto">
+                      <div className="flex flex-col items-end">
+                        <span className="text-sm font-bold text-primary">
+                          {enviosCount}
+                        </span>
+                        <span className="text-[11px] text-on-surface-variant">
+                          destinatarios
+                        </span>
+                      </div>
+                      <span className="bg-primary/10 text-primary border border-primary/20 text-xs px-2.5 py-0.5 rounded-full font-semibold">
+                        {estado}
                       </span>
                     </div>
-                    <span className="bg-primary/10 text-primary border border-primary/20 text-xs px-2.5 py-0.5 rounded-full font-semibold">
-                      {item.estado}
-                    </span>
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </div>

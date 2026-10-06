@@ -248,6 +248,44 @@ export default function Comunicaciones() {
 
     setIsSending(true)
     try {
+      // Construir la lista de envíos asociados para persistir en EnvioNotificacion
+      const envios = []
+      if (scope === 'individual' && selectedSocio) {
+        if (selectedContactos.has('socio_tel') && selectedSocio.telefono) {
+          envios.push({
+            destinatario_contacto: selectedSocio.telefono,
+            canal: 'WHATSAPP',
+            estado: 'ENVIADA',
+          })
+        }
+        if (selectedContactos.has('socio_email') && selectedSocio.email) {
+          envios.push({
+            destinatario_contacto: selectedSocio.email,
+            canal: 'MAIL',
+            estado: 'ENVIADA',
+          })
+        }
+      } else if (scope === 'segmentada') {
+        const hasEmail = canalesMasivos.has('email')
+        const hasWhatsApp = canalesMasivos.has('whatsapp')
+        ;(socios || []).forEach((s) => {
+          if (hasWhatsApp && s.telefono) {
+            envios.push({
+              destinatario_contacto: s.telefono,
+              canal: 'WHATSAPP',
+              estado: 'ENVIADA',
+            })
+          }
+          if (hasEmail && s.email) {
+            envios.push({
+              destinatario_contacto: s.email,
+              canal: 'MAIL',
+              estado: 'ENVIADA',
+            })
+          }
+        })
+      }
+
       const payload = {
         titulo: asunto,
         asunto,
@@ -258,14 +296,23 @@ export default function Comunicaciones() {
         socio_id: scope === 'individual' ? selectedSocio?.socio_id : null,
         copia_secretaria: copiaSecretaria,
         destinatarios_count: destinatariosCount,
+        envios,
       }
 
       await postEnviarNotificacion(payload)
       setIsConfirmOpen(false)
 
-      setToastMessage(`Notificación despachada con éxito a los ${destinatariosCount} destinatarios`)
+      // Limpiar formulario y refrescar historial real desde la base de datos
+      setAsunto('')
+      setCuerpo('')
+      getHistorialNotificaciones().then(setHistorial)
+
+      setToastMessage(`Notificación despachada y guardada con éxito (${destinatariosCount} destinatarios)`)
       setShowToast(true)
       setTimeout(() => setShowToast(false), 4500)
+    } catch (err) {
+      console.error('Error al persistir notificación:', err)
+      alert('Ocurrió un error al enviar la notificación. Verifique la conexión con el backend.')
     } finally {
       setIsSending(false)
     }

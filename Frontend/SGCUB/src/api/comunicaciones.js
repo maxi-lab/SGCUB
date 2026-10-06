@@ -7,7 +7,7 @@ export const getComunicacionesKPIs = async () => {
     const response = await api.get(`${comunicacionesEndpoint}resumen/`)
     return response.data
   } catch (error) {
-    // Si el backend aún no implementó el endpoint de resumen, devolver valores iniciales
+    // Si el backend aún no implementó el endpoint específico de KPIs calculadas
     return {
       envios_mes: 0,
       mensajes_entregados: 0,
@@ -20,25 +20,23 @@ export const getComunicacionesKPIs = async () => {
 
 export const getHistorialNotificaciones = async () => {
   try {
-    const response = await api.get(`${comunicacionesEndpoint}notificaciones/`)
+    const response = await api.get(`${comunicacionesEndpoint}notificacion/`)
     return response.data
   } catch (error) {
+    console.warn('Error al obtener historial de notificaciones:', error?.message)
     return []
   }
 }
 
 export const postEnviarNotificacion = async (payload) => {
-  try {
-    const response = await api.post(`${comunicacionesEndpoint}notificaciones/`, payload)
-    return response.data
-  } catch (error) {
-    console.warn('API de comunicaciones no disponible todavía:', error?.message)
-    return {
-      success: true,
-      id: Date.now(),
-      ...payload,
-      fecha_creacion: new Date().toISOString(),
-      destinatarios_efectivos: payload.destinatarios_count || 0,
-    }
+  const notificacionBody = {
+    titulo: payload.titulo || payload.asunto || 'Notificación institucional',
+    asunto: payload.asunto || payload.titulo || '',
+    contenido: payload.contenido || payload.cuerpo || '',
+    estado: 'ENVIADA',
+    envios: payload.envios || [],
   }
+
+  const response = await api.post(`${comunicacionesEndpoint}notificacion/`, notificacionBody)
+  return response.data
 }
