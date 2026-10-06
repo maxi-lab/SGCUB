@@ -7,8 +7,6 @@ import PageHeader from '../components/shared/PageHeader'
 import TableMessageRow from '../components/shared/TableMessageRow'
 import TablePagination from '../components/shared/TablePagination'
 import TableSearchInput from '../components/shared/TableSearchInput'
-import FilterSelect from '../components/shared/FilterSelect'
-import { formatPeriod } from '../components/shared/periodFormat'
 import useResumenFinanciero from '../hooks/useResumenFinanciero'
 import usePagination from '../hooks/usePagination'
 import useOrdenTabla from '../hooks/useOrdenTabla'
@@ -72,7 +70,7 @@ function SummaryBlock({ id, title, subtitle, icon, controls, children }) {
         </div>
         <div className="flex items-center gap-3">
           {controls}
-          <span className="material-symbols-outlined text-primary text-2xl" aria-hidden="true">{icon}</span>
+          {icon && <span className="material-symbols-outlined text-primary text-2xl" aria-hidden="true">{icon}</span>}
         </div>
       </div>
       <div className="p-5 flex flex-col gap-space-md">
@@ -180,19 +178,18 @@ function ResumenFinanciero() {
         id="period-block-title"
         title="Resumen del período"
         subtitle="Métricas de las cuotas del período seleccionado."
-        icon="date_range"
         controls={(
-          <FilterSelect
-            etiqueta="Período:"
-            className={FILTER_CLASS}
-            value={selectedPeriod}
-            onChange={(e) => setSelectedPeriod(e.target.value)}
-            disabled={isLoading}
-          >
-            {availablePeriods.map((period) => (
-              <option key={period} value={period}>{formatPeriod(period)}</option>
-            ))}
-          </FilterSelect>
+          <label className="flex items-center gap-2 font-medium text-sm text-on-surface-variant">
+            Período:
+            <input
+              type="month"
+              aria-label="Seleccionar período"
+              className={`${FILTER_CLASS} h-9 px-3 font-normal`}
+              value={selectedPeriod ?? ''}
+              onChange={(e) => setSelectedPeriod(e.target.value)}
+              disabled={isLoading}
+            />
+          </label>
         )}
       >
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-space-md">
