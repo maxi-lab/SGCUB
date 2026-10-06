@@ -61,7 +61,7 @@ function FinancialTab({ socio }) {
 
   return (
     <section className="flex flex-col gap-6" aria-labelledby="estado-cuenta-title">
-      <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 pb-4 border-b border-surface-container">
+      <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
         <div>
           <p className="text-sm uppercase tracking-wider font-semibold text-primary">Cuenta corriente {formatNumber(account.cuenta_corriente_id)}</p>
           <h2 id="estado-cuenta-title" className="text-2xl font-bold text-on-surface mt-1">Estado de cuenta</h2>
@@ -69,13 +69,13 @@ function FinancialTab({ socio }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 my-4">
         <KPI label="Cuotas pendientes" value={summary.pendingCount} icon="pending_actions" tone={summary.pendingCount ? 'alert' : 'ok'} />
         <KPI label="Saldo total adeudado" value={formatAmount(summary.debt)} icon="account_balance" tone={summary.debt ? 'error' : 'ok'} />
         <KPI label="Becas vigentes" value={summary.activeScholarships ?? '—'} icon="sell" />
       </div>
 
-      <section className="flex flex-col gap-3" aria-labelledby="cuotas-title">
+      <section className="flex flex-col gap-3 my-4" aria-labelledby="cuotas-title">
         <div className="flex items-baseline justify-between gap-3">
           <h3 id="cuotas-title" className="text-lg font-bold text-on-surface">Cuotas</h3>
           <span className="text-sm text-on-surface-variant">{cuotas.length} {cuotas.length === 1 ? 'cuota' : 'cuotas'}</span>
@@ -92,7 +92,9 @@ function FinancialTab({ socio }) {
       </section>
 
       <ScholarshipsTable becas={load.becas} />
-      <DiscountsTable cuotas={cuotas} />
+      <div className="my-4">
+        <DiscountsTable cuotas={cuotas} />
+      </div>
     </section>
   )
 }

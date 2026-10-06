@@ -39,15 +39,15 @@ export function ScholarshipsTable({ becas }) {
       {becas && (becas.length ? (
         <DataTable
           className={TABLE_CLASS}
-          tableClassName="min-w-[760px]"
+          tableClassName="min-w-[760px] table-fixed"
           bodyClassName="text-base"
           headers={(
             <>
-              <th className="py-3 px-4" scope="col">Vigencia</th>
-              <th className="py-3 px-4 text-right" scope="col">Valor</th>
+              <th className="py-3 px-4 w-[15%]" scope="col">Vigencia</th>
+              <th className="py-3 px-4 w-[20%] text-center" scope="col">Valor</th>
               <th className="py-3 px-4" scope="col">Motivo</th>
-              <th className="py-3 px-4" scope="col">Asignada el</th>
-              <th className="py-3 px-4 text-center" scope="col">Estado</th>
+              <th className="py-3 px-4 w-[16%]" scope="col">Asignada el</th>
+              <th className="py-3 px-4 w-[17%] text-center" scope="col">Estado</th>
             </>
           )}
         >
@@ -56,8 +56,8 @@ export function ScholarshipsTable({ becas }) {
             return (
               <tr key={beca.beca_id}>
                 <td className="py-3.5 px-4 font-semibold text-on-surface whitespace-nowrap">{formatDate(beca.fecha_aplicacion)} → {formatDate(beca.fecha_fin)}</td>
-                <td className="py-3.5 px-4 text-right font-semibold text-on-surface">{scholarshipValue(beca)}</td>
-                <td className="py-3.5 px-4 text-on-surface-variant">{beca.motivo || '—'}</td>
+                <td className="py-3.5 px-4 text-center font-semibold text-on-surface">{scholarshipValue(beca)}</td>
+                <td className="py-3.5 px-4 text-on-surface-variant break-words">{beca.motivo || '—'}</td>
                 <td className="py-3.5 px-4 text-on-surface-variant whitespace-nowrap">{formatDate(beca.fecha_creacion)}</td>
                 <td className="py-3.5 px-4 text-center">
                   <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-sm font-semibold border ${state.className}`}>{state.label}</span>
@@ -81,14 +81,14 @@ export function DiscountsTable({ cuotas }) {
       {discounts.length ? (
         <DataTable
           className={TABLE_CLASS}
-          tableClassName="min-w-[640px]"
+          tableClassName="min-w-[640px] table-fixed"
           bodyClassName="text-base"
           headers={(
             <>
-              <th className="py-3 px-4" scope="col">Cuota</th>
-              <th className="py-3 px-4" scope="col">Fecha de aplicación</th>
+              <th className="py-3 px-4 w-[20%]" scope="col">Cuota</th>
+              <th className="py-3 px-4 w-[20%]" scope="col">Fecha de aplicación</th>
               <th className="py-3 px-4" scope="col">Motivo</th>
-              <th className="py-3 px-4 text-right" scope="col">Monto</th>
+              <th className="py-3 px-4 w-[16%] text-right" scope="col">Monto</th>
             </>
           )}
         >
@@ -96,7 +96,7 @@ export function DiscountsTable({ cuotas }) {
             <tr key={discount.item_cuota_id}>
               <td className="py-3.5 px-4 font-semibold text-on-surface whitespace-nowrap">{formatPeriod(discount.periodo)}</td>
               <td className="py-3.5 px-4 text-on-surface-variant whitespace-nowrap">{formatDate(discount.fecha_aplicacion)}</td>
-              <td className="py-3.5 px-4 text-on-surface-variant">{discount.motivo || '—'}</td>
+              <td className="py-3.5 px-4 text-on-surface-variant break-words">{discount.motivo || '—'}</td>
               <td className="py-3.5 px-4 text-right font-semibold text-on-surface">− {formatAmount(discount.monto)}</td>
             </tr>
           ))}
