@@ -171,12 +171,11 @@ export default function HistorialComunicacionesTable({
               <th className="px-4 py-3 font-semibold text-xs" scope="col">Canales</th>
               <th className="px-4 py-3 font-semibold text-xs text-center" scope="col">Destinatarios</th>
               <th className="px-4 py-3 font-semibold text-xs" scope="col">Estado</th>
-              <th className="px-4 py-3 font-semibold text-xs text-right" scope="col">Acción</th>
             </>
           )}
         >
           <TableMessageRow
-            colSpan={6}
+            colSpan={5}
             isLoading={isLoading}
             isEmpty={visibleRows.length === 0}
             error={error}
@@ -203,7 +202,16 @@ export default function HistorialComunicacionesTable({
               return (
                 <tr
                   key={item.id}
-                  className="hover:bg-surface-container-low/60 transition-colors"
+                  onClick={() => handleOpenDetalle(item)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault()
+                      handleOpenDetalle(item)
+                    }
+                  }}
+                  tabIndex={0}
+                  aria-label={`Ver detalle de ${item.titulo || item.asunto || 'notificación oficial'}`}
+                  className="cursor-pointer hover:bg-surface-container-low/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary transition-colors"
                 >
                   {/* Fecha */}
                   <td className="px-4 py-3 text-xs text-on-surface-variant font-medium whitespace-nowrap">
@@ -263,18 +271,6 @@ export default function HistorialComunicacionesTable({
 
                   {/* Estado */}
                   <td className="px-4 py-3 whitespace-nowrap">{getEstadoBadge(item.estado)}</td>
-
-                  {/* Acción */}
-                  <td className="px-4 py-3 text-right whitespace-nowrap">
-                    <button
-                      type="button"
-                      onClick={() => handleOpenDetalle(item)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-outline-variant/40 bg-surface-container-lowest text-on-surface hover:bg-surface-container-low text-xs font-semibold transition-colors cursor-pointer shadow-2xs"
-                    >
-                      <span className="material-symbols-outlined text-[16px] text-primary">visibility</span>
-                      <span>Ver detalle</span>
-                    </button>
-                  </td>
                 </tr>
               )
             })}
@@ -297,4 +293,3 @@ export default function HistorialComunicacionesTable({
     </div>
   )
 }
-
