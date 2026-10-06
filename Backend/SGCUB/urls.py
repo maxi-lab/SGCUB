@@ -31,6 +31,7 @@ urlpatterns = [
     path("api/padron/", include("padron.urls")),   
     path("api/finanzas/", include("finanzas.urls")),
     path("api/documental/", include("documental.urls")),
+    path("api/comunicaciones/", include("comunicaciones.urls")),
      ]
 if settings.DEBUG:
     urlpatterns += [
