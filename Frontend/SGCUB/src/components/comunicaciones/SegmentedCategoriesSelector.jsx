@@ -5,6 +5,7 @@ export default function SegmentedCategoriesSelector({
   categorias = [],
   selectedCategoryIds,
   onToggleCategory,
+  onSelectGroup,
   onSelectAll,
   onClearAll,
 }) {
@@ -128,17 +129,37 @@ export default function SegmentedCategoriesSelector({
             key={grupo.nombre}
             className="bg-surface-container-low border border-outline-variant/30 rounded-lg p-4 flex flex-col gap-3 shadow-xs"
           >
-            <div className="flex items-center justify-between pb-2 border-b border-outline-variant/20">
+            {(() => {
+              const todasSeleccionadas = grupo.categorias.every((cat) => selectedCategoryIds.has(cat.id))
+              return (
+            <div className="flex items-center justify-between gap-2 pb-2 border-b border-outline-variant/20">
               <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold ${grupo.badgeClass}`}>
                 <span className="material-symbols-outlined text-[16px]">
                   {grupo.icono}
                 </span>
                 {grupo.nombre}
               </span>
-              <span className="text-xs text-on-surface-variant">
-                {grupo.categorias.length} {grupo.categorias.length === 1 ? 'categoría' : 'categorías'}
-              </span>
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="text-xs text-on-surface-variant">
+                  {grupo.categorias.length} {grupo.categorias.length === 1 ? 'categoría' : 'categorías'}
+                </span>
+                <label className="flex items-center gap-1 text-xs text-on-surface-variant cursor-pointer" title={`Seleccionar todas las categorías de ${grupo.nombre}`}>
+                  <input
+                    type="checkbox"
+                    checked={todasSeleccionadas}
+                    onChange={(event) => onSelectGroup(
+                      grupo.categorias.map((cat) => cat.id),
+                      event.target.checked
+                    )}
+                    aria-label={`Seleccionar todas las categorías de ${grupo.nombre}`}
+                    className="w-3.5 h-3.5 rounded border-outline-variant/50 text-primary accent-primary cursor-pointer"
+                  />
+                  <span>Todo</span>
+                </label>
+              </div>
             </div>
+              )
+            })()}
 
             <div className="flex flex-col gap-1 max-h-72 overflow-y-auto pr-1">
               {grupo.categorias.map((cat) => {

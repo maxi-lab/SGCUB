@@ -117,6 +117,17 @@ export default function Comunicaciones() {
     setSelectedCategoryIds(new Set(valid))
   }
 
+  const handleSelectCategoryGroup = (categoryIds, shouldSelect) => {
+    setSelectedCategoryIds((prev) => {
+      const next = new Set(prev)
+      categoryIds.forEach((id) => {
+        if (shouldSelect) next.add(id)
+        else next.delete(id)
+      })
+      return next
+    })
+  }
+
   const handleClearAllCategories = () => {
     setSelectedCategoryIds(new Set())
   }
@@ -369,6 +380,7 @@ export default function Comunicaciones() {
               categorias={categorias}
               selectedCategoryIds={selectedCategoryIds}
               onToggleCategory={handleToggleCategory}
+              onSelectGroup={handleSelectCategoryGroup}
               onSelectAll={handleSelectAllCategories}
               onClearAll={handleClearAllCategories}
             />
