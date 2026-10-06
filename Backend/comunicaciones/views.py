@@ -103,6 +103,17 @@ def notificacion_list_create(request):
             if envios_to_create:
                 EnvioNotificacion.objects.bulk_create(envios_to_create)
 
+        # Despachar correos vía Brevo SMTP
+        try:
+            from django_q.tasks import async_task
+            async_task("comunicaciones.services.despachar_envios_email_notificacion", notificacion.id)
+        except Exception:
+            try:
+                from .services import despachar_envios_email_notificacion
+                despachar_envios_email_notificacion(notificacion.id)
+            except Exception:
+                pass
+
         return Response(NotificacionSerializer(notificacion).data, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -199,8 +210,20 @@ def envio_notificacion_list_create(request):
 
     serializer = EnvioNotificacionSerializer(data=request.data)
     if serializer.is_valid():
-        serializer.save()
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        envio = serializer.save()
+        if envio.canal == CanalNotificacion.MAIL and "@" in envio.destinatario_contacto:
+            try:
+                from .services import enviar_email_individual
+                notif = envio.notificacion
+                enviar_email_individual(
+                    destinatario=envio.destinatario_contacto,
+                    asunto=notif.asunto or notif.titulo,
+                    contenido=notif.contenido,
+                    envio_id=envio.id,
+                )
+            except Exception:
+                pass
+        return Response(EnvioNotificacionSerializer(envio).data, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
