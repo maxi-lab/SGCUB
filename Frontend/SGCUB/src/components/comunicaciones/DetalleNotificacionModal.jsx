@@ -132,7 +132,7 @@ export default function DetalleNotificacionModal({ isOpen, onClose, notificacion
             )}
           </h4>
 
-          <div className="overflow-y-auto border border-outline-variant/30 rounded-lg max-h-[300px]">
+          <div className="comunicaciones-table-scroll overflow-auto border border-outline-variant/30 rounded-lg max-h-[300px]">
             {envios.length === 0 ? (
               <p className="p-4 text-center text-xs text-on-surface-variant">
                 No se registraron detalles individuales para este envío masivo.
@@ -179,18 +179,7 @@ export default function DetalleNotificacionModal({ isOpen, onClose, notificacion
           </div>
         </div>
 
-        {/* Pie */}
-        <div className="flex items-center justify-end pt-3 border-t border-outline-variant/20">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 rounded-lg border border-outline-variant/40 bg-surface-container-lowest text-on-surface hover:bg-surface-container-low text-sm font-medium transition-colors cursor-pointer"
-          >
-            Cerrar
-          </button>
-        </div>
       </div>
     </div>
   )
 }
-
