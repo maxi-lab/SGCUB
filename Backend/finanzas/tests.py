@@ -1244,6 +1244,50 @@ class ComprobanteListTests(ComprobanteTestBase):
 		self.assertEqual(socio["dni"], "80000001")
 		self.assertEqual(socio["apellido"], "Prueba")
 
+	def list_by_cuota(self, cuota_id):
+		return self.client.get(reverse("comprobante-list"), {"cuota_id": cuota_id})
+
+	def test_filters_receipts_by_cuota(self):
+		first = self.pagar("2500.00")
+		self.pagar("2500.00", cuotas=[self.generar("2026-11")])
+
+		response = self.list_by_cuota(self.cuota.pk)
+
+		self.assertEqual(response.status_code, 200)
+		self.assertEqual([item["comprobante_id"] for item in response.data], [first["comprobante_id"]])
+
+	def test_receipt_covering_several_cuotas_is_listed_once_per_cuota(self):
+		november = self.generar("2026-11")
+		receipt = self.pagar("5000.00", cuotas=[self.cuota, november])
+
+		for cuota in (self.cuota, november):
+			response = self.list_by_cuota(cuota.pk)
+			self.assertEqual([item["comprobante_id"] for item in response.data], [receipt["comprobante_id"]])
+
+	def test_includes_partial_payments_of_the_cuota(self):
+		first = self.pagar("1000.00")
+		second = self.pagar("1500.00")
+
+		response = self.list_by_cuota(self.cuota.pk)
+
+		self.assertEqual(
+			[item["comprobante_id"] for item in response.data],
+			[first["comprobante_id"], second["comprobante_id"]],
+		)
+
+	def test_cuota_without_payments_has_no_receipts(self):
+		self.pagar("2500.00", cuotas=[self.generar("2026-11")])
+
+		response = self.list_by_cuota(self.cuota.pk)
+
+		self.assertEqual(response.status_code, 200)
+		self.assertEqual(response.data, [])
+
+	def test_rejects_invalid_cuota_id(self):
+		response = self.list_by_cuota("abc")
+
+		self.assertEqual(response.status_code, 400)
+
 
 class ComprobantePdfTests(ComprobanteTestBase):
 	def descargar(self, numero):
