@@ -3,7 +3,7 @@ from datetime import date, datetime
 from decimal import Decimal
 
 from django.db import transaction
-from django.db.models import Prefetch, Sum
+from django.db.models import Prefetch, Q, Sum
 from django.utils import timezone
 
 from padron.models import ESTADO_ADMINISTRATIVO_ACTIVO, Socio
@@ -566,7 +566,9 @@ def apply_cuota_surcharges(cuota_id, today=None, configuration=None):
     configuration = configuration or ConfiguracionFinanciera.load()
     with transaction.atomic():
         cuota = lock_cuota(cuota_id)
-        if pending_amounts([cuota])[cuota.pk] <= 0:
+        pending = pending_amounts([cuota])[cuota.pk]
+        if pending <= 0:
+            refresh_cuota_state(cuota, pending, today)
             return []
 
         base_amount = net_amount(cuota.items.exclude(concepto=ConceptoItemChoices.MORA))
@@ -593,27 +595,40 @@ def apply_cuota_surcharges(cuota_id, today=None, configuration=None):
         return surcharges
 
 
+def stale_state_filter(today):
+    return (
+        Q(estado_cuota=EstadoCuotaChoices.EN_FECHA, fecha_venc1__lt=today)
+        | Q(estado_cuota=EstadoCuotaChoices.VENCIDA_1, fecha_venc2__lt=today)
+        | Q(estado_cuota=EstadoCuotaChoices.VENCIDA_1, fecha_venc1__gte=today)
+        | Q(estado_cuota=EstadoCuotaChoices.VENCIDA_2, fecha_venc2__gte=today)
+    )
+
+
 def apply_surcharges(today=None):
     today = today or timezone.localdate()
     configuration = ConfiguracionFinanciera.load()
-    cuota_ids = list(
-        Cuota.objects.filter(fecha_venc1__lt=today, recargos_aplicados__lt=2, movimiento__isnull=False)
+    previous_states = dict(
+        Cuota.objects.filter(movimiento__isnull=False)
+        .filter(Q(fecha_venc1__lt=today, recargos_aplicados__lt=2) | stale_state_filter(today))
         .exclude(estado_cuota=EstadoCuotaChoices.PAGA)
         .order_by("pk")
-        .values_list("pk", flat=True)
+        .values_list("pk", "estado_cuota")
     )
     result = {
         "fecha": today.isoformat(),
-        "cuotas_revisadas": len(cuota_ids),
+        "cuotas_revisadas": len(previous_states),
         "recargos_primer_vencimiento": 0,
         "recargos_segundo_vencimiento": 0,
         "monto_total": Decimal("0.00"),
+        "estados_actualizados": 0,
     }
-    for cuota_id in cuota_ids:
+    for cuota_id in previous_states:
         for number, item in apply_cuota_surcharges(cuota_id, today, configuration):
             key = "recargos_primer_vencimiento" if number == 1 else "recargos_segundo_vencimiento"
             result[key] += 1
             result["monto_total"] += item.monto
+    current_states = Cuota.objects.filter(pk__in=previous_states).values_list("pk", "estado_cuota")
+    result["estados_actualizados"] = sum(1 for pk, state in current_states if previous_states[pk] != state)
     return result
 
 
