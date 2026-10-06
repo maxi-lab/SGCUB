@@ -38,7 +38,6 @@ function RegisterPaymentModal({ opened, initialSocioId = null, initialCuotaIds, 
   const loading = Boolean(socioId) && load.socioId !== socioId
   const loaded = Boolean(socioId) && !loading && !load.error && load.socio && load.cuenta
   const ready = loaded && isActiveStatus(load.socio.estado_administrativo_nombre)
-  const canChangeSocio = !initialSocioId && Boolean(socioId)
 
   const emptyHeader = () => {
     if (!socioId) return <SocioPicker compact onSelect={(socio) => setSocioId(socio.socio_id)} />
@@ -54,11 +53,12 @@ function RegisterPaymentModal({ opened, initialSocioId = null, initialCuotaIds, 
       opened={opened}
       onClose={onClose}
       aria-label="Registrar pago"
-      title={canChangeSocio && (
+      title={(
         <button
           type="button"
           onClick={() => setSocioId(null)}
-          className="inline-flex items-center gap-1 px-2 py-1 -ml-2 rounded-md text-sm font-semibold text-primary hover:bg-primary/5 transition-colors cursor-pointer"
+          disabled={!socioId}
+          className="inline-flex items-center gap-1 px-2 py-1 -ml-2 rounded-md text-sm font-semibold text-primary hover:bg-primary/5 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-default disabled:hover:bg-transparent"
         >
           <span className="material-symbols-outlined text-[18px]" aria-hidden="true">arrow_back</span>
           Elegir otro socio
