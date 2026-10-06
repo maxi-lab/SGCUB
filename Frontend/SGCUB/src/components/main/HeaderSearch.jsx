@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import usePersonaSearch from '../../hooks/usePersonaSearch'
+import useRegisterPayment from '../../hooks/useRegisterPayment'
 import { formatDni } from '../personas/format'
 
 const LISTBOX_ID = 'header-search-results'
@@ -24,6 +25,7 @@ function SearchMessage({ icon, children }) {
 export default function HeaderSearch() {
   const navigate = useNavigate()
   const inputRef = useRef(null)
+  const { openPayment } = useRegisterPayment()
   const { query, setQuery, clear, isActive, isSearching, results, error } = usePersonaSearch()
   const [isOpen, setIsOpen] = useState(false)
   const [activeIndex, setActiveIndex] = useState(0)
@@ -31,11 +33,20 @@ export default function HeaderSearch() {
   const highlightedIndex = Math.min(activeIndex, results.length - 1)
   const showDropdown = isOpen && isActive
 
-  const select = (result) => {
-    navigate(result.path)
+  const closeSearch = () => {
     clear()
     setIsOpen(false)
     inputRef.current?.blur()
+  }
+
+  const select = (result) => {
+    navigate(result.path)
+    closeSearch()
+  }
+
+  const pay = (result) => {
+    openPayment({ socioId: result.socioId })
+    closeSearch()
   }
 
   const handleChange = (event) => {
@@ -73,13 +84,19 @@ export default function HeaderSearch() {
         {results.map((result, index) => {
           const isHighlighted = index === highlightedIndex
           return (
-            <li key={result.key} id={`${LISTBOX_ID}-${index}`} role="option" aria-selected={isHighlighted}>
+            <li
+              key={result.key}
+              id={`${LISTBOX_ID}-${index}`}
+              role="option"
+              aria-selected={isHighlighted}
+              onMouseEnter={() => setActiveIndex(index)}
+              className={`flex items-center gap-2 pr-2 transition-colors ${isHighlighted ? 'bg-surface-container-low' : ''}`}
+            >
               <button
                 type="button"
                 onMouseDown={(event) => event.preventDefault()}
-                onMouseEnter={() => setActiveIndex(index)}
                 onClick={() => select(result)}
-                className={`w-full flex items-center justify-between gap-3 px-3 py-2 text-left transition-colors cursor-pointer ${isHighlighted ? 'bg-surface-container-low' : ''}`}
+                className="flex-1 min-w-0 flex items-center justify-between gap-3 px-3 py-2 text-left cursor-pointer"
               >
                 <span className="flex flex-col min-w-0">
                   <span className="text-base text-on-surface font-medium truncate">{result.name}</span>
@@ -93,6 +110,19 @@ export default function HeaderSearch() {
                   <span className="material-symbols-outlined text-[20px] text-on-surface-variant">arrow_forward</span>
                 </span>
               </button>
+              {result.socioId && (
+                <button
+                  type="button"
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => pay(result)}
+                  title="Registrar pago"
+                  aria-label={`Registrar pago de ${result.name}`}
+                  className="inline-flex items-center gap-1 h-8 px-2.5 shrink-0 rounded-md border border-primary/30 text-sm font-semibold text-primary hover:bg-primary hover:text-on-primary transition-colors cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[18px]" aria-hidden="true">payments</span>
+                  Pagar
+                </button>
+              )}
             </li>
           )
         })}

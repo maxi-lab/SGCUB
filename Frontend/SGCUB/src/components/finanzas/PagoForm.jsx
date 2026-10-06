@@ -192,7 +192,13 @@ function SummaryLine({ label, value, isTotal = false }) {
   )
 }
 
-function PagoForm({ socio, cuenta, onCancel, onSuccess }) {
+const NO_CUOTAS = []
+
+const pendingTotal = (cuotas, ids) => roundCents(cuotas
+  .filter((cuota) => ids.includes(cuota.cuota_id))
+  .reduce((total, cuota) => total + Number(cuota.saldo_pendiente || 0), 0))
+
+function PagoForm({ socio, cuenta, initialCuotaIds = NO_CUOTAS, onCancel, onSuccess }) {
   const today = todayIso()
   const pendingCuotas = useMemo(
     () => (cuenta?.cuotas ?? [])
@@ -200,17 +206,17 @@ function PagoForm({ socio, cuenta, onCancel, onSuccess }) {
       .sort((a, b) => String(a.periodo).localeCompare(String(b.periodo))),
     [cuenta],
   )
-  const [selectedIds, setSelectedIds] = useState([])
-  const [paymentRows, setPaymentRows] = useState([emptyPaymentRow()])
+  const [selectedIds, setSelectedIds] = useState(
+    () => pendingCuotas.map((cuota) => cuota.cuota_id).filter((id) => initialCuotaIds.includes(id)),
+  )
+  const [paymentRows, setPaymentRows] = useState(() => [emptyPaymentRow(amountInput(pendingTotal(pendingCuotas, initialCuotaIds)))])
   const [observacion, setObservacion] = useState('')
   const [showErrors, setShowErrors] = useState(false)
   const [receipt, setReceipt] = useState(null)
   const [saving, setSaving] = useState(false)
   const [submitError, setSubmitError] = useState('')
 
-  const totalOf = (ids) => roundCents(pendingCuotas
-    .filter((cuota) => ids.includes(cuota.cuota_id))
-    .reduce((total, cuota) => total + Number(cuota.saldo_pendiente || 0), 0))
+  const totalOf = (ids) => pendingTotal(pendingCuotas, ids)
 
   const selectedCuotas = pendingCuotas.filter((cuota) => selectedIds.includes(cuota.cuota_id))
   const selectedTotal = totalOf(selectedIds)

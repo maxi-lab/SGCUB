@@ -7,6 +7,7 @@ import DeleteCuotaModal from '../components/cuota/DeleteCuotaModal'
 import EditCuotaModal from '../components/cuota/EditCuotaModal'
 import PageHeader from '../components/shared/PageHeader'
 import StatCard from '../components/shared/StatCard'
+import useRegisterPayment from '../hooks/useRegisterPayment'
 
 const FORMULARIO_INICIAL = {
   socio_id: '',
@@ -18,6 +19,7 @@ const FORMULARIO_INICIAL = {
 const esSocioActivo = (socio) => (socio.estado_administrativo_nombre ?? '').toLowerCase() === 'activo'
 
 function Cuotas() {
+  const { openPayment } = useRegisterPayment()
   const [cuotas, setCuotas] = useState([])
   const [socios, setSocios] = useState([])
   const [isLoading, setIsLoading] = useState(true)
@@ -158,19 +160,9 @@ function Cuotas() {
       <PageHeader
         breadcrumb={[{ label: 'Finanzas' }, { label: 'Cuotas' }]}
         title="Cuotas"
-        actions={(
-          <button
-            type="button"
-            onClick={abrirAgregar}
-            className="inline-flex items-center gap-2 bg-primary text-on-primary hover:bg-primary/90 px-4 py-2 rounded shadow-sm font-label-lg text-base font-medium transition-colors cursor-pointer"
-          >
-            <span className="material-symbols-outlined text-[18px]" aria-hidden="true">receipt_long</span>
-            <span className="text-xl">Nueva cuota</span>
-          </button>
-        )}
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-10">
         <StatCard label="Total cuotas" value={resumen.total} icon="receipt" tone="neutral" />
         <StatCard label="Cuotas vencidas" value={resumen.vencidas} icon="warning" tone="warning" />
         <StatCard label="Cuotas pagas" value={resumen.pagas} icon="task_alt" tone="positive" />
@@ -187,6 +179,7 @@ function Cuotas() {
             setCuotaSeleccionada(cuota)
             setModalEliminar(true)
           }}
+          onPay={(cuota) => openPayment({ socioId: cuota.socio.socio_id, cuotaIds: [cuota.cuota_id], onSuccess: cargarDatos })}
         />
       </section>
 

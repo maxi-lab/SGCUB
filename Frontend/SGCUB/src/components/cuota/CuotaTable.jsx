@@ -58,7 +58,7 @@ const SORT_VALUES = {
 // On load: most recent periods first.
 const INITIAL_SORT = { columna: 'period', direccion: 'desc' }
 
-function CuotaTable({ data = [], isLoading = false, error = null, onAdd, onEdit, onDelete }) {
+function CuotaTable({ data = [], isLoading = false, error = null, onAdd, onEdit, onDelete, onPay }) {
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState(ALL)
   const [period, setPeriod] = useState(ALL)
@@ -120,11 +120,7 @@ function CuotaTable({ data = [], isLoading = false, error = null, onAdd, onEdit,
         </div>
 
         <div className="flex items-center justify-between sm:justify-end gap-3 xl:shrink-0">
-          <span className="text-base text-on-surface-variant whitespace-nowrap">
-            {sorted.length === 0
-              ? 'Sin resultados'
-              : `Mostrando ${start + 1}-${start + visibleRows.length} de ${sorted.length.toLocaleString('es-AR')} cuotas`}
-          </span>
+          
           <button
             type="button"
             onClick={onAdd}
@@ -175,6 +171,17 @@ function CuotaTable({ data = [], isLoading = false, error = null, onAdd, onEdit,
             </td>
             <td className="py-3 px-4 text-right">
               <div className="flex items-center justify-end gap-2">
+                {onPay && cuota.estado_cuota !== 'Paga' && cuota.socio && (
+                  <button
+                    type="button"
+                    title="Pagar cuota"
+                    aria-label={`Pagar cuota ${cuota.periodo} de ${socioName(cuota)}`}
+                    onClick={() => onPay(cuota)}
+                    className="w-8 h-8 flex items-center justify-center rounded border border-primary/30 text-primary hover:bg-primary hover:text-on-primary transition-colors cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-[18px]" aria-hidden="true">payments</span>
+                  </button>
+                )}
                 <button
                   type="button"
                   title="Editar cuota"

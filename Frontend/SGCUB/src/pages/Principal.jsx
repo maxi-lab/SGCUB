@@ -3,6 +3,8 @@ import DocumentSummarySection from '../components/dashboard/DocumentSummarySecti
 import FinancialKpiSection from '../components/dashboard/FinancialKpiSection'
 import ProcessStatusSection from '../components/dashboard/ProcessStatusSection'
 import PageHeader from '../components/shared/PageHeader'
+import { PrimaryButton } from '../components/personas/tabs/parts'
+import useRegisterPayment from '../hooks/useRegisterPayment'
 
 const DATE_LABEL = new Date().toLocaleDateString('es-AR', {
   weekday: 'long',
@@ -12,6 +14,7 @@ const DATE_LABEL = new Date().toLocaleDateString('es-AR', {
 })
 
 export default function Principal() {
+  const { openPayment } = useRegisterPayment()
   const {
     isLoading,
     totalRecaudadoMes,
@@ -30,10 +33,13 @@ export default function Principal() {
         breadcrumb={[{ label: 'Inicio' }]}
         title="Panel principal"
         actions={(
-          <span className="inline-flex items-center gap-2 h-10 px-4 border border-outline-variant/50 rounded-lg text-sm text-on-surface-variant bg-surface-container-low">
-            <span className="material-symbols-outlined text-[18px] text-primary" aria-hidden="true">calendar_today</span>
-            <span className="capitalize">{DATE_LABEL}</span>
-          </span>
+          <>
+            <span className="inline-flex items-center gap-2 h-10 px-4 border border-outline-variant/50 rounded-lg text-sm text-on-surface-variant bg-surface-container-low">
+              <span className="material-symbols-outlined text-[18px] text-primary" aria-hidden="true">calendar_today</span>
+              <span className="capitalize">{DATE_LABEL}</span>
+            </span>
+            <PrimaryButton icon="payments" onClick={() => openPayment()}>Registrar pago</PrimaryButton>
+          </>
         )}
       />
 

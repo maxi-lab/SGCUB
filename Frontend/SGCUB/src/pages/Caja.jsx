@@ -8,12 +8,17 @@ import ComprobantesTable from '../components/finanzas/ComprobantesTable'
 import ComprobanteDetailModal from '../components/finanzas/ComprobanteDetailModal'
 import AmendPagoModal from '../components/finanzas/AmendPagoModal'
 import PageHeader from '../components/shared/PageHeader'
+import SocioPicker from '../components/finanzas/SocioPicker'
+import { PrimaryButton } from '../components/personas/tabs/parts'
+import useRegisterPayment from '../hooks/useRegisterPayment'
 import { ErrorFile, LoadingFile } from '../components/personas/FileStatus'
+import { isActiveStatus } from '../components/personas/format'
 
 function Caja() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const socioId = searchParams.get('socio')
+  const { openPayment } = useRegisterPayment()
   const [carga, setCarga] = useState({ loading: true, socio: null, cuenta: null, error: null })
   const [comprobantes, setComprobantes] = useState([])
   const [cargaComprobantes, setCargaComprobantes] = useState({ loading: true, error: null })
@@ -65,11 +70,22 @@ function Caja() {
 
   return (
     <div className="w-full flex flex-col gap-5 pb-8">
-      <PageHeader breadcrumb={[{ label: 'Finanzas' }, { label: 'Caja y cobros' }]} title="Caja y cobros" />
+      <PageHeader
+        breadcrumb={[{ label: 'Finanzas' }, { label: 'Caja y cobros' }]}
+        title="Caja y cobros"
+        actions={<PrimaryButton icon="payments" onClick={() => openPayment({ onSuccess: cargarComprobantes })}>Registrar pago</PrimaryButton>}
+      />
       {carga.loading && socioId && <LoadingFile text="Cargando formulario de pago..." />}
       {!carga.loading && socioId && (carga.error || !carga.socio || !carga.cuenta) && <ErrorFile message={carga.error || 'No se encontró la cuenta corriente.'} backTo="/finanzas/estado-cuenta" backText="Volver a estado de cuenta" />}
-      {!carga.loading && socioId && carga.socio && carga.cuenta && <section className="bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-5 shadow-sm"><PagoForm socio={carga.socio} cuenta={carga.cuenta} onCancel={() => navigate(`/finanzas/estado-cuenta?socio=${socioId}`)} onSuccess={cargarComprobantes} /></section>}
-      {!socioId && <p className="p-4 bg-surface-container-low rounded-lg text-on-surface-variant">Para registrar un pago, ingresá desde el estado de cuenta de un socio.</p>}
+      {!carga.loading && socioId && carga.socio && carga.cuenta && !isActiveStatus(carga.socio.estado_administrativo_nombre) && (
+        <p className="p-4 bg-surface-container-low rounded-lg text-on-surface-variant">El socio está dado de baja. No se pueden registrar pagos a socios inactivos.</p>
+      )}
+      {!carga.loading && socioId && carga.socio && carga.cuenta && isActiveStatus(carga.socio.estado_administrativo_nombre) && <section className="bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-5 shadow-sm"><PagoForm socio={carga.socio} cuenta={carga.cuenta} onCancel={() => navigate(`/finanzas/estado-cuenta?socio=${socioId}`)} onSuccess={cargarComprobantes} /></section>}
+      {!socioId && (
+        <section className="bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-5 shadow-sm">
+          <SocioPicker onSelect={(socio) => navigate(`/caja?socio=${socio.socio_id}`)} description="Elegí el socio al que le vas a registrar el pago." />
+        </section>
+      )}
       <ComprobantesTable comprobantes={comprobantes} isLoading={cargaComprobantes.loading} error={cargaComprobantes.error} onSelect={seleccionarComprobante} />
       <ComprobanteDetailModal comprobante={comprobanteSeleccionado} detalle={detalleComprobante} loading={cargandoDetalle} error={errorDetalle} opened={Boolean(comprobanteSeleccionado)} onClose={() => setComprobanteSeleccionado(null)} onCorrect={setPagoEnCorreccion} />
       <AmendPagoModal
