@@ -71,7 +71,7 @@ export default function PersonalDataTab({ persona, localidades = [], deportivo }
           <Field label="Depto" value={persona.domicilio_departamento} />
           <Field label="Entre calle 1" value={persona.domicilio_entre_calle_1} className="md:col-span-2" />
           <Field label="Entre calle 2" value={persona.domicilio_entre_calle_2} className="md:col-span-2" />
-          <Field label="Barrio" value={persona.domicilio_barrio} />
+          <Field label="Barrio" value={persona.domicilio_barrio_nombre} />
           <Field label="Localidad" value={localidad} />
         </div>
       </RecordSection>

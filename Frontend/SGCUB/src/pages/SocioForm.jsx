@@ -35,7 +35,7 @@ function SocioForm() {
 
   const { socios, crearSocio, modificarSocio } = useSocio()
   const { generos } = useGeneros()
-  const { localidades } = useLocalidades()
+  const { localidades, crearLocalidad } = useLocalidades()
 
   const [formularioEditado, setFormulario] = useState(FORM_INICIAL)
   const [socioOriginal, setSocioOriginal] = useState(null)
@@ -398,7 +398,7 @@ function SocioForm() {
               )}
             />
 
-            <SeccionDomicilio bindInput={bindInput} errores={errores} localidades={localidades} />
+            <SeccionDomicilio bindInput={bindInput} errores={errores} localidades={localidades} onCrearLocalidad={crearLocalidad} />
 
             {editando && (
               <div className="flex flex-col gap-4 pt-4 border-t border-outline-variant/20">

@@ -157,7 +157,7 @@ function DocenteForm() {
   const { socios } = useSocio()
   const { categorias } = useCategorias()
   const { generos } = useGeneros()
-  const { localidades } = useLocalidades()
+  const { localidades, crearLocalidad } = useLocalidades()
 
   const [formularioEditado, setFormulario] = useState(() => personaAFormulario(FORM_INICIAL))
   const [asignaciones, setAsignaciones] = useState(() => [nuevaAsignacion()])
@@ -612,7 +612,7 @@ function DocenteForm() {
               )}
             />
 
-            <SeccionDomicilio bindInput={bindInput} errores={errores} localidades={localidades} />
+            <SeccionDomicilio bindInput={bindInput} errores={errores} localidades={localidades} onCrearLocalidad={crearLocalidad} />
             <div className="flex flex-col gap-4 pt-4 border-t border-outline-variant/20">
               <SeccionTitulo icono="gavel" titulo="Documentación" />
 
