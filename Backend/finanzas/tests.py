@@ -45,7 +45,7 @@ from .models import (
 	SecuenciaComprobante,
 )
 from .pdf_utils import format_amount
-from .services import apply_surcharges, generar_cuotas_mensuales, next_receipt_number, sync_cuota_charge
+from .services import apply_surcharges, cuota_state, generar_cuotas_mensuales, next_receipt_number, sync_cuota_charge
 from .views import _build_financial_report
 
 
@@ -1773,7 +1773,7 @@ class RecargosPorMoraTests(APITestCase):
 		self.assertIn(cuota.fecha_venc1.strftime("%d/%m/%Y"), recargos[0].motivo)
 		self.assertIn("Recargo por segundo vencimiento", recargos[1].motivo)
 		cuota.refresh_from_db()
-		self.assertEqual(cuota.estado_cuota, EstadoCuotaChoices.VENCIDA)
+		self.assertEqual(cuota.estado_cuota, EstadoCuotaChoices.VENCIDA_2)
 		self.assertEqual(cuota.recargos_aplicados, 2)
 		self.assertEqual(MovimientoCuenta.objects.get(cuota=cuota).monto, Decimal("1300.00"))
 		self.cuenta.refresh_from_db()
@@ -1847,7 +1847,7 @@ class RecargosPorMoraTests(APITestCase):
 		self.assertEqual(self.recargos(cuota), [])
 		cuota.refresh_from_db()
 		self.assertEqual(cuota.recargos_aplicados, 2)
-		self.assertEqual(cuota.estado_cuota, EstadoCuotaChoices.VENCIDA)
+		self.assertEqual(cuota.estado_cuota, EstadoCuotaChoices.VENCIDA_2)
 
 	def test_endpoint_manual_aplica_recargos(self):
 		self.cuota(-15, -5)
@@ -1856,6 +1856,85 @@ class RecargosPorMoraTests(APITestCase):
 
 		self.assertEqual(response.status_code, 200)
 		self.assertEqual(response.data["recargos_primer_vencimiento"], 1)
+		self.assertEqual(response.data["estados_actualizados"], 1)
+
+	def test_la_tarea_diaria_avanza_el_estado_en_cada_vencimiento(self):
+		cuota = self.cuota(5, 15)
+
+		estados = []
+		for dias in (0, 6, 16):
+			apply_surcharges(self.hoy + timedelta(days=dias))
+			cuota.refresh_from_db()
+			estados.append((cuota.estado_cuota, cuota.recargos_aplicados))
+
+		self.assertEqual(estados, [
+			(EstadoCuotaChoices.EN_FECHA, 0),
+			(EstadoCuotaChoices.VENCIDA_1, 1),
+			(EstadoCuotaChoices.VENCIDA_2, 2),
+		])
+
+	def test_la_tarea_diaria_corrige_estados_desactualizados(self):
+		atrasada = self.cuota(-15, -5)
+		Cuota.objects.filter(pk=atrasada.pk).update(estado_cuota=EstadoCuotaChoices.EN_FECHA, recargos_aplicados=2)
+		adelantada = self.cuota(5, 15, periodo="2026-09")
+		Cuota.objects.filter(pk=adelantada.pk).update(estado_cuota=EstadoCuotaChoices.VENCIDA_2)
+
+		resultado = apply_surcharges(self.hoy)
+
+		atrasada.refresh_from_db()
+		adelantada.refresh_from_db()
+		self.assertEqual(atrasada.estado_cuota, EstadoCuotaChoices.VENCIDA_2)
+		self.assertEqual(adelantada.estado_cuota, EstadoCuotaChoices.EN_FECHA)
+		self.assertEqual(self.recargos(atrasada), [])
+		self.assertEqual(resultado["cuotas_revisadas"], 2)
+		self.assertEqual(resultado["estados_actualizados"], 2)
+
+
+class EstadoCuotaTests(TestCase):
+	def cuota(self, venc1=date(2026, 9, 10), venc2=date(2026, 9, 20)):
+		return Cuota(fecha_venc1=venc1, fecha_venc2=venc2, periodo="2026-09")
+
+	def test_estado_segun_saldo_y_vencimientos(self):
+		casos = [
+			(Decimal("0.00"), date(2026, 9, 25), EstadoCuotaChoices.PAGA),
+			(Decimal("-10.00"), date(2026, 9, 1), EstadoCuotaChoices.PAGA),
+			(Decimal("100.00"), date(2026, 9, 10), EstadoCuotaChoices.EN_FECHA),
+			(Decimal("100.00"), date(2026, 9, 11), EstadoCuotaChoices.VENCIDA_1),
+			(Decimal("100.00"), date(2026, 9, 20), EstadoCuotaChoices.VENCIDA_1),
+			(Decimal("100.00"), date(2026, 9, 21), EstadoCuotaChoices.VENCIDA_2),
+		]
+		for pendiente, hoy, esperado in casos:
+			with self.subTest(pendiente=pendiente, hoy=hoy):
+				self.assertEqual(cuota_state(self.cuota(), pendiente, hoy), esperado)
+
+
+class EstadoCuotaConPagosTests(PagoTestBase):
+	def test_pago_parcial_mantiene_vencida_en_segunda_fecha(self):
+		response = self.pagar([self.agosto], "400.00")
+
+		self.assertEqual(response.status_code, 201, response.data)
+		self.agosto.refresh_from_db()
+		self.assertEqual(self.agosto.estado_cuota, EstadoCuotaChoices.VENCIDA_2)
+
+	def test_corregir_pago_devuelve_la_cuota_a_vencida_en_segunda_fecha(self):
+		original = self.pagar([self.agosto], "1000.00")
+		self.agosto.refresh_from_db()
+		self.assertEqual(self.agosto.estado_cuota, EstadoCuotaChoices.PAGA)
+
+		response = self.client.post(
+			reverse("corregir-pago", args=[original.data["pago"]["pago_id"]]),
+			{
+				"motivo": "Cuota equivocada",
+				"cuota_ids": [self.septiembre.pk],
+				"monto_total": "1000.00",
+				"medios": [{"medio_de_pago": "Transferencia", "monto": "1000.00"}],
+			},
+			format="json",
+		)
+
+		self.assertEqual(response.status_code, 201, response.data)
+		self.agosto.refresh_from_db()
+		self.assertEqual(self.agosto.estado_cuota, EstadoCuotaChoices.VENCIDA_2)
 
 
 class CuotaVencimientosManualesTests(APITestCase):
@@ -2446,3 +2525,49 @@ class SyncCurrentAccountStatesMigrationTests(TransactionTestCase):
 		self.assertEqual(NewCuentaCorriente.objects.get(pk=stale_inactive.pk).estado_cuenta_corriente, "Inactivo")
 		self.assertEqual(NewCuentaCorriente.objects.get(pk=stale_active.pk).estado_cuenta_corriente, "Activo")
 		self.assertEqual(NewCuentaCorriente.objects.get(pk=aligned.pk).estado_cuenta_corriente, "Activo")
+
+
+class CuotaEstadoVencimientosMigrationTests(TransactionTestCase):
+	migrate_from = [("finanzas", "0029_beca_concepto_optional")]
+	migrate_to = [("finanzas", "0030_cuota_estado_vencimientos")]
+
+	def migrate(self, targets):
+		executor = MigrationExecutor(connection)
+		executor.loader.build_graph()
+		executor.migrate(targets)
+		return executor.loader.project_state(targets).apps
+
+	def tearDown(self):
+		self.migrate(MigrationExecutor(connection).loader.graph.leaf_nodes())
+
+	def test_separa_las_vencidas_segun_el_segundo_vencimiento_y_se_puede_revertir(self):
+		Cuota = self.migrate(self.migrate_from).get_model("finanzas", "Cuota")
+		today = timezone.localdate()
+
+		def cuota(state, second_due_days):
+			return Cuota.objects.create(
+				estado_cuota=state,
+				fecha_venc1=today + timedelta(days=second_due_days - 10),
+				fecha_venc2=today + timedelta(days=second_due_days),
+				periodo="2026-09",
+			).pk
+
+		second_due_passed = cuota("Vencida", -1)
+		second_due_today = cuota("Vencida", 0)
+		second_due_ahead = cuota("Vencida", 5)
+		up_to_date = cuota("EnFecha", 15)
+		paid = cuota("Paga", -1)
+
+		Cuota = self.migrate(self.migrate_to).get_model("finanzas", "Cuota")
+		states = dict(Cuota.objects.values_list("pk", "estado_cuota"))
+		self.assertEqual(states[second_due_passed], "Vencida2")
+		self.assertEqual(states[second_due_today], "Vencida1")
+		self.assertEqual(states[second_due_ahead], "Vencida1")
+		self.assertEqual(states[up_to_date], "EnFecha")
+		self.assertEqual(states[paid], "Paga")
+
+		Cuota = self.migrate(self.migrate_from).get_model("finanzas", "Cuota")
+		states = dict(Cuota.objects.values_list("pk", "estado_cuota"))
+		self.assertEqual(states[second_due_passed], "Vencida")
+		self.assertEqual(states[second_due_ahead], "Vencida")
+		self.assertEqual(states[paid], "Paga")
