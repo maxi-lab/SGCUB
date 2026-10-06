@@ -292,9 +292,18 @@ class GeneracionCuotasMensualesTests(TestCase):
 		generar_cuotas_mensuales(date(2026, 9, 1), today=date(2026, 10, 5))
 
 		cuota = Cuota.objects.get(movimiento__cuenta_corriente__socio=socio, periodo="2026-09")
-		self.assertEqual(cuota.estado_cuota, EstadoCuotaChoices.VENCIDA)
+		self.assertEqual(cuota.estado_cuota, EstadoCuotaChoices.VENCIDA_2)
 		self.assertEqual(cuota.recargos_aplicados, 2)
 		self.assertTrue(cuota.items.filter(concepto="Mora", monto=Decimal("200.00")).exists())
+
+	def test_generar_con_solo_primer_vencimiento_pasado_queda_vencida_en_primera_fecha(self):
+		socio = crear_socio("10000015")
+
+		generar_cuotas_mensuales(date(2026, 10, 1), today=date(2026, 10, 15))
+
+		cuota = Cuota.objects.get(movimiento__cuenta_corriente__socio=socio, periodo="2026-10")
+		self.assertEqual(cuota.estado_cuota, EstadoCuotaChoices.VENCIDA_1)
+		self.assertEqual(cuota.recargos_aplicados, 1)
 
 	def test_generar_periodo_actual_deja_cuotas_en_fecha(self):
 		socio = crear_socio("10000014")
@@ -1834,13 +1843,13 @@ class CuotaVencimientosManualesTests(APITestCase):
 	def test_alta_con_primer_vencimiento_pasado_queda_vencida_con_primer_recargo(self):
 		response = self.create(-2, 4)
 
-		self.assert_cuota(response, EstadoCuotaChoices.VENCIDA, "2700.00")
+		self.assert_cuota(response, EstadoCuotaChoices.VENCIDA_1, "2700.00")
 		self.assertEqual(Cuota.objects.get(pk=response.data["cuota_id"]).recargos_aplicados, 1)
 
 	def test_alta_con_ambos_vencimientos_pasados_aplica_los_dos_recargos(self):
 		response = self.create(-10, -3)
 
-		self.assert_cuota(response, EstadoCuotaChoices.VENCIDA, "2950.00")
+		self.assert_cuota(response, EstadoCuotaChoices.VENCIDA_2, "2950.00")
 		self.assertEqual(Cuota.objects.get(pk=response.data["cuota_id"]).recargos_aplicados, 2)
 
 	def test_alta_con_vencimientos_futuros_queda_en_fecha_sin_recargos(self):
@@ -1854,7 +1863,7 @@ class CuotaVencimientosManualesTests(APITestCase):
 
 		response = self.edit(cuota_id, -2, 4)
 
-		self.assert_cuota(response, EstadoCuotaChoices.VENCIDA, "2700.00")
+		self.assert_cuota(response, EstadoCuotaChoices.VENCIDA_1, "2700.00")
 
 	def test_editar_vencimientos_a_fechas_futuras_la_vuelve_en_fecha_y_conserva_el_recargo(self):
 		cuota_id = self.create(-2, 4).data["cuota_id"]
