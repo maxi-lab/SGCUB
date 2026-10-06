@@ -34,7 +34,7 @@ export const socioAFormulario = (socio) => ({
   domicilio_departamento: socio.domicilio_departamento || '',
   domicilio_entre_calle_1: socio.domicilio_entre_calle_1 || '',
   domicilio_entre_calle_2: socio.domicilio_entre_calle_2 || '',
-  domicilio_barrio: socio.domicilio_barrio || '',
+  domicilio_barrio: socio.domicilio_barrio ? String(socio.domicilio_barrio) : '',
   domicilio_localidad: socio.domicilio_localidad ? String(socio.domicilio_localidad) : '',
 })
 

@@ -7,7 +7,7 @@ from padron.serializers import SocioSerializer
 from datetime import date
 from unittest.mock import patch
 
-from .models import CargoDocente, Categoria, VinculoFamiliar, Docente, DocenteCategoria, EstadoDeportivo, EstadoAdministrativo, Genero, Jugador, Localidad, Persona, Socio
+from .models import CargoDocente, Categoria, VinculoFamiliar, Docente, DocenteCategoria, EstadoDeportivo, EstadoAdministrativo, Genero, Jugador, Localidad, Barrio, Persona, Socio
 
 
 class PadronViewTests(APITestCase):
@@ -514,6 +514,54 @@ class PadronViewTests(APITestCase):
         persona.refresh_from_db()
         self.assertEqual(domicilio_id, persona.domicilio_id)
         self.assertEqual("Calle 2", persona.domicilio.calle)
+
+    def test_localidad_post_crea_y_reutiliza_existente(self):
+        response = self.client.post("/api/padron/localidad/", {"nombre": "  Magdalena "}, format="json")
+        self.assertEqual(status.HTTP_201_CREATED, response.status_code, response.data)
+        self.assertEqual("Magdalena", response.data["nombre"])
+        repetida = self.client.post("/api/padron/localidad/", {"nombre": "magdalena"}, format="json")
+        self.assertEqual(response.data["localidad_id"], repetida.data["localidad_id"])
+        self.assertEqual(1, Localidad.objects.filter(nombre__iexact="magdalena").count())
+
+    def test_localidad_post_sin_nombre(self):
+        response = self.client.post("/api/padron/localidad/", {"nombre": "   "}, format="json")
+        self.assertEqual(status.HTTP_400_BAD_REQUEST, response.status_code)
+
+    def test_barrio_get_filtra_por_localidad(self):
+        otra_localidad = Localidad.objects.create(nombre="Berisso Test")
+        Barrio.objects.create(nombre="Tolosa", localidad=self.localidad)
+        Barrio.objects.create(nombre="Villa Zula", localidad=otra_localidad)
+        response = self.client.get(f"/api/padron/barrio/?localidad={self.localidad.pk}")
+        self.assertEqual(status.HTTP_200_OK, response.status_code)
+        self.assertEqual(["Tolosa"], [barrio["nombre"] for barrio in response.data])
+
+    def test_barrio_post_crea_y_reutiliza_existente(self):
+        response = self.client.post("/api/padron/barrio/", {"nombre": "  Los   Ombues ", "localidad": self.localidad.pk}, format="json")
+        self.assertEqual(status.HTTP_201_CREATED, response.status_code, response.data)
+        self.assertEqual("Los Ombues", response.data["nombre"])
+        repetido = self.client.post("/api/padron/barrio/", {"nombre": "los ombues", "localidad": self.localidad.pk}, format="json")
+        self.assertEqual(response.data["barrio_id"], repetido.data["barrio_id"])
+        self.assertEqual(1, Barrio.objects.filter(localidad=self.localidad).count())
+
+    def test_socio_post_con_barrio(self):
+        barrio = Barrio.objects.create(nombre="Tolosa", localidad=self.localidad)
+        response = self.create_socio(self.datos_alta_persona(domicilio_barrio=barrio.pk))
+        self.assertEqual(status.HTTP_201_CREATED, response.status_code, response.data)
+        self.assertEqual(barrio.pk, response.data["domicilio_barrio"])
+        self.assertEqual("Tolosa", response.data["domicilio_barrio_nombre"])
+
+    def test_socio_post_barrio_de_otra_localidad(self):
+        barrio = Barrio.objects.create(nombre="Villa Zula", localidad=Localidad.objects.create(nombre="Berisso Test"))
+        response = self.create_socio(self.datos_alta_persona(domicilio_barrio=barrio.pk))
+        self.assertEqual(status.HTTP_400_BAD_REQUEST, response.status_code)
+        self.assertIn("domicilio_barrio", response.data)
+
+    def test_persona_patch_quita_barrio(self):
+        barrio = Barrio.objects.create(nombre="Tolosa", localidad=self.localidad)
+        persona_id = self.create_persona(self.datos_alta_persona(domicilio_barrio=barrio.pk)).data["persona_id"]
+        response = self.client.patch(f"/api/padron/persona/{persona_id}/", {"domicilio_barrio": ""}, format="json")
+        self.assertEqual(status.HTTP_200_OK, response.status_code, response.data)
+        self.assertIsNone(Persona.objects.get(pk=persona_id).domicilio.barrio)
 
     def test_socio_delete_no_existe(self):
         response = self.client.delete("/api/padron/socio/9999/", format="json")
