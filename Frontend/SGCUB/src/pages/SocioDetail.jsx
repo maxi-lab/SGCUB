@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { activateSocio, deactivateSocio, getSocio } from '../api/socios'
 import ActivateSocioModal from '../components/socios/ActivateSocioModal'
@@ -6,12 +6,14 @@ import DeactivateSocioModal from '../components/socios/DeactivateSocioModal'
 import PersonHeader, { ActionsDivider, ActivateButton, BenefitButton, DeactivateButton, EditButton, PayButton } from '../components/personas/HeaderPersona'
 import PersonTabs from '../components/personas/TabsNavPersonas'
 import PersonalDataTab from '../components/personas/tabs/PersonalDataTab'
-import FinancialTab from '../components/personas/tabs/FinancialTab'
+import { FinancialStatement } from '../components/personas/tabs/FinancialTab'
 import { LoadingFile, ErrorFile } from '../components/personas/FileStatus'
 import { yearsSince, isActiveStatus, formatDni, formatDate, formatNumber, yearsText } from '../components/personas/format'
+import { buildCuotaBadges } from '../components/finanzas/cuotaBadges'
 import useLocalidades from '../hooks/useLocalidades'
 import useAssignBenefit from '../hooks/useAssignBenefit'
 import useRegisterPayment from '../hooks/useRegisterPayment'
+import useSocioFinances from '../hooks/useSocioFinances'
 
 function SocioDetail() {
   const { id } = useParams()
@@ -19,14 +21,16 @@ function SocioDetail() {
   const { localidades } = useLocalidades()
   const { openPayment } = useRegisterPayment()
   const { openBenefit } = useAssignBenefit()
-  // Bumped after a payment so the financial tab reloads the account
-  const [paymentsVersion, setPaymentsVersion] = useState(0)
-  const refreshFinances = () => setPaymentsVersion((version) => version + 1)
 
   const [carga, setCarga] = useState({ id: null, datos: null, error: null })
   const loading = carga.id !== id
   const socio = carga.datos
   const error = carga.error
+
+  // Loaded here so the tab badge and the financial tab share a single request
+  const finances = useSocioFinances(socio?.socio_id)
+  const refreshFinances = finances.reload
+  const cuotaBadges = useMemo(() => buildCuotaBadges(finances.account), [finances.account])
 
   const [modaldeactivateAbierto, setModaldeactivateAbierto] = useState(false)
   const [deactivate, setdeactivate] = useState(false)
@@ -91,7 +95,8 @@ function SocioDetail() {
       id: 'financiero',
       label: 'Financiero',
       icon: 'account_balance_wallet',
-      content: <FinancialTab key={paymentsVersion} socio={socio} />,
+      badge: cuotaBadges,
+      content: <FinancialStatement socio={socio} finances={finances} />,
     },
   ]
 

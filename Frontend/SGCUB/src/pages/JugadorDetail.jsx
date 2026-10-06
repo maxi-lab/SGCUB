@@ -8,7 +8,7 @@ import PersonHeader, { ActionsDivider, ActivateButton, BenefitButton, Deactivate
 import PersonTabs from '../components/personas/TabsNavPersonas'
 import PersonalDataTab from '../components/personas/tabs/PersonalDataTab'
 import FamilyTab from '../components/personas/tabs/FamilyTab'
-import FinancialTab from '../components/personas/tabs/FinancialTab'
+import { FinancialStatement } from '../components/personas/tabs/FinancialTab'
 import DocumentationTab from '../components/personas/tabs/DocumentationTab'
 import { EmptyState } from '../components/personas/tabs/parts'
 import { LoadingFile, ErrorFile } from '../components/personas/FileStatus'
@@ -18,6 +18,8 @@ import useAssignBenefit from '../hooks/useAssignBenefit'
 import useRegisterPayment from '../hooks/useRegisterPayment'
 import useDocumentacion from "../hooks/useDocumentacion"
 import { buildDocumentBadges } from '../components/documental/documentBadges'
+import { buildCuotaBadges } from '../components/finanzas/cuotaBadges'
+import useSocioFinances from '../hooks/useSocioFinances'
 
 const getContacts = (player) => (player.vinculos_familiares ?? []).map((c) => ({
   vinculo_familiar_id: c.vinculo_familiar_id,
@@ -47,11 +49,12 @@ function JugadorDetail() {
   const { localidades } = useLocalidades()
   const { openPayment } = useRegisterPayment()
   const { openBenefit } = useAssignBenefit()
-  // Bumped after a payment so the financial tab reloads the account
-  const [paymentsVersion, setPaymentsVersion] = useState(0)
-  const refreshFinances = () => setPaymentsVersion((version) => version + 1)
   const { documentosActivos: activos } = useDocumentacion(jugador?.socio?.persona)
   const badgeConfig = React.useMemo(() => buildDocumentBadges(activos), [activos])
+  // Loaded here so the tab badge and the financial tab share a single request
+  const finances = useSocioFinances(jugador?.socio?.socio_id)
+  const refreshFinances = finances.reload
+  const cuotaBadges = React.useMemo(() => buildCuotaBadges(finances.account), [finances.account])
 
 
   const [modalBajaAbierto, setModalBajaAbierto] = useState(false)
@@ -175,8 +178,9 @@ function JugadorDetail() {
       id: 'financiero',
       label: 'Financiero',
       icon: 'account_balance_wallet',
+      badge: cuotaBadges,
       content: socio.socio_id
-        ? <FinancialTab key={paymentsVersion} socio={socio} />
+        ? <FinancialStatement socio={socio} finances={finances} />
         : <EmptyState icon="account_balance_wallet" title="Sin datos de socio" description="El jugador no tiene un socio asociado." />,
     },
   ]

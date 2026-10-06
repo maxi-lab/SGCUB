@@ -1,6 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
-import { getBecasBySocio } from '../../../api/becas'
-import { getEstadoCuenta } from '../../../api/estadoCuenta'
+import { useMemo } from 'react'
 import { DiscountsTable, ScholarshipsTable } from '../../finanzas/BenefitTables'
 import CuotasEstadoCuentaTable from '../../finanzas/CuotasEstadoCuentaTable'
 import { isPaid, scholarshipState } from '../../finanzas/accountStatement'
@@ -8,51 +6,28 @@ import { formatAmount, formatNumber } from '../format'
 import { EmptyState, KPI } from './parts'
 import useAssignBenefit from '../../../hooks/useAssignBenefit'
 import useRegisterPayment from '../../../hooks/useRegisterPayment'
+import useSocioFinances from '../../../hooks/useSocioFinances'
 
-const fetchAccount = (socioId) => getEstadoCuenta(socioId).catch((requestError) => {
-  if (requestError.response?.status === 404) return null
-  throw requestError
-})
-
-// The scholarships section shows its own error, so a failure there doesn't hide the account
-const fetchScholarships = (socioId) => getBecasBySocio(socioId).catch(() => null)
-
-const fetchFinances = (socioId) => Promise.all([fetchAccount(socioId), fetchScholarships(socioId)])
-
-function FinancialTab({ socio }) {
+// Renders finances already loaded with useSocioFinances, so the page can share them (e.g. for the tab badge)
+export function FinancialStatement({ socio, finances }) {
   const { openPayment } = useRegisterPayment()
   const { openBenefit } = useAssignBenefit()
   const socioId = socio.socio_id
-  const [load, setLoad] = useState({ socioId: null, error: null, account: null, becas: [] })
-
-  useEffect(() => {
-    let active = true
-    fetchFinances(socioId)
-      .then(([account, becas]) => active && setLoad({ socioId, error: null, account, becas }))
-      .catch(() => active && setLoad({ socioId, error: 'No se pudo cargar el estado de cuenta.', account: null, becas: [] }))
-    return () => { active = false }
-  }, [socioId])
-
-  const loading = load.socioId !== socioId
-  const account = load.account
+  const { loading, error, account, becas, reload: reloadFinances } = finances
   const cuotas = useMemo(() => account?.cuotas ?? [], [account])
-
-  const reloadFinances = () => fetchFinances(socioId)
-    .then(([updatedAccount, becas]) => setLoad({ socioId, error: null, account: updatedAccount, becas }))
-    .catch(() => setLoad((current) => ({ ...current, error: 'Los cambios se guardaron, pero no se pudo actualizar el estado de cuenta.' })))
 
   const summary = useMemo(() => ({
     pendingCount: cuotas.filter((cuota) => !isPaid(cuota)).length,
     debt: Number(account?.total_adeudado ?? 0),
-    activeScholarships: load.becas ? load.becas.filter((beca) => scholarshipState(beca) === 'active').length : null,
-  }), [account, cuotas, load.becas])
+    activeScholarships: becas ? becas.filter((beca) => scholarshipState(beca) === 'active').length : null,
+  }), [account, cuotas, becas])
 
   if (loading) {
     return <div className="py-16 flex flex-col items-center gap-3 text-on-surface-variant"><span className="material-symbols-outlined text-3xl animate-spin">progress_activity</span><p>Cargando estado de cuenta...</p></div>
   }
 
-  if (load.error) {
-    return <div className="bg-error-container text-on-error-container p-4 rounded-lg border border-error/30" role="alert">{load.error}</div>
+  if (error) {
+    return <div className="bg-error-container text-on-error-container p-4 rounded-lg border border-error/30" role="alert">{error}</div>
   }
 
   if (!account) {
@@ -91,12 +66,17 @@ function FinancialTab({ socio }) {
         )}
       </section>
 
-      <ScholarshipsTable becas={load.becas} />
+      <ScholarshipsTable becas={becas} />
       <div className="my-4">
         <DiscountsTable cuotas={cuotas} />
       </div>
     </section>
   )
+}
+
+function FinancialTab({ socio }) {
+  const finances = useSocioFinances(socio.socio_id)
+  return <FinancialStatement socio={socio} finances={finances} />
 }
 
 export default FinancialTab
