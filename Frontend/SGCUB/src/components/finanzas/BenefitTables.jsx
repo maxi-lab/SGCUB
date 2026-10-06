@@ -18,7 +18,7 @@ const scholarshipValue = (beca) => (beca.porcentaje != null
 function SectionHeader({ id, title, count, unit }) {
   return (
     <div className="flex items-baseline justify-between gap-3">
-      <h3 id={id} className="text-lg font-bold text-on-surface">{title}</h3>
+      <h3 id={id} className="text-lg font-bold text-on-surface py-2">{title}</h3>
       {count != null && <span className="text-sm text-on-surface-variant">{count} {unit}</span>}
     </div>
   )
