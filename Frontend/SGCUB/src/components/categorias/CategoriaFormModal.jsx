@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Button, Group, Modal, NumberInput, Select, Stack, Text, TextInput } from '@mantine/core'
 import { GENERO_OPTIONS } from './categoriaFormat'
+import { collectErrorMessages } from '../personas/format'
 
 const FIELDS = ['nombre', 'anio_vigente', 'edad_maxima', 'genero']
 
@@ -13,7 +14,8 @@ const parseErrors = (requestError) => {
   }
   const errors = {}
   Object.entries(data).forEach(([field, messages]) => {
-    const message = Array.isArray(messages) ? messages.join(' ') : String(messages)
+    const message = collectErrorMessages(messages).join(' ')
+    if (!message) return
     if (FIELDS.includes(field)) errors[field] = message
     else errors.general = message
   })

@@ -24,6 +24,7 @@ from .views import (
     estado_administrativo_detail,
     genero_list,
     localidad_list,
+    barrio_list_create,
     docente_categoria_list,
     docente_categoria_detail,
 )
@@ -48,6 +49,7 @@ urlpatterns = [
     path("estado-socio/<int:pk>/", estado_administrativo_detail, name="estado-socio-detail"),
     path("genero/", genero_list, name="genero-list"),
     path("localidad/", localidad_list, name="localidad-list"),
+    path("barrio/", barrio_list_create, name="barrio-list"),
     path("recategorizar-jugadores/", recategorize_players_view, name="recategorizar-jugadores"),
     path("pasr-de-anio-vigente-a-categoria/", update_categories_current_year_view, name="pasr-de-anio-vigente-a-categoria"),
     path("docente-categoria/", docente_categoria_list, name="docente-categoria-list"),

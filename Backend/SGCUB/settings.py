@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'padron',
     'finanzas',
     'documental',
+    'comunicaciones',
     'django_q',
     'drf_spectacular',
     'usuarios',

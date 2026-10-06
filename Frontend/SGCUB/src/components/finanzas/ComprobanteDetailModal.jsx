@@ -27,8 +27,8 @@ function ComprobanteDetailModal({ comprobante, detalle, loading, error, opened, 
         {!loading && !error && (
           <>
             {socio && <div className="p-3 rounded-lg bg-surface-container-low"><p className="text-sm text-on-surface-variant">Socio</p><p className="font-semibold text-on-surface">{socio.apellido}, {socio.nombre} · DNI {socio.dni} · Socio N° {socio.numero_socio}</p></div>}
-            <section className="border border-outline-variant/30 rounded-lg overflow-hidden"><h3 className="px-3 py-2 bg-surface-container-low font-semibold text-on-surface">Medios de pago</h3>{itemsPago.length ? itemsPago.map((item) => <div key={item.id_item_pago} className="flex justify-between px-3 py-2 border-t border-outline-variant/20"><span className="text-on-surface-variant">{item.medio_de_pago}</span><strong>{formatAmount(item.monto)}</strong></div>) : <p className="p-3 text-sm text-on-surface-variant">Sin detalle de medios disponible.</p>}</section>
             <DesgloseComprobante detalle={detalle} />
+            <section className="border border-outline-variant/30 rounded-lg overflow-hidden"><h3 className="px-3 py-2 bg-surface-container-low font-semibold text-on-surface">Medios de pago</h3>{itemsPago.length ? itemsPago.map((item) => <div key={item.id_item_pago} className="flex justify-between px-3 py-2 border-t border-outline-variant/20"><span className="text-on-surface-variant">{item.medio_de_pago}</span><strong>{formatAmount(item.monto)}</strong></div>) : <p className="p-3 text-sm text-on-surface-variant">Sin detalle de medios disponible.</p>}</section>
             <div className="p-3 rounded-lg bg-surface-container-low">
               <p className="text-sm text-on-surface-variant">Estado</p>
               <p className={`font-semibold ${anulado ? 'text-error' : 'text-emerald-700'}`}>{anulado ? 'Anulado' : pago?.estado_pago ?? 'Acreditado'}</p>

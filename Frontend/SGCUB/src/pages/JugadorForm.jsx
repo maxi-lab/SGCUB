@@ -236,7 +236,7 @@ function JugadorForm() {
   const { categorias } = useCategorias()
   const { estados } = useEstados()
   const { generos } = useGeneros()
-  const { localidades } = useLocalidades()
+  const { localidades, crearLocalidad } = useLocalidades()
 
   const [jugador, setJugador] = useState(null)
   const [formularioEditado, setFormulario] = useState(editando ? null : { ...FORM_INICIAL, ...DEPORTIVO_INICIAL })
@@ -645,7 +645,7 @@ function JugadorForm() {
                         <p className="text-base">
                           <strong>{`${socioVinculado.nombre ?? ''} ${socioVinculado.apellido ?? ''}`.trim()}</strong>
                           {' '}ya es socio (N° {formatNumber(socioVinculado.numero_socio)}). El jugador se vinculará a ese socio:
-                          {' '}solo se pueden modificar el teléfono y el correo electrónico.
+                          {' '}solo se pueden modificar el teléfono, el correo electrónico y el domicilio.
                         </p>
                       </div>
                       <BotonCambiarPersona onClick={quitarSeleccion} />
@@ -665,7 +665,7 @@ function JugadorForm() {
               )}
             />
 
-            <SeccionDomicilio bindInput={bindInput} errores={errores} localidades={localidades} />
+            <SeccionDomicilio bindInput={bindInput} errores={errores} localidades={localidades} onCrearLocalidad={crearLocalidad} />
 
             {/* Datos deportivos */}
             <div className="flex flex-col gap-4 pt-4 border-t border-outline-variant/20">

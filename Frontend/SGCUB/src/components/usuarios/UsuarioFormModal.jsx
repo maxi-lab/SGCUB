@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Button, Group, Modal, Select, Stack, Text, TextInput } from '@mantine/core'
+import { collectErrorMessages } from '../personas/format'
 
 const FIELDS = ['dni', 'first_name', 'last_name', 'email', 'role']
 
@@ -12,7 +13,8 @@ const parseErrors = (requestError) => {
   }
   const errors = {}
   Object.entries(data).forEach(([field, messages]) => {
-    const message = Array.isArray(messages) ? messages.join(' ') : String(messages)
+    const message = collectErrorMessages(messages).join(' ')
+    if (!message) return
     if (FIELDS.includes(field)) errors[field] = message
     else errors.general = message
   })

@@ -2,7 +2,7 @@ import re
 
 from rest_framework import serializers
 from django.db import transaction
-from .models import CargoDocente, DocenteCategoria, Persona, Socio, Categoria, Jugador, Docente, EstadoDeportivo, VinculoFamiliar, EstadoAdministrativo, Genero, Localidad, Domicilio, EDAD_MAYORIA, ESTADO_ADMINISTRATIVO_INACTIVO, SIZES_CHOICES, age_from
+from .models import CargoDocente, DocenteCategoria, Persona, Socio, Categoria, Jugador, Docente, EstadoDeportivo, VinculoFamiliar, EstadoAdministrativo, Genero, Localidad, Barrio, Domicilio, EDAD_MAYORIA, ESTADO_ADMINISTRATIVO_INACTIVO, SIZES_CHOICES, age_from
 
 
 DNI_REGEX = re.compile(r"\d{7,8}")
@@ -43,6 +43,19 @@ def validate_obligatory_fields(data, is_creation, fields=MANDATORY_PERSONA_FIELD
             errors[field] = ["Este campo es obligatorio."]
     if errors:
         raise serializers.ValidationError(errors)
+
+
+def validate_barrio_localidad(address_data, current_address=None):
+    barrio = (address_data or {}).get("barrio")
+    if not barrio:
+        return
+    localidad = address_data.get("localidad") or getattr(current_address, "localidad", None)
+    if localidad and barrio.localidad_id != localidad.pk:
+        raise serializers.ValidationError({"domicilio_barrio": ["El barrio no pertenece a la localidad seleccionada."]})
+
+
+def clean_address_data(address_data):
+    return {key: value for key, value in address_data.items() if value not in (None, "") or key == "barrio"}
 
 
 def get_persona_profiles(person):
@@ -89,10 +102,44 @@ class GeneroSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
+def normalize_name(value):
+    value = " ".join(value.split())
+    if not value:
+        raise serializers.ValidationError("Este campo es obligatorio.")
+    return value
+
+
 class LocalidadSerializer(serializers.ModelSerializer):
+    nombre = serializers.CharField(max_length=100)
+
     class Meta:
         model = Localidad
         fields = "__all__"
+
+    def validate_nombre(self, value):
+        return normalize_name(value)
+
+    def create(self, validated_data):
+        existing = Localidad.objects.filter(nombre__iexact=validated_data["nombre"]).first()
+        return existing or super().create(validated_data)
+
+
+class BarrioSerializer(serializers.ModelSerializer):
+    nombre = serializers.CharField(max_length=100)
+
+    class Meta:
+        model = Barrio
+        fields = ["barrio_id", "nombre", "localidad"]
+        validators = []
+
+    def validate_nombre(self, value):
+        return normalize_name(value)
+
+    def create(self, validated_data):
+        existing = Barrio.objects.filter(
+            nombre__iexact=validated_data["nombre"], localidad=validated_data["localidad"]
+        ).first()
+        return existing or super().create(validated_data)
 
 
 class DomicilioSerializer(serializers.ModelSerializer):
@@ -123,7 +170,8 @@ class PersonaSerializer(serializers.ModelSerializer):
     domicilio_departamento = serializers.CharField(source="domicilio.departamento", required=False, allow_blank=True, allow_null=True)
     domicilio_entre_calle_1 = serializers.CharField(source="domicilio.entre_calle_1", required=False, allow_blank=True, allow_null=True)
     domicilio_entre_calle_2 = serializers.CharField(source="domicilio.entre_calle_2", required=False, allow_blank=True, allow_null=True)
-    domicilio_barrio = serializers.CharField(source="domicilio.barrio", required=False, allow_blank=True, allow_null=True)
+    domicilio_barrio = serializers.PrimaryKeyRelatedField(source="domicilio.barrio", queryset=Barrio.objects.all(), required=False, allow_null=True)
+    domicilio_barrio_nombre = serializers.CharField(source="domicilio.barrio.nombre", read_only=True)
     domicilio_localidad = serializers.PrimaryKeyRelatedField(source="domicilio.localidad", queryset=Localidad.objects.all(), required=False, allow_null=True)
     domicilio_localidad_nombre = serializers.CharField(source="domicilio.localidad.nombre", read_only=True)
 
@@ -134,8 +182,8 @@ class PersonaSerializer(serializers.ModelSerializer):
             "fecha_nacimiento", "edad", "genero", "genero_nombre", "genero_otro",
             "domicilio_calle", "domicilio_numero", "domicilio_piso",
             "domicilio_departamento", "domicilio_entre_calle_1",
-            "domicilio_entre_calle_2", "domicilio_barrio", "domicilio_localidad",
-            "domicilio_localidad_nombre", "perfiles",
+            "domicilio_entre_calle_2", "domicilio_barrio", "domicilio_barrio_nombre",
+            "domicilio_localidad", "domicilio_localidad_nombre", "perfiles",
         ]
         read_only_fields = ["persona_id"]
 
@@ -156,7 +204,7 @@ class PersonaSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         address_data = validated_data.pop("domicilio", None)
         if address_data:
-            address_data = {key: value for key, value in address_data.items() if value not in (None, "")}
+            address_data = clean_address_data(address_data)
             if address_data.get("calle") and address_data.get("numero") and address_data.get("localidad"):
                 validated_data["domicilio"] = Domicilio.objects.create(**address_data)
         return super().create(validated_data)
@@ -165,7 +213,7 @@ class PersonaSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         address_data = validated_data.pop("domicilio", None)
         if address_data:
-            address_data = {key: value for key, value in address_data.items() if value not in (None, "")}
+            address_data = clean_address_data(address_data)
             if instance.domicilio:
                 for attribute, value in address_data.items():
                     setattr(instance.domicilio, attribute, value)
@@ -178,6 +226,7 @@ class PersonaSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         validate_obligatory_fields(attrs, is_creation=self.instance is None)
         validate_dni_uniqueness(attrs.get("dni"), self.instance)
+        validate_barrio_localidad(attrs.get("domicilio"), getattr(self.instance, "domicilio", None))
         return attrs
 
 
@@ -206,7 +255,8 @@ class SocioSerializer(serializers.ModelSerializer):
     domicilio_departamento = serializers.CharField(source="persona.domicilio.departamento", required=False, allow_null=True, allow_blank=True)
     domicilio_entre_calle_1 = serializers.CharField(source="persona.domicilio.entre_calle_1", required=False, allow_null=True, allow_blank=True)
     domicilio_entre_calle_2 = serializers.CharField(source="persona.domicilio.entre_calle_2", required=False, allow_null=True, allow_blank=True)
-    domicilio_barrio = serializers.CharField(source="persona.domicilio.barrio", required=False, allow_null=True, allow_blank=True)
+    domicilio_barrio = serializers.PrimaryKeyRelatedField(source="persona.domicilio.barrio", queryset=Barrio.objects.all(), required=False, allow_null=True)
+    domicilio_barrio_nombre = serializers.CharField(source="persona.domicilio.barrio.nombre", read_only=True)
     domicilio_localidad = serializers.PrimaryKeyRelatedField(source="persona.domicilio.localidad", queryset=Localidad.objects.all(), required=False, allow_null=True)
 
     estado_administrativo = serializers.PrimaryKeyRelatedField(
@@ -220,7 +270,7 @@ class SocioSerializer(serializers.ModelSerializer):
         fields = [
             "socio_id", "persona", "numero_socio", "nombre", "apellido", "dni", "telefono", "email",
             "fecha_nacimiento", "edad", "genero", "genero_nombre", "genero_otro",
-            "domicilio_calle", "domicilio_numero", "domicilio_piso", "domicilio_departamento", "domicilio_entre_calle_1", "domicilio_entre_calle_2", "domicilio_barrio", "domicilio_localidad",
+            "domicilio_calle", "domicilio_numero", "domicilio_piso", "domicilio_departamento", "domicilio_entre_calle_1", "domicilio_entre_calle_2", "domicilio_barrio", "domicilio_barrio_nombre", "domicilio_localidad",
             "estado_administrativo", "estado_administrativo_nombre", "fecha_alta"
         ]
         read_only_fields = ["numero_socio", "fecha_alta"]
@@ -242,12 +292,13 @@ class SocioSerializer(serializers.ModelSerializer):
                     raise duplicated_dni_error(person, "Ya existe un socio con este DNI.")
 
         validate_dni_uniqueness(dni, person)
+        validate_barrio_localidad(person_data.get("domicilio"), getattr(person, "domicilio", None))
         return attrs
 
     def _save_person(self, person, person_data):
         address_data = person_data.pop("domicilio", None)
         if address_data:
-            address_data = {k: v for k, v in address_data.items() if v is not None}
+            address_data = clean_address_data(address_data)
             if person.domicilio:
                 for attr, value in address_data.items():
                     setattr(person.domicilio, attr, value)

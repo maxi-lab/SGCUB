@@ -8,7 +8,7 @@ from drf_spectacular.utils import extend_schema
 from .services import recategorizar_jugadores
 from .services import pasr_de_anio_vigente_a_categoria
 
-from .models import CargoDocente, Persona, Socio, Categoria, Jugador, Docente, EstadoDeportivo, VinculoFamiliar, EstadoAdministrativo, Genero, Localidad, DocenteCategoria
+from .models import CargoDocente, Persona, Socio, Categoria, Jugador, Docente, EstadoDeportivo, VinculoFamiliar, EstadoAdministrativo, Genero, Localidad, Barrio, DocenteCategoria
 from .serializers import (
     CargoDocenteSerializer,
     DocenteCategoriaSerializer,
@@ -25,6 +25,7 @@ from .serializers import (
     EstadoAdministrativoSerializer,
     GeneroSerializer,
     LocalidadSerializer,
+    BarrioSerializer,
     player_contacts_error,
 )
 
@@ -39,10 +40,32 @@ def genero_list(request):
 
 
 @extend_schema(tags=["Padron / Localidad"], request=LocalidadSerializer, responses=LocalidadSerializer)
-@api_view(["GET"])
+@api_view(["GET", "POST"])
 def localidad_list(request):
-    localities = Localidad.objects.all()
-    return Response(LocalidadSerializer(localities, many=True).data)
+    if request.method == "GET":
+        localities = Localidad.objects.order_by("nombre")
+        return Response(LocalidadSerializer(localities, many=True).data)
+
+    serializer = LocalidadSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    locality = serializer.save()
+    return Response(LocalidadSerializer(locality).data, status=status.HTTP_201_CREATED)
+
+
+@extend_schema(tags=["Padron / Barrio"], request=BarrioSerializer, responses=BarrioSerializer)
+@api_view(["GET", "POST"])
+def barrio_list_create(request):
+    if request.method == "GET":
+        neighborhoods = Barrio.objects.all()
+        locality_id = request.query_params.get("localidad")
+        if locality_id:
+            neighborhoods = neighborhoods.filter(localidad_id=locality_id)
+        return Response(BarrioSerializer(neighborhoods, many=True).data)
+
+    serializer = BarrioSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    neighborhood = serializer.save()
+    return Response(BarrioSerializer(neighborhood).data, status=status.HTTP_201_CREATED)
 
 
 @extend_schema(tags=["Padron / EstadoAdministrativo"], request=EstadoAdministrativoSerializer, responses=EstadoAdministrativoSerializer)
@@ -66,7 +89,7 @@ def estado_administrativo_detail(request, pk):
 def persona_list_create(request):
     if request.method == "GET":
         people = Persona.objects.select_related(
-            "genero", "domicilio__localidad", "socio__jugador", "docente"
+            "genero", "domicilio__localidad", "domicilio__barrio", "socio__jugador", "docente"
         ).prefetch_related("vinculos_familiares__jugador__socio__persona")
         dni = request.query_params.get("dni")
         dni_prefix = request.query_params.get("dni_prefix")
@@ -113,7 +136,7 @@ def persona_detail(request, pk):
 def socio_list_create(request):
     if request.method == "GET":
         members = Socio.objects.select_related(
-            "persona__genero", "persona__domicilio__localidad", "estado_administrativo"
+            "persona__genero", "persona__domicilio__localidad", "persona__domicilio__barrio", "estado_administrativo"
         )
         serializer = SocioSerializer(members, many=True)
         return Response(serializer.data)
@@ -289,7 +312,7 @@ def estado_detail(request, pk):
 def jugador_list_create(request):
     if request.method == "GET":
         players = Jugador.objects.select_related(
-            "socio__persona__genero", "socio__persona__domicilio__localidad", "socio__estado_administrativo",
+            "socio__persona__genero", "socio__persona__domicilio__localidad", "socio__persona__domicilio__barrio", "socio__estado_administrativo",
             "categoria", "categoria_secundaria", "estado",
         ).prefetch_related("vinculos_familiares__persona")
         category_id = request.query_params.get("categoria")
@@ -340,7 +363,7 @@ def jugador_detail(request, pk):
 def docente_list_create(request):
     if request.method == "GET":
         teachers = Docente.objects.select_related(
-            "persona__genero", "persona__domicilio__localidad", "persona__socio__jugador", "estado"
+            "persona__genero", "persona__domicilio__localidad", "persona__domicilio__barrio", "persona__socio__jugador", "estado"
         ).prefetch_related("categorias_docente__cargo", "categorias_docente__categoria")
         serializer = DocenteSerializer(teachers, many=True)
         return Response(serializer.data)

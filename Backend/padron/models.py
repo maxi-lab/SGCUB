@@ -27,6 +27,22 @@ class Localidad(models.Model):
         return self.nombre
 
 
+class Barrio(models.Model):
+    barrio_id = models.AutoField(primary_key=True)
+    nombre = models.CharField(max_length=100)
+    localidad = models.ForeignKey(Localidad, on_delete=models.PROTECT, related_name="barrios")
+
+    class Meta:
+        db_table = "barrio"
+        ordering = ["nombre"]
+        constraints = [
+            models.UniqueConstraint(fields=["nombre", "localidad"], name="unique_barrio_localidad"),
+        ]
+
+    def __str__(self):
+        return self.nombre
+
+
 class Domicilio(models.Model):
     domicilio_id = models.AutoField(primary_key=True)
     calle = models.CharField(max_length=100)
@@ -35,7 +51,7 @@ class Domicilio(models.Model):
     departamento = models.CharField(max_length=20, blank=True, null=True)
     entre_calle_1 = models.CharField(max_length=100, blank=True, null=True)
     entre_calle_2 = models.CharField(max_length=100, blank=True, null=True)
-    barrio = models.CharField(max_length=100, blank=True, null=True)
+    barrio = models.ForeignKey(Barrio, on_delete=models.PROTECT, related_name="domicilios", blank=True, null=True)
     localidad = models.ForeignKey(Localidad, on_delete=models.PROTECT, related_name="domicilios")
 
     class Meta:
