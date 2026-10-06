@@ -79,6 +79,7 @@ def _cuota_con_pagos(error):
 def _cuotas_queryset():
 	return Cuota.objects.select_related(
 		"movimiento__cuenta_corriente__socio__persona",
+		"movimiento__cuenta_corriente__socio__jugador",
 	).prefetch_related("items")
 
 

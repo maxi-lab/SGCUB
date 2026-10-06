@@ -139,7 +139,10 @@ class CuotaSerializer(serializers.ModelSerializer):
 
     def get_socio(self, obj):
         account = cuota_account(obj)
-        return socio_data(account.socio) if account else None
+        if not account:
+            return None
+        player = getattr(account.socio, "jugador", None)
+        return {**socio_data(account.socio), "jugador_id": player.pk if player else None}
 
     def get_items(self, obj):
         return ItemCuotaSerializer(obj.items.all(), many=True).data

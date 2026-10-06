@@ -20,6 +20,10 @@ const SORT_VALUES = {
 }
 const INITIAL_SORT = { columna: 'numero', direccion: 'desc' }
 
+const financialTabPath = (row) => (row.jugador_id
+  ? `/padron/jugadores/${row.jugador_id}?tab=financiero`
+  : `/padron/socios/${row.socio_id}?tab=financiero`)
+
 function StatCardSkeleton() {
   return (
     <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-lg p-4 flex items-center justify-between gap-3 shadow-xs animate-pulse min-h-[82px]">
@@ -149,7 +153,7 @@ function ResumenFinanciero() {
 
       <PageHeader
         breadcrumb={[{ label: 'Finanzas' }, { label: 'Resumen financiero' }]}
-        title="Gestión Financiera — Estado de Cuenta"
+        title="Balance de cuotas y deuda de socios"
         actions={(
           <>
             <button
@@ -310,11 +314,11 @@ function ResumenFinanciero() {
                 key={row.socio_id}
                 tabIndex={0}
                 aria-label={`Ver estado de cuenta de ${row.nombre} ${row.apellido}`}
-                onClick={() => navigate(`/finanzas/estado-cuenta?socio=${row.socio_id}`)}
+                onClick={() => navigate(financialTabPath(row))}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault()
-                    navigate(`/finanzas/estado-cuenta?socio=${row.socio_id}`)
+                    navigate(financialTabPath(row))
                   }
                 }}
                 className="hover:bg-surface-container-low/80 transition-colors cursor-pointer group focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"

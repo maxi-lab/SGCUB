@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { activateSocio, deactivateSocio, getSocio } from '../api/socios'
 import ActivateSocioModal from '../components/socios/ActivateSocioModal'
 import DeactivateSocioModal from '../components/socios/DeactivateSocioModal'
@@ -18,6 +18,8 @@ import useSocioFinances from '../hooks/useSocioFinances'
 function SocioDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const requestedTab = searchParams.get('tab') ?? undefined
   const { localidades } = useLocalidades()
   const { openPayment } = useRegisterPayment()
   const { openBenefit } = useAssignBenefit()
@@ -140,7 +142,7 @@ function SocioDetail() {
         )}
       />
 
-      <PersonTabs tabs={tabs} />
+      <PersonTabs key={`${id}-${requestedTab}`} tabs={tabs} defaultTab={requestedTab} />
 
       <ActivateSocioModal
         opened={modalActivarAbierto}
