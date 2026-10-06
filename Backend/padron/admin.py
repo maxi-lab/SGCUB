@@ -2,12 +2,13 @@ from django.contrib import admin
 
 # Register your models here.
 from .models import (
-    Genero, Localidad, Domicilio, Persona, EstadoAdministrativo, Socio,
+    Genero, Localidad, Barrio, Domicilio, Persona, EstadoAdministrativo, Socio,
     Categoria, EstadoDeportivo, Jugador, CargoDocente, Docente,
     VinculoFamiliar, DocenteCategoria,
 )
 admin.site.register(Genero)
 admin.site.register(Localidad)
+admin.site.register(Barrio)
 admin.site.register(Domicilio)
 admin.site.register(Persona)
 admin.site.register(EstadoAdministrativo)
