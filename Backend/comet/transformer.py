@@ -1,4 +1,4 @@
-from .dto import CometPlayerDTO
+from .dtos import CometPlayerDTO
 from .eligibility import apto_fisico_vencimiento, tiene_apto_fisico_vigente
 
 

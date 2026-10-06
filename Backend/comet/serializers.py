@@ -1,34 +1,41 @@
 from rest_framework import serializers
 
-from .models import CometExportLog
+from .models import CometOperationLog
 
 
-class CometExportLogSerializer(serializers.ModelSerializer):
+class CometOperationLogSerializer(serializers.ModelSerializer):
     jugador_nombre = serializers.SerializerMethodField()
-    usuario_nombre = serializers.CharField(source="usuario.get_username", read_only=True, default=None)
+    exportado_por = serializers.CharField(
+        source="usuario.get_username",
+        read_only=True,
+        default=None,
+    )
+    operacion_nombre = serializers.CharField(
+        source="get_operacion_display",
+        read_only=True,
+    )
 
     class Meta:
-        model = CometExportLog
+        model = CometOperationLog
         fields = [
             "log_id",
+            "operacion",
+            "operacion_nombre",
             "jugador",
             "jugador_nombre",
+            "referencia_externa",
             "usuario",
-            "usuario_nombre",
+            "exportado_por",
             "fecha",
             "exitoso",
             "mensaje",
+            "payload_enviado",
             "respuesta",
         ]
         read_only_fields = fields
 
     def get_jugador_nombre(self, obj):
+        if obj.jugador is None:
+            return None
         persona = obj.jugador.socio.persona
         return f"{persona.apellido}, {persona.nombre}"
-
-
-class ExportarJugadorResponseSerializer(serializers.Serializer):
-    """Respuesta del POST /comet/exportar/jugador/<pk>/."""
-    exitoso = serializers.BooleanField()
-    mensaje = serializers.CharField()
-    log_id = serializers.IntegerField()
