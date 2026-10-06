@@ -105,10 +105,7 @@ export default function HeaderSearch() {
                     {result.detail && ` · ${result.detail}`}
                   </span>
                 </span>
-                <span className="flex items-center gap-2 shrink-0">
-                  <span className={`px-2 py-0.5 rounded-md text-sm font-medium ${PROFILE_TONES[result.profile]}`}>{result.label}</span>
-                  <span className="material-symbols-outlined text-[20px] text-on-surface-variant">arrow_forward</span>
-                </span>
+                <span className={`shrink-0 px-2 py-0.5 rounded-md text-sm font-medium ${PROFILE_TONES[result.profile]}`}>{result.label}</span>
               </button>
               {result.socioId && (
                 <button

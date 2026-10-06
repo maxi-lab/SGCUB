@@ -83,7 +83,6 @@ function FinancialTab({ socio, onRegisterPayment, enableBenefits = false }) {
           <h2 id="estado-cuenta-title" className="text-2xl font-bold text-on-surface mt-1">Estado de cuenta</h2>
           <p className="text-base text-on-surface-variant mt-1">Detalle de cuotas, pagos y conceptos pendientes del socio.</p>
         </div>
-        <PrimaryButton icon="payments" onClick={onRegisterPayment ?? (() => openPayment({ socioId, onSuccess: reloadAccount }))}>Registrar pago</PrimaryButton>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
@@ -96,7 +95,12 @@ function FinancialTab({ socio, onRegisterPayment, enableBenefits = false }) {
       {cuotas.length === 0 ? (
         <EmptyState icon="receipt_long" title="Sin cuotas generadas" description="La cuenta corriente no tiene cuotas registradas." />
       ) : (
-        <CuotasEstadoCuentaTable cuotas={cuotas} selectedCuotaId={selectedCuota?.cuota_id} onToggle={toggleCuota} />
+        <CuotasEstadoCuentaTable
+          cuotas={cuotas}
+          selectedCuotaId={selectedCuota?.cuota_id}
+          onToggle={toggleCuota}
+          onPay={(cuota) => openPayment({ socioId, cuotaIds: [cuota.cuota_id], onSuccess: reloadAccount })}
+        />
       )}
 
       {enableBenefits && selectedCuota && (

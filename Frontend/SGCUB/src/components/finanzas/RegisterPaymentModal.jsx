@@ -3,23 +3,24 @@ import { Modal } from '@mantine/core'
 import { useMediaQuery } from '@mantine/hooks'
 import { getSocio } from '../../api/socios'
 import { getEstadoCuenta } from '../../api/estadoCuenta'
-import { LoadingFile } from '../personas/FileStatus'
 import { isActiveStatus } from '../personas/format'
 import PagoForm from './PagoForm'
 import SocioPicker from './SocioPicker'
 
 const EMPTY_LOAD = { socioId: null, socio: null, cuenta: null, error: '' }
 
-function ModalMessage({ icon, children }) {
+function HeaderMessage({ icon, tone = 'text-on-surface-variant', spin = false, children }) {
   return (
-    <div className="py-12 flex flex-col items-center gap-3 text-center text-on-surface-variant">
-      <span className="material-symbols-outlined text-4xl text-outline" aria-hidden="true">{icon}</span>
-      <p className="text-base max-w-md">{children}</p>
-    </div>
+    <p className={`flex items-center gap-2 h-11 text-base ${tone}`} role={tone === 'text-error' ? 'alert' : 'status'}>
+      <span className={`material-symbols-outlined text-[20px] ${spin ? 'animate-spin' : ''}`} aria-hidden="true">{icon}</span>
+      {children}
+    </p>
   )
 }
 
-// Without `initialSocioId` the modal starts by asking for the socio
+// Always shows the payment form layout. Until a valid socio is loaded the form is empty and its
+// header holds the socio search (or the loading / error state); then the sections fill in.
+// Without `initialSocioId` the modal starts with the search.
 function RegisterPaymentModal({ opened, initialSocioId = null, initialCuotaIds, onClose, onSuccess }) {
   const isMobile = useMediaQuery('(max-width: 640px)')
   const [socioId, setSocioId] = useState(initialSocioId)
@@ -35,51 +36,52 @@ function RegisterPaymentModal({ opened, initialSocioId = null, initialCuotaIds, 
   }, [opened, socioId])
 
   const loading = Boolean(socioId) && load.socioId !== socioId
+  const loaded = Boolean(socioId) && !loading && !load.error && load.socio && load.cuenta
+  const ready = loaded && isActiveStatus(load.socio.estado_administrativo_nombre)
   const canChangeSocio = !initialSocioId && Boolean(socioId)
 
-  const renderContent = () => {
-    if (!socioId) {
-      return <SocioPicker onSelect={(socio) => setSocioId(socio.socio_id)} description="Elegí el socio al que le vas a registrar el pago." />
+  const emptyHeader = () => {
+    if (!socioId) return <SocioPicker compact onSelect={(socio) => setSocioId(socio.socio_id)} />
+    if (loading) return <HeaderMessage icon="progress_activity" spin>Cargando estado de cuenta...</HeaderMessage>
+    if (!loaded) {
+      return <HeaderMessage icon="error" tone="text-error">{load.error || 'No se encontró la cuenta corriente del socio.'}</HeaderMessage>
     }
-    if (loading) return <LoadingFile text="Cargando estado de cuenta..." />
-    if (load.error || !load.socio || !load.cuenta) {
-      return <ModalMessage icon="error">{load.error || 'No se encontró la cuenta corriente del socio.'}</ModalMessage>
-    }
-    if (!isActiveStatus(load.socio.estado_administrativo_nombre)) {
-      return <ModalMessage icon="person_off">El socio está dado de baja. No se pueden registrar pagos a socios inactivos.</ModalMessage>
-    }
-    return (
-      <PagoForm
-        socio={load.socio}
-        cuenta={load.cuenta}
-        initialCuotaIds={initialCuotaIds}
-        onCancel={onClose}
-        onSuccess={onSuccess}
-      />
-    )
+    return <HeaderMessage icon="person_off" tone="text-error">El socio está dado de baja. No se pueden registrar pagos a socios inactivos.</HeaderMessage>
   }
 
   return (
     <Modal
       opened={opened}
       onClose={onClose}
-      title={<span className="text-xl font-bold text-on-surface">Registrar pago</span>}
-      size="min(1240px, 95vw)"
-      fullScreen={isMobile}
-      centered
-      padding="xl"
-    >
-      {canChangeSocio && (
+      aria-label="Registrar pago"
+      title={canChangeSocio && (
         <button
           type="button"
           onClick={() => setSocioId(null)}
-          className="mb-4 inline-flex items-center gap-1 px-2 py-1 -ml-2 rounded-md text-sm font-semibold text-primary hover:bg-primary/5 transition-colors cursor-pointer"
+          className="inline-flex items-center gap-1 px-2 py-1 -ml-2 rounded-md text-sm font-semibold text-primary hover:bg-primary/5 transition-colors cursor-pointer"
         >
           <span className="material-symbols-outlined text-[18px]" aria-hidden="true">arrow_back</span>
           Elegir otro socio
         </button>
       )}
-      {renderContent()}
+      size="min(1240px, 95vw)"
+      fullScreen={isMobile}
+      centered
+      padding="xl"
+    >
+      {ready ? (
+        // Keyed by socio so the selection state starts fresh for each one
+        <PagoForm
+          key={load.socio.socio_id}
+          socio={load.socio}
+          cuenta={load.cuenta}
+          initialCuotaIds={initialCuotaIds}
+          onCancel={onClose}
+          onSuccess={onSuccess}
+        />
+      ) : (
+        <PagoForm key="empty" emptyHeader={emptyHeader()} onCancel={onClose} />
+      )}
     </Modal>
   )
 }

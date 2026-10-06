@@ -34,11 +34,11 @@ export default function Principal() {
         title="Panel principal"
         actions={(
           <>
+            <PrimaryButton icon="payments" onClick={() => openPayment()}>Registrar pago</PrimaryButton>
             <span className="inline-flex items-center gap-2 h-10 px-4 border border-outline-variant/50 rounded-lg text-sm text-on-surface-variant bg-surface-container-low">
               <span className="material-symbols-outlined text-[18px] text-primary" aria-hidden="true">calendar_today</span>
               <span className="capitalize">{DATE_LABEL}</span>
             </span>
-            <PrimaryButton icon="payments" onClick={() => openPayment()}>Registrar pago</PrimaryButton>
           </>
         )}
       />

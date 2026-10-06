@@ -198,7 +198,9 @@ const pendingTotal = (cuotas, ids) => roundCents(cuotas
   .filter((cuota) => ids.includes(cuota.cuota_id))
   .reduce((total, cuota) => total + Number(cuota.saldo_pendiente || 0), 0))
 
-function PagoForm({ socio, cuenta, initialCuotaIds = NO_CUOTAS, onCancel, onSuccess }) {
+// Without `socio`, renders the empty layout (disabled steps, empty summary) with `emptyHeader`
+// in place of the socio data, so the payment modal keeps its shape while a socio is chosen.
+function PagoForm({ socio = null, cuenta = null, emptyHeader = null, initialCuotaIds = NO_CUOTAS, onCancel, onSuccess }) {
   const today = todayIso()
   const pendingCuotas = useMemo(
     () => (cuenta?.cuotas ?? [])
@@ -251,6 +253,7 @@ function PagoForm({ socio, cuenta, initialCuotaIds = NO_CUOTAS, onCancel, onSucc
 
   const confirmPayment = async (event) => {
     event.preventDefault()
+    if (!socio) return
     setShowErrors(true)
     if (!isValid) return
     setSaving(true)
@@ -292,12 +295,18 @@ function PagoForm({ socio, cuenta, initialCuotaIds = NO_CUOTAS, onCancel, onSucc
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 pb-4 border-b border-outline-variant/30">
         <div className="min-w-0">
           <p className="text-sm uppercase tracking-wider font-semibold text-primary">Registrar pago de</p>
-          <h2 className="text-xl font-bold text-on-surface truncate">{socio.apellido}, {socio.nombre}</h2>
-          <p className="text-base text-on-surface-variant">DNI {formatDni(socio.dni)} · Socio {formatNumber(socio.numero_socio)}</p>
+          {socio ? (
+            <>
+              <h2 className="text-xl font-bold text-on-surface truncate">{socio.apellido}, {socio.nombre}</h2>
+              <p className="text-base text-on-surface-variant">DNI {formatDni(socio.dni)} · Socio {formatNumber(socio.numero_socio)}</p>
+            </>
+          ) : (
+            <div className="mt-1">{emptyHeader}</div>
+          )}
         </div>
         <div className="flex flex-col items-end justify-center px-4 py-3 rounded-lg border border-error/20 bg-error-container/30 text-right">
           <span className="text-sm uppercase tracking-wider font-semibold text-on-surface-variant whitespace-nowrap">Deuda total</span>
-          <span className="text-2xl font-bold text-error whitespace-nowrap">{formatAmount(cuenta?.total_adeudado)}</span>
+          <span className={`text-2xl font-bold whitespace-nowrap ${cuenta ? 'text-error' : 'text-outline'}`}>{cuenta ? formatAmount(cuenta.total_adeudado) : '—'}</span>
         </div>
       </div>
 
@@ -306,7 +315,8 @@ function PagoForm({ socio, cuenta, initialCuotaIds = NO_CUOTAS, onCancel, onSucc
           <StepSection
             step={1}
             title="Cuotas a cobrar"
-            description="Marcá las cuotas que el socio va a pagar."
+            description={socio ? 'Marcá las cuotas que el socio va a pagar.' : 'Primero elegí un socio.'}
+            disabled={!socio}
           >
             <div className="flex flex-col gap-2">
               {pendingCuotas.length
@@ -319,7 +329,11 @@ function PagoForm({ socio, cuenta, initialCuotaIds = NO_CUOTAS, onCancel, onSucc
                     onToggle={toggleCuota}
                   />
                 ))
-                : <p className="text-base text-on-surface-variant text-center py-6 border border-dashed border-outline-variant/40 rounded-lg">El socio no tiene cuotas pendientes.</p>}
+                : (
+                  <p className="text-base text-on-surface-variant text-center py-6 border border-dashed border-outline-variant/40 rounded-lg">
+                    {socio ? 'El socio no tiene cuotas pendientes.' : 'Las cuotas pendientes del socio aparecerán aquí.'}
+                  </p>
+                )}
             </div>
             {showErrors && formErrors.cuotas && <p className="text-sm text-error" role="alert">{formErrors.cuotas}</p>}
           </StepSection>
@@ -394,6 +408,7 @@ function PagoForm({ socio, cuenta, initialCuotaIds = NO_CUOTAS, onCancel, onSucc
             <textarea
               value={observacion}
               onChange={(event) => setObservacion(event.target.value)}
+              disabled={!socio}
               maxLength={200}
               rows={3}
               placeholder="Detalle adicional del pago"
@@ -404,7 +419,7 @@ function PagoForm({ socio, cuenta, initialCuotaIds = NO_CUOTAS, onCancel, onSucc
           {submitError && <p className="text-sm text-error bg-error-container p-3 rounded-lg" role="alert">{submitError}</p>}
 
           <div className="mt-2 flex flex-col gap-3 [&>button]:justify-center">
-            <PrimaryButton icon={saving ? 'progress_activity' : 'payments'} type="submit" disabled={saving || difference > 0}>
+            <PrimaryButton icon={saving ? 'progress_activity' : 'payments'} type="submit" disabled={!socio || saving || difference > 0}>
               {saving ? 'Registrando...' : `Confirmar pago · ${formatAmount(enteredTotal)}`}
             </PrimaryButton>
             <SecondaryButton icon="close" onClick={onCancel}>Cancelar</SecondaryButton>
