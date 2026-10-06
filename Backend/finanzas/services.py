@@ -595,6 +595,21 @@ def apply_cuota_surcharges(cuota_id, today=None, configuration=None):
         return surcharges
 
 
+@transaction.atomic
+def reschedule_cuota(cuota_id, first_due_date, second_due_date, today=None):
+    cuota = lock_cuota(cuota_id)
+    ensure_cuota_without_payments(cuota)
+    if (cuota.fecha_venc1, cuota.fecha_venc2) != (first_due_date, second_due_date):
+        cuota.fecha_venc1 = first_due_date
+        cuota.fecha_venc2 = second_due_date
+        cuota.recargos_aplicados = 0
+        cuota.save(update_fields=["fecha_venc1", "fecha_venc2", "recargos_aplicados"])
+        deleted, _ = cuota.items.filter(concepto=ConceptoItemChoices.MORA).delete()
+        if deleted:
+            sync_cuota_charge(cuota)
+    apply_cuota_surcharges(cuota.pk, today)
+
+
 def stale_state_filter(today):
     return (
         Q(estado_cuota=EstadoCuotaChoices.EN_FECHA, fecha_venc1__lt=today)

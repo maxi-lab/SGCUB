@@ -2,7 +2,6 @@
 from datetime import datetime
 from decimal import Decimal
 
-from django.db import transaction
 from django.db.models import Sum
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
@@ -59,7 +58,6 @@ from .services import (
 	CuotaDuplicadaError,
 	PagoInvalidoError,
 	SocioInactivoError,
-	apply_cuota_surcharges,
 	apply_surcharges,
 	assign_benefit,
 	correct_payment,
@@ -69,6 +67,7 @@ from .services import (
 	generar_cuotas_mensuales,
 	pending_amounts,
 	register_payment,
+	reschedule_cuota,
 )
 
 
@@ -136,9 +135,14 @@ def cuota_detail(request, pk):
 	serializer = CuotaUpdateSerializer(cuota, data=request.data, partial=request.method == "PATCH")
 	if not serializer.is_valid():
 		return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-	with transaction.atomic():
-		serializer.save()
-		apply_cuota_surcharges(pk)
+	try:
+		reschedule_cuota(
+			pk,
+			serializer.validated_data.get("fecha_venc1", cuota.fecha_venc1),
+			serializer.validated_data.get("fecha_venc2", cuota.fecha_venc2),
+		)
+	except CuotaConPagosError as error:
+		return _cuota_con_pagos(error)
 	return Response(CuotaSerializer(_cuotas_queryset().get(pk=pk)).data)
 
 

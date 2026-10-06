@@ -1924,12 +1924,31 @@ class CuotaVencimientosManualesTests(APITestCase):
 
 		self.assert_cuota(response, EstadoCuotaChoices.VENCIDA_1, "2700.00")
 
-	def test_editar_vencimientos_a_fechas_futuras_la_vuelve_en_fecha_y_conserva_el_recargo(self):
+	def test_editar_vencimientos_a_fechas_futuras_la_vuelve_en_fecha_y_quita_el_recargo(self):
 		cuota_id = self.create(-2, 4).data["cuota_id"]
 
 		response = self.edit(cuota_id, 5, 15)
 
-		self.assert_cuota(response, EstadoCuotaChoices.EN_FECHA, "2700.00")
+		self.assert_cuota(response, EstadoCuotaChoices.EN_FECHA, "2500.00")
+		self.assertFalse(ItemCuota.objects.filter(cuota_id=cuota_id, concepto="Mora").exists())
+		self.assertEqual(Cuota.objects.get(pk=cuota_id).recargos_aplicados, 0)
+
+	def test_editar_segundo_vencimiento_a_fecha_futura_conserva_solo_el_primer_recargo(self):
+		cuota_id = self.create(-10, -3).data["cuota_id"]
+
+		response = self.edit(cuota_id, -10, 4)
+
+		self.assert_cuota(response, EstadoCuotaChoices.VENCIDA_1, "2700.00")
+		self.assertEqual(ItemCuota.objects.filter(cuota_id=cuota_id, concepto="Mora").count(), 1)
+		self.assertEqual(Cuota.objects.get(pk=cuota_id).recargos_aplicados, 1)
+
+	def test_editar_sin_cambiar_fechas_no_duplica_recargos(self):
+		cuota_id = self.create(-10, -3).data["cuota_id"]
+
+		response = self.edit(cuota_id, -10, -3)
+
+		self.assert_cuota(response, EstadoCuotaChoices.VENCIDA_2, "2950.00")
+		self.assertEqual(ItemCuota.objects.filter(cuota_id=cuota_id, concepto="Mora").count(), 2)
 
 
 class TareasProgramadasTests(TestCase):
