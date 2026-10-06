@@ -7,6 +7,11 @@ export const getComprobantes = async () => {
   return response.data
 }
 
+export const getComprobantesByCuota = async (cuotaId) => {
+  const response = await api.get(comprobantesEndpoint, { params: { cuota_id: cuotaId } })
+  return response.data
+}
+
 export const getComprobante = async (comprobanteId) => {
   const response = await api.get(`${comprobantesEndpoint}${comprobanteId}/`)
   return response.data
