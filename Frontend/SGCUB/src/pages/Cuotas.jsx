@@ -8,6 +8,7 @@ import EditCuotaModal from '../components/cuota/EditCuotaModal'
 import PageHeader from '../components/shared/PageHeader'
 import StatCard from '../components/shared/StatCard'
 import useRegisterPayment from '../hooks/useRegisterPayment'
+import { collectErrorMessages } from '../components/personas/format'
 
 const FORMULARIO_INICIAL = {
   socio_id: '',
@@ -128,11 +129,11 @@ function Cuotas() {
       cerrarModal()
       await cargarDatos()
     } catch (requestError) {
-      const mensaje = requestError.response?.data
-      const detalle = typeof mensaje === 'object'
-        ? Object.values(mensaje).flat().join(' ')
-        : requestError.message || 'No se pudo guardar la cuota.'
-      setErrorFormulario(detalle)
+      const data = requestError.response?.data
+      const message = data && typeof data === 'object'
+        ? collectErrorMessages(data).join(' ')
+        : requestError.message
+      setErrorFormulario(message || 'No se pudo guardar la cuota.')
     } finally {
       setGuardando(false)
     }

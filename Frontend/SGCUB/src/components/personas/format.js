@@ -16,7 +16,6 @@ export const formatNumber = (number) => (number ? `#${String(number).padStart(4,
 export const formatAmount = (amount) =>
   Number(amount || 0).toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })
 
-// Años completos entre la fecha dada (YYYY-MM-DD) y hoy.
 export const yearsSince = (date) => {
   if (!date) return null
   const start = new Date(`${date}T00:00:00`)
@@ -46,17 +45,38 @@ const fieldLabel = (field) => {
   return label.charAt(0).toUpperCase() + label.slice(1)
 }
 
+const ERROR_METADATA_KEYS = ['persona_existente']
+
+export const collectErrorMessages = (data) => {
+  if (data === null || data === undefined) return []
+  if (typeof data === 'string' || typeof data === 'number') return [String(data)]
+  if (Array.isArray(data)) return data.flatMap(collectErrorMessages)
+  if (typeof data === 'object') {
+    return Object.entries(data)
+      .filter(([field]) => !ERROR_METADATA_KEYS.includes(field))
+      .flatMap(([, value]) => collectErrorMessages(value))
+  }
+  return []
+}
+
+const fieldErrorMessages = (field, value) => {
+  if (ERROR_METADATA_KEYS.includes(field)) return []
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    return Object.entries(value).flatMap(([nestedField, nestedValue]) => fieldErrorMessages(nestedField, nestedValue))
+  }
+  const messages = collectErrorMessages(value)
+  if (!messages.length) return []
+  const text = messages.join(', ')
+  return field === 'non_field_errors' ? [text] : [`${fieldLabel(field)}: ${text}`]
+}
+
 export const getErrorMessage = (requestError, fallback) => {
   const errorData = requestError.response?.data
   if (!errorData) return fallback
   if (typeof errorData === 'string') return errorData
   if (errorData.detail) return errorData.detail
+  if (Array.isArray(errorData)) return collectErrorMessages(errorData).join(' | ') || fallback
   return Object.entries(errorData)
-    .map(([field, value]) => {
-      if (Array.isArray(value)) {
-        return `${fieldLabel(field)}: ${value.map((item) => (typeof item === 'object' ? JSON.stringify(item) : item)).join(', ')}`
-      }
-      return `${fieldLabel(field)}: ${typeof value === 'object' ? JSON.stringify(value) : value}`
-    })
-    .join(' | ')
+    .flatMap(([field, value]) => fieldErrorMessages(field, value))
+    .join(' | ') || fallback
 }

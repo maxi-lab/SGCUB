@@ -381,6 +381,7 @@ function DocenteForm() {
       return
     }
 
+    let docente = null
     try {
       const personaExistente = personaEncontrada
         ?? (await api.get(`padron/persona/?dni=${dniIngresado}`)).data?.[0]
@@ -389,14 +390,14 @@ function DocenteForm() {
         : (await api.post('padron/persona/', datosPersona)).data.persona_id
 
       // El backend crea el docente y sus cargos en una sola operación y asigna el legajo
-      const docente = await postDocente({ persona: personaId, asignaciones: filasAAsignaciones(asignaciones) })
+      docente = await postDocente({ persona: personaId, asignaciones: filasAAsignaciones(asignaciones) })
       const tipoId = await obtenerTipoAntecedentes()
       const formData = new FormData()
       formData.append('persona', personaId)
       formData.append('tipo_documento', tipoId)
       formData.append('archivoUrl', archivoAntecedente)
       formData.append('fecha_recepcion', new Date().toISOString())
-          formData.append('fecha_emision', new Date().toISOString().split('T')[0])
+      formData.append('fecha_emision', new Date().toISOString().split('T')[0])
 
       await api.post('documental/documentos/', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -405,8 +406,9 @@ function DocenteForm() {
       navigate(`/padron/docentes/${docente.docente_id}`)
     } catch (requestError) {
       const mensaje = getErrorMessage(requestError, 'No se pudo agregar el docente.')
+      // Only report a partial save when the docente was actually created and the attachment failed
       setErrorGuardado(
-        mensaje.includes('No existe el tipo')
+        !docente || mensaje.includes('No existe el tipo')
           ? mensaje
           : `El docente se guardó, pero no se pudo adjuntar el antecedente penal. Detalle: ${mensaje}`
       )
