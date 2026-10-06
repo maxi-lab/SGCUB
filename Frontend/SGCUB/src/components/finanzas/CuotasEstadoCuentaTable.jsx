@@ -3,7 +3,8 @@ import { formatAmount, formatDate } from '../personas/format'
 import { cuotaAmount, cuotaConcepts, isPaid } from './accountStatement'
 
 // Cuotas of a socio's account statement. Clicking a row (or Enter / Space) toggles its selection.
-function CuotasEstadoCuentaTable({ cuotas, selectedCuotaId, onToggle }) {
+// When `onPay` is given, unpaid cuotas get a "Pagar cuota" action.
+function CuotasEstadoCuentaTable({ cuotas, selectedCuotaId, onToggle, onPay }) {
   const handleKeyDown = (event, cuota, selected) => {
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault()
@@ -25,6 +26,7 @@ function CuotasEstadoCuentaTable({ cuotas, selectedCuotaId, onToggle }) {
           <th className="py-3 px-4 text-right" scope="col">Pagado</th>
           <th className="py-3 px-4 text-right" scope="col">Pendiente</th>
           <th className="py-3 px-4 text-center" scope="col">Estado</th>
+          {onPay && <th className="py-3 px-4 text-right" scope="col">Acciones</th>}
         </>
       )}
     >
@@ -32,6 +34,7 @@ function CuotasEstadoCuentaTable({ cuotas, selectedCuotaId, onToggle }) {
         const state = cuota.estado_cuota ?? cuota.estado ?? 'Pendiente'
         const paid = isPaid(cuota)
         const selected = selectedCuotaId === cuota.cuota_id
+        const payable = !paid && Number(cuota.saldo_pendiente ?? 0) > 0
         return (
           <tr
             key={cuota.cuota_id}
@@ -56,6 +59,26 @@ function CuotasEstadoCuentaTable({ cuotas, selectedCuotaId, onToggle }) {
                 {state === 'EnFecha' ? 'En fecha' : state}
               </span>
             </td>
+            {onPay && (
+              <td className="py-3.5 px-4 text-right">
+                {payable && (
+                  <button
+                    type="button"
+                    title="Pagar cuota"
+                    aria-label={`Pagar cuota ${cuota.periodo}`}
+                    onClick={(event) => {
+                      // Keep the click / key press from also toggling the row selection
+                      event.stopPropagation()
+                      onPay(cuota)
+                    }}
+                    onKeyDown={(event) => event.stopPropagation()}
+                    className="w-8 h-8 inline-flex items-center justify-center rounded border border-primary/30 text-primary hover:bg-primary hover:text-on-primary transition-colors cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-[18px]" aria-hidden="true">payments</span>
+                  </button>
+                )}
+              </td>
+            )}
           </tr>
         )
       })}

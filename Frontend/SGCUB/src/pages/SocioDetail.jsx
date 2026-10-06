@@ -3,18 +3,22 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { activateSocio, deactivateSocio, getSocio } from '../api/socios'
 import ActivateSocioModal from '../components/socios/ActivateSocioModal'
 import DeactivateSocioModal from '../components/socios/DeactivateSocioModal'
-import PersonHeader, { EditButton, DeactivateButton, ActivateButton } from '../components/personas/HeaderPersona'
+import PersonHeader, { EditButton, DeactivateButton, ActivateButton, PayButton } from '../components/personas/HeaderPersona'
 import PersonTabs from '../components/personas/TabsNavPersonas'
 import PersonalDataTab from '../components/personas/tabs/PersonalDataTab'
 import FinancialTab from '../components/personas/tabs/FinancialTab'
 import { LoadingFile, ErrorFile } from '../components/personas/FileStatus'
 import { yearsSince, isActiveStatus, formatDni, formatDate, formatNumber, yearsText } from '../components/personas/format'
 import useLocalidades from '../hooks/useLocalidades'
+import useRegisterPayment from '../hooks/useRegisterPayment'
 
 function SocioDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { localidades } = useLocalidades()
+  const { openPayment } = useRegisterPayment()
+  // Bumped after a payment so the financial tab reloads the account
+  const [paymentsVersion, setPaymentsVersion] = useState(0)
 
   const [carga, setCarga] = useState({ id: null, datos: null, error: null })
   const loading = carga.id !== id
@@ -84,7 +88,7 @@ function SocioDetail() {
       id: 'financiero',
       label: 'Financiero',
       icon: 'account_balance_wallet',
-      content: <FinancialTab socio={socio} enableBenefits />,
+      content: <FinancialTab key={paymentsVersion} socio={socio} enableBenefits />,
     },
   ]
 
@@ -107,6 +111,7 @@ function SocioDetail() {
         ]}
         actions={activo ? (
           <>
+            <PayButton onClick={() => openPayment({ socioId: socio.socio_id, onSuccess: () => setPaymentsVersion((version) => version + 1) })} />
             <EditButton onClick={() => navigate(`/padron/socios/${socio.socio_id}/editar`)} />
             <DeactivateButton
               onClick={() => {

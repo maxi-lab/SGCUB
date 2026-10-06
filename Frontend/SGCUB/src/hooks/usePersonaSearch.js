@@ -14,10 +14,10 @@ export const toSearchResults = (personas) => personas.flatMap((persona) => {
   const results = []
 
   if (socio_id && !jugador_id) {
-    results.push({ ...base, key: `socio-${socio_id}`, profile: 'socio', label: 'Socio', path: `/padron/socios/${socio_id}` })
+    results.push({ ...base, key: `socio-${socio_id}`, profile: 'socio', label: 'Socio', path: `/padron/socios/${socio_id}`, socioId: socio_id })
   }
   if (jugador_id) {
-    results.push({ ...base, key: `jugador-${jugador_id}`, profile: 'jugador', label: 'Jugador', path: `/padron/jugadores/${jugador_id}` })
+    results.push({ ...base, key: `jugador-${jugador_id}`, profile: 'jugador', label: 'Jugador', path: `/padron/jugadores/${jugador_id}`, socioId: socio_id })
   }
   if (docente_id) {
     results.push({ ...base, key: `docente-${docente_id}`, profile: 'docente', label: 'Docente', path: `/padron/docentes/${docente_id}` })

@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { getEstadoCuenta } from '../../../api/estadoCuenta'
 import { postBeneficio } from '../../../api/cuotas'
 import BecaDescuentoModal from '../../finanzas/BecaDescuentoModal'
@@ -7,6 +6,7 @@ import CuotasEstadoCuentaTable from '../../finanzas/CuotasEstadoCuentaTable'
 import { isPaid } from '../../finanzas/accountStatement'
 import { formatAmount, formatNumber } from '../format'
 import { EmptyState, KPI, PrimaryButton } from './parts'
+import useRegisterPayment from '../../../hooks/useRegisterPayment'
 
 const fetchAccount = (socioId) => getEstadoCuenta(socioId).catch((requestError) => {
   if (requestError.response?.status === 404) return null
@@ -14,7 +14,7 @@ const fetchAccount = (socioId) => getEstadoCuenta(socioId).catch((requestError) 
 })
 
 function FinancialTab({ socio, onRegisterPayment, enableBenefits = false }) {
-  const navigate = useNavigate()
+  const { openPayment } = useRegisterPayment()
   const socioId = socio.socio_id
   const [load, setLoad] = useState({ socioId: null, error: null, account: null })
   const [selectedCuota, setSelectedCuota] = useState(null)
@@ -51,6 +51,10 @@ function FinancialTab({ socio, onRegisterPayment, enableBenefits = false }) {
     }
   }
 
+  const reloadAccount = () => fetchAccount(socioId)
+    .then((account) => setLoad({ socioId, error: null, account }))
+    .catch(() => setLoad((current) => ({ ...current, error: 'El pago se registró, pero no se pudo actualizar el estado de cuenta.' })))
+
   const summary = useMemo(() => ({
     paidCount: cuotas.filter(isPaid).length,
     surcharges: Number(account?.total_mora ?? 0),
@@ -79,7 +83,6 @@ function FinancialTab({ socio, onRegisterPayment, enableBenefits = false }) {
           <h2 id="estado-cuenta-title" className="text-2xl font-bold text-on-surface mt-1">Estado de cuenta</h2>
           <p className="text-base text-on-surface-variant mt-1">Detalle de cuotas, pagos y conceptos pendientes del socio.</p>
         </div>
-        <PrimaryButton icon="payments" onClick={onRegisterPayment ?? (() => navigate(`/caja?socio=${socioId}`))}>Registrar pago</PrimaryButton>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
@@ -92,7 +95,12 @@ function FinancialTab({ socio, onRegisterPayment, enableBenefits = false }) {
       {cuotas.length === 0 ? (
         <EmptyState icon="receipt_long" title="Sin cuotas generadas" description="La cuenta corriente no tiene cuotas registradas." />
       ) : (
-        <CuotasEstadoCuentaTable cuotas={cuotas} selectedCuotaId={selectedCuota?.cuota_id} onToggle={toggleCuota} />
+        <CuotasEstadoCuentaTable
+          cuotas={cuotas}
+          selectedCuotaId={selectedCuota?.cuota_id}
+          onToggle={toggleCuota}
+          onPay={(cuota) => openPayment({ socioId, cuotaIds: [cuota.cuota_id], onSuccess: reloadAccount })}
+        />
       )}
 
       {enableBenefits && selectedCuota && (
