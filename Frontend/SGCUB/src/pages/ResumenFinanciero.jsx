@@ -18,10 +18,8 @@ const SORT_VALUES = {
   nombre: (row) => `${row.apellido ?? ''} ${row.nombre ?? ''}`.trim(),
   vencidas: (row) => Number(row.cuotasVencidas ?? 0),
 }
-const INITIAL_SORT = { columna: 'nombre', direccion: 'asc' }
-/**
- * Skeleton for a StatCard while loading.
- */
+const INITIAL_SORT = { columna: 'numero', direccion: 'desc' }
+
 function StatCardSkeleton() {
   return (
     <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-lg p-4 flex items-center justify-between gap-3 shadow-xs animate-pulse min-h-[104px]">
@@ -34,11 +32,6 @@ function StatCardSkeleton() {
   )
 }
 
-/**
- * Payment method collection card.
- *
- * @param {{ label: string, amount: number | null, detail: string, icon: string, dotClass: string }} props
- */
 function CollectionCard({ label, amount, detail, icon, dotClass }) {
   return (
     <div className="bg-surface-container-lowest p-space-md rounded-xl border border-outline-variant/30 flex items-start justify-between shadow-sm hover:shadow-md transition-shadow">
