@@ -21,6 +21,10 @@ function ComprobantePago({ socio, detalle, medios, montoTotal, observacion, nume
         <div><p className="text-sm text-on-surface-variant">DNI</p><p className="font-semibold text-on-surface">{formatDni(socio.dni)}</p></div>
       </div>
 
+      {detalle
+        ? <DesgloseComprobante detalle={detalle} />
+        : <p className="p-4 bg-surface-container-low rounded-lg text-on-surface-variant">El pago quedó registrado, pero no se pudo cargar el desglose. Podés consultarlo desde el listado de comprobantes.</p>}
+
       <section className="border border-outline-variant/30 rounded-xl overflow-hidden">
         <div className="px-4 py-3 bg-surface-container-low border-b border-outline-variant/30"><h3 className="font-bold text-on-surface">Detalle del pago</h3></div>
         <div className="divide-y divide-outline-variant/20">
@@ -28,10 +32,6 @@ function ComprobantePago({ socio, detalle, medios, montoTotal, observacion, nume
           <div className="flex justify-between gap-4 px-4 py-3 bg-surface-container-low"><strong className="text-on-surface">Monto total</strong><strong className="text-lg text-primary">{formatAmount(montoTotal)}</strong></div>
         </div>
       </section>
-
-      {detalle
-        ? <DesgloseComprobante detalle={detalle} />
-        : <p className="p-4 bg-surface-container-low rounded-lg text-on-surface-variant">El pago quedó registrado, pero no se pudo cargar el desglose. Podés consultarlo desde el listado de comprobantes.</p>}
 
       {observacion && <div className="p-4 bg-surface-container-low rounded-lg"><p className="text-sm text-on-surface-variant">Observación</p><p className="text-on-surface">{observacion}</p></div>}
       <div className="flex flex-col sm:flex-row sm:justify-end gap-3">
