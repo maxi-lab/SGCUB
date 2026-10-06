@@ -92,12 +92,13 @@ export function PayButton({ onClick, children = 'Registrar pago' }) {
   )
 }
 
-export function BenefitButton({ onClick, children = 'Asignar beca o descuento' }) {
+export function BenefitButton({ onClick, disabled = false, children = 'Asignar beca o descuento' }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex items-center gap-2 h-10 px-4 bg-surface-container-lowest text-primary border border-primary/40 hover:bg-primary/5 rounded-lg text-base font-semibold shadow-sm transition-colors cursor-pointer select-none"
+      disabled={disabled}
+      className="inline-flex items-center gap-2 h-10 px-4 bg-surface-container-lowest text-primary border border-primary/40 hover:bg-primary/5 rounded-lg text-base font-semibold shadow-sm transition-colors cursor-pointer select-none whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-surface-container-lowest"
     >
       <span className="material-symbols-outlined text-[20px]">redeem</span>
       <span>{children}</span>

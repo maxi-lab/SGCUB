@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react'
 import { postBeneficio } from '../../api/cuotas'
-import { formatAmount, formatDate, formatDni, formatNumber, getErrorMessage } from '../personas/format'
+import { formatAmount, formatDate, getErrorMessage } from '../personas/format'
 import { PrimaryButton, SecondaryButton } from '../personas/tabs/parts'
 import { formatPeriod } from '../shared/periodFormat'
-import { FIELD_CLASS, StepSection, SUMMARY_GROUP_CLASS, SummaryLine } from './formParts'
+import { FIELD_CLASS, NO_SPINNER_CLASS, StepSection, SUMMARY_GROUP_CLASS, SummaryLine } from './formParts'
 import { isPaid } from './accountStatement'
 
 const KINDS = [
@@ -36,9 +36,10 @@ const discountBase = (cuota) => sumItems(cuota, (item) => !item.es_descuento && 
 
 const previousDiscounts = (cuota) => sumItems(cuota, (item) => item.es_descuento)
 
-const lateFees = (cuota) => sumItems(cuota, (item) => !item.es_descuento && item.concepto === LATE_FEE_CONCEPT)
+// What is left to pay without the late fees still unpaid: the most a benefit can take off the cuota
+const remainingWithoutFees = (cuota) => roundCents(Number(cuota?.saldo_sin_recargo ?? 0))
 
-const hasPayments = (cuota) => Boolean(cuota) && (Number(cuota.monto_pagado ?? 0) > 0 || isPaid(cuota))
+const isOpen = (cuota) => !isPaid(cuota) && Number(cuota.saldo_pendiente ?? 0) > 0
 
 const STATUS_BADGES = {
   Paga: { label: 'Paga', className: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
@@ -64,12 +65,12 @@ function CuotaChoice({ cuota, selected, onSelect }) {
         </div>
         <span className="text-sm text-on-surface-variant">
           {cuota.fecha_venc1 ? `Vence el ${formatDate(cuota.fecha_venc1)}` : 'Sin fecha de vencimiento'}
-          {hasPayments(cuota) && ' · Tiene pagos: solo admite beca'}
+          {Number(cuota.monto_pagado ?? 0) > 0 && ` · Pagado ${formatAmount(Number(cuota.monto_pagado))}`}
         </span>
       </div>
       <div className="text-right shrink-0">
-        <span className="block text-xs text-on-surface-variant">Total sin recargo</span>
-        <span className="text-base font-bold text-on-surface">{formatAmount(discountBase(cuota))}</span>
+        <span className="block text-xs text-on-surface-variant">Falta pagar sin recargo</span>
+        <span className="text-base font-bold text-on-surface">{formatAmount(remainingWithoutFees(cuota))}</span>
       </div>
     </label>
   )
@@ -106,12 +107,11 @@ function FieldLabel({ htmlFor, children, optional = false }) {
   )
 }
 
-// Without `socio`, renders the empty layout with `emptyHeader` in place of the socio data,
-// so the modal keeps its shape while the account loads.
+// Without `socio`, renders the empty layout so the modal keeps its shape while the account loads.
 // Without `initialCuotaId`, the first step asks which cuota the benefit is calculated on.
-function BenefitForm({ socio = null, cuenta = null, emptyHeader = null, initialCuotaId = null, onCancel, onSuccess }) {
-  const cuotas = useMemo(
-    () => [...(cuenta?.cuotas ?? [])].sort((a, b) => String(b.periodo).localeCompare(String(a.periodo))),
+function BenefitForm({ socio = null, cuenta = null, initialCuotaId = null, onCancel, onSuccess }) {
+  const openCuotas = useMemo(
+    () => (cuenta?.cuotas ?? []).filter(isOpen).sort((a, b) => String(b.periodo).localeCompare(String(a.periodo))),
     [cuenta],
   )
   const askCuota = !initialCuotaId
@@ -126,28 +126,31 @@ function BenefitForm({ socio = null, cuenta = null, emptyHeader = null, initialC
   const [saving, setSaving] = useState(false)
   const [submitError, setSubmitError] = useState('')
 
-  const cuota = cuotas.find((item) => item.cuota_id === cuotaId) ?? null
-  const locked = hasPayments(cuota)
-  const selectedKind = locked ? 'beca' : (kind ?? 'descuento')
+  const cuota = (cuenta?.cuotas ?? []).find((item) => item.cuota_id === cuotaId) ?? null
+  const paid = Boolean(cuota) && !isOpen(cuota)
+  const selectedKind = paid ? 'beca' : (kind ?? 'descuento')
   const isScholarship = selectedKind === 'beca'
 
   const base = discountBase(cuota)
   const discounts = previousDiscounts(cuota)
-  const fees = lateFees(cuota)
-  const available = Math.max(roundCents(base - discounts), 0)
+  const remaining = remainingWithoutFees(cuota)
+  const pending = roundCents(Number(cuota?.saldo_pendiente ?? 0))
+  const paidWithoutFees = Math.max(roundCents(base - discounts - remaining), 0)
+  const unpaidFees = Math.max(roundCents(pending - remaining), 0)
   const numericValue = Number(value)
   const requestedAmount = Number.isFinite(numericValue) && numericValue > 0
     ? roundCents(mode === 'porcentaje' ? base * numericValue / 100 : numericValue)
     : 0
-  const appliedAmount = Math.min(requestedAmount, available)
-  const appliesToThisCuota = !locked
-  const newTotal = roundCents(Number(cuota?.monto_total ?? 0) - (appliesToThisCuota ? appliedAmount : 0))
+  const appliedAmount = paid ? 0 : Math.min(requestedAmount, remaining)
+  const newPending = roundCents(pending - appliedAmount)
+  const scholarshipCapped = isScholarship && !paid && requestedAmount > remaining
 
   const valueError = (() => {
+    if (!isScholarship && remaining <= 0) return 'La cuota no tiene saldo pendiente para descontar.'
     if (!(numericValue > 0)) return mode === 'porcentaje' ? 'Ingresá un porcentaje.' : 'Ingresá un monto.'
     if (mode === 'porcentaje' && (numericValue < 1 || numericValue > 100)) return 'El porcentaje debe estar entre 1% y 100%.'
-    if (mode === 'fijo' && numericValue >= base) return `El monto debe ser menor al total de la cuota (${formatAmount(base)}).`
-    if (!isScholarship && requestedAmount > available) return `El descuento no puede superar lo que queda por descontar (${formatAmount(available)}).`
+    if (mode === 'fijo' && numericValue > base) return `El monto no puede superar el total de la cuota (${formatAmount(base)}).`
+    if (!isScholarship && requestedAmount > remaining) return `El descuento no puede superar lo que falta pagar (${formatAmount(remaining)}).`
     return ''
   })()
 
@@ -202,28 +205,6 @@ function BenefitForm({ socio = null, cuenta = null, emptyHeader = null, initialC
 
   return (
     <form onSubmit={submit} className="flex flex-col gap-6" noValidate>
-      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 pb-4 border-b border-outline-variant/30">
-        <div className="min-w-0">
-          <p className="text-sm uppercase tracking-wider font-semibold text-primary">Asignar beca o descuento a</p>
-          {socio ? (
-            <>
-              <h2 className="text-xl font-bold text-on-surface truncate">{socio.apellido}, {socio.nombre}</h2>
-              <p className="text-base text-on-surface-variant">
-                DNI {formatDni(socio.dni)} · Socio {formatNumber(socio.numero_socio)}
-                {!askCuota && cuota && ` · Cuota ${formatPeriod(cuota.periodo)}`}
-              </p>
-            </>
-          ) : (
-            <div className="mt-1">{emptyHeader}</div>
-          )}
-        </div>
-        <div className="flex flex-col items-end justify-center px-4 py-3 rounded-lg border border-primary/20 bg-primary/5 text-right">
-          <span className="text-sm uppercase tracking-wider font-semibold text-on-surface-variant whitespace-nowrap">Total de la cuota</span>
-          <span className={`text-2xl font-bold whitespace-nowrap ${cuota ? 'text-primary' : 'text-outline'}`}>{cuota ? formatAmount(base) : '—'}</span>
-          <span className="text-xs text-on-surface-variant whitespace-nowrap">sin recargo por mora</span>
-        </div>
-      </div>
-
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_380px] gap-6 items-start">
         <div className="flex flex-col gap-8 min-w-0">
           {askCuota && (
@@ -234,13 +215,13 @@ function BenefitForm({ socio = null, cuenta = null, emptyHeader = null, initialC
               disabled={!socio}
             >
               <div className="flex flex-col gap-2 max-h-80 overflow-y-auto pr-1">
-                {cuotas.length
-                  ? cuotas.map((item) => (
+                {openCuotas.length
+                  ? openCuotas.map((item) => (
                     <CuotaChoice key={item.cuota_id} cuota={item} selected={item.cuota_id === cuotaId} onSelect={selectCuota} />
                   ))
                   : (
                     <p className="text-base text-on-surface-variant text-center py-6 border border-dashed border-outline-variant/40 rounded-lg">
-                      {socio ? 'El socio no tiene cuotas generadas.' : 'Las cuotas del socio aparecerán aquí.'}
+                      {socio ? 'El socio no tiene cuotas vencidas ni en fecha.' : 'Las cuotas del socio aparecerán aquí.'}
                     </p>
                   )}
               </div>
@@ -251,7 +232,7 @@ function BenefitForm({ socio = null, cuenta = null, emptyHeader = null, initialC
           <StepSection
             step={1 + stepOffset}
             title="Tipo de beneficio"
-            description={noCuota ? 'Primero elegí una cuota.' : locked ? 'La cuota ya tiene pagos, por eso solo admite una beca.' : 'Elegí si es un descuento puntual o una beca con vigencia.'}
+            description={noCuota ? 'Primero elegí una cuota.' : paid ? 'La cuota ya está paga, por eso solo admite una beca para los próximos períodos.' : 'Elegí si es un descuento puntual o una beca con vigencia.'}
             disabled={noCuota}
           >
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -260,7 +241,7 @@ function BenefitForm({ socio = null, cuenta = null, emptyHeader = null, initialC
                   key={option.value}
                   kind={option}
                   selected={!noCuota && selectedKind === option.value}
-                  disabled={option.value === 'descuento' && locked}
+                  disabled={option.value === 'descuento' && paid}
                   onSelect={setKind}
                 />
               ))}
@@ -270,7 +251,7 @@ function BenefitForm({ socio = null, cuenta = null, emptyHeader = null, initialC
           <StepSection
             step={2 + stepOffset}
             title="Monto"
-            description={noCuota ? 'Primero elegí una cuota.' : 'Indicá un monto fijo o un porcentaje del total de la cuota.'}
+            description={noCuota ? 'Primero elegí una cuota.' : isScholarship ? 'Indicá un monto fijo o un porcentaje del total de la cuota.' : `Indicá un monto fijo o un porcentaje del total de la cuota, hasta ${formatAmount(remaining)}.`}
             disabled={noCuota}
           >
             <div className="flex flex-col gap-3 p-4 rounded-lg border border-outline-variant/40 bg-surface-container-lowest">
@@ -301,7 +282,7 @@ function BenefitForm({ socio = null, cuenta = null, emptyHeader = null, initialC
                     placeholder={mode === 'porcentaje' ? '0' : '0.00'}
                     aria-label={mode === 'porcentaje' ? 'Porcentaje del beneficio' : 'Monto del beneficio'}
                     aria-invalid={Boolean(fieldError('value')) || undefined}
-                    className={`${FIELD_CLASS} ${mode === 'fijo' ? 'pl-7 pr-3' : 'pl-3 pr-8'} font-semibold text-right ${fieldError('value') ? 'border-error' : 'border-outline-variant/50'}`}
+                    className={`${FIELD_CLASS} ${NO_SPINNER_CLASS} ${mode === 'fijo' ? 'pl-7 pr-3' : 'pl-3 pr-8'} font-semibold text-right ${fieldError('value') ? 'border-error' : 'border-outline-variant/50'}`}
                   />
                   {mode === 'porcentaje' && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-base text-outline" aria-hidden="true">%</span>}
                 </div>
@@ -375,14 +356,26 @@ function BenefitForm({ socio = null, cuenta = null, emptyHeader = null, initialC
               <h4 className={SUMMARY_GROUP_CLASS}>Cuota {formatPeriod(cuota.periodo)}</h4>
               <SummaryLine label="Total sin recargo" value={formatAmount(base)} />
               {discounts > 0 && <SummaryLine label="Beneficios anteriores" value={`− ${formatAmount(discounts)}`} />}
-              {fees > 0 && <SummaryLine label="Recargo por mora" value={`+ ${formatAmount(fees)}`} />}
-              <SummaryLine label={isScholarship ? 'Beca' : 'Descuento'} value={`− ${formatAmount(appliesToThisCuota ? appliedAmount : 0)}`} />
+              {paidWithoutFees > 0 && <SummaryLine label="Pagado" value={`− ${formatAmount(paidWithoutFees)}`} />}
+              <SummaryLine label={isScholarship ? 'Beca' : 'Descuento'} value={`− ${formatAmount(appliedAmount)}`} />
+              {unpaidFees > 0 && <SummaryLine label="Recargo por mora pendiente" value={`+ ${formatAmount(unpaidFees)}`} />}
               <div className="pt-3 mt-1 border-t border-outline-variant/30">
-                <SummaryLine label="Nuevo total" value={formatAmount(newTotal)} isTotal />
+                <SummaryLine label="Nuevo saldo pendiente" value={formatAmount(newPending)} isTotal />
               </div>
-              {locked && (
+              {!paid && newPending <= 0 && appliedAmount > 0 && (
+                <p className="mt-2 flex items-center gap-2 p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-sm font-semibold text-emerald-700">
+                  <span className="material-symbols-outlined text-[18px]" aria-hidden="true">task_alt</span>
+                  La cuota quedará registrada como paga.
+                </p>
+              )}
+              {scholarshipCapped && (
                 <p className="mt-2 p-3 rounded-lg bg-surface-container-lowest border border-outline-variant/30 text-sm text-on-surface-variant">
-                  Esta cuota ya tiene pagos, así que no cambia. La beca se aplicará a las cuotas de los próximos períodos dentro de su vigencia.
+                  La beca supera lo que falta pagar: en esta cuota se aplicarán {formatAmount(remaining)}. En los próximos períodos se aplicará completa.
+                </p>
+              )}
+              {paid && (
+                <p className="mt-2 p-3 rounded-lg bg-surface-container-lowest border border-outline-variant/30 text-sm text-on-surface-variant">
+                  Esta cuota ya está paga, así que no cambia. La beca se aplicará a las cuotas de los próximos períodos dentro de su vigencia.
                 </p>
               )}
             </div>

@@ -4,6 +4,9 @@ import { useId } from 'react'
 
 export const FIELD_CLASS = 'w-full h-10 bg-surface-container-low rounded-lg border text-base text-on-surface focus:outline-none focus:border-primary'
 
+// Hides the browser's increment arrows on number inputs for money and percentages
+export const NO_SPINNER_CLASS = '[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none'
+
 export const SUMMARY_GROUP_CLASS = 'mb-1 text-sm font-semibold uppercase tracking-wider text-outline'
 
 export function StepSection({ step, title, description, disabled = false, children }) {

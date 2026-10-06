@@ -2,8 +2,9 @@ import { useMemo, useState } from 'react'
 import { formatAmount, formatDate, formatDni, formatNumber } from '../personas/format'
 import { PrimaryButton, SecondaryButton } from '../personas/tabs/parts'
 import { formatPeriod } from '../shared/periodFormat'
+import { BenefitButton } from '../personas/HeaderPersona'
 import ComprobantePago from './ComprobantePago'
-import { FIELD_CLASS, StepSection, SUMMARY_GROUP_CLASS, SummaryLine } from './formParts'
+import { FIELD_CLASS, NO_SPINNER_CLASS, StepSection, SUMMARY_GROUP_CLASS, SummaryLine } from './formParts'
 import { registrarPago } from '../../api/pagos'
 import { getComprobante } from '../../api/comprobantes'
 
@@ -51,7 +52,7 @@ const dueText = (cuota, today) => {
 
 const LINK_BUTTON_CLASS = 'inline-flex items-center gap-1 px-2 py-1 rounded-md text-sm font-semibold text-primary hover:bg-primary/5 transition-colors cursor-pointer'
 
-function CuotaOption({ cuota, today, selected, onToggle, onAssignBenefit }) {
+function CuotaOption({ cuota, today, selected, onToggle }) {
   const total = Number(cuota.monto_total || 0)
   const fee = lateFee(cuota)
   const paid = Number(cuota.monto_pagado || 0)
@@ -65,40 +66,30 @@ function CuotaOption({ cuota, today, selected, onToggle, onAssignBenefit }) {
   ].filter(Boolean)
 
   return (
-    <div className={`flex flex-col sm:flex-row sm:items-center rounded-lg border transition-colors ${selected ? 'border-primary bg-primary/5' : 'border-outline-variant/40 bg-surface-container-lowest hover:bg-surface-container-low'}`}>
-      <label className="flex items-center gap-3 p-3 sm:p-4 flex-1 min-w-0 cursor-pointer">
-        <input
-          type="checkbox"
-          checked={selected}
-          onChange={(event) => onToggle(cuota.cuota_id, event.target.checked)}
-          className="h-4 w-4 accent-primary shrink-0"
-        />
-        <div className="flex flex-col min-w-0 flex-1">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-base font-semibold text-on-surface">Cuota {formatPeriod(cuota.periodo)}</span>
-            {overdue && (
-              <span className="px-2 py-0.5 rounded text-xs font-bold bg-error-container text-on-error-container">Vencida</span>
-            )}
-          </div>
-          <span className={`text-sm ${overdue ? 'text-error' : 'text-on-surface-variant'}`}>{dueText(cuota, today)}</span>
-          {breakdown.length > 1 && (
-            <span className="text-xs text-on-surface-variant mt-0.5">{breakdown.join(' · ')}</span>
+    <label className={`flex items-center gap-3 p-3 sm:p-4 rounded-lg border cursor-pointer transition-colors ${selected ? 'border-primary bg-primary/5' : 'border-outline-variant/40 bg-surface-container-lowest hover:bg-surface-container-low'}`}>
+      <input
+        type="checkbox"
+        checked={selected}
+        onChange={(event) => onToggle(cuota.cuota_id, event.target.checked)}
+        className="h-4 w-4 accent-primary shrink-0"
+      />
+      <div className="flex flex-col min-w-0 flex-1">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-base font-semibold text-on-surface">Cuota {formatPeriod(cuota.periodo)}</span>
+          {overdue && (
+            <span className="px-2 py-0.5 rounded text-xs font-bold bg-error-container text-on-error-container">Vencida</span>
           )}
         </div>
-        <div className="text-right shrink-0">
-          <span className="block text-xs text-on-surface-variant">Saldo</span>
-          <span className="text-base font-bold text-on-surface">{formatAmount(pending)}</span>
-        </div>
-      </label>
-      {onAssignBenefit && (
-        <div className="px-3 pb-3 sm:pb-0 sm:pl-0 sm:pr-4 shrink-0">
-          <button type="button" onClick={() => onAssignBenefit(cuota)} className={LINK_BUTTON_CLASS}>
-            <span className="material-symbols-outlined text-[18px]" aria-hidden="true">redeem</span>
-            Beca o descuento
-          </button>
-        </div>
-      )}
-    </div>
+        <span className={`text-sm ${overdue ? 'text-error' : 'text-on-surface-variant'}`}>{dueText(cuota, today)}</span>
+        {breakdown.length > 1 && (
+          <span className="text-xs text-on-surface-variant mt-0.5">{breakdown.join(' · ')}</span>
+        )}
+      </div>
+      <div className="text-right shrink-0">
+        <span className="block text-xs text-on-surface-variant">Saldo</span>
+        <span className="text-base font-bold text-on-surface">{formatAmount(pending)}</span>
+      </div>
+    </label>
   )
 }
 
@@ -142,7 +133,7 @@ function PaymentRow({ row, index, takenMethods, missingAmount, canRemove, showEr
             placeholder="0.00"
             aria-label={`Monto del medio de pago ${index + 1}`}
             aria-invalid={amountError || undefined}
-            className={`${FIELD_CLASS} pl-7 pr-3 font-semibold text-right ${amountError ? 'border-error' : 'border-outline-variant/50'}`}
+            className={`${FIELD_CLASS} ${NO_SPINNER_CLASS} pl-7 pr-3 font-semibold text-right ${amountError ? 'border-error' : 'border-outline-variant/50'}`}
           />
         </div>
 
@@ -291,10 +282,7 @@ function PagoForm({ socio = null, cuenta = null, emptyHeader = null, initialCuot
             <div className="mt-1">{emptyHeader}</div>
           )}
         </div>
-        <div className="flex flex-col items-end justify-center px-4 py-3 rounded-lg border border-error/20 bg-error-container/30 text-right">
-          <span className="text-sm uppercase tracking-wider font-semibold text-on-surface-variant whitespace-nowrap">Deuda total</span>
-          <span className={`text-2xl font-bold whitespace-nowrap ${cuenta ? 'text-error' : 'text-outline'}`}>{cuenta ? formatAmount(cuenta.total_adeudado) : '—'}</span>
-        </div>
+        <BenefitButton onClick={onAssignBenefit} disabled={!socio || !onAssignBenefit} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_380px] gap-6 items-start">
@@ -314,7 +302,6 @@ function PagoForm({ socio = null, cuenta = null, emptyHeader = null, initialCuot
                     today={today}
                     selected={selectedIds.includes(cuota.cuota_id)}
                     onToggle={toggleCuota}
-                    onAssignBenefit={onAssignBenefit}
                   />
                 ))
                 : (

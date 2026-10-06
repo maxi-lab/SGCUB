@@ -41,9 +41,8 @@ function RegisterPaymentModal({ opened, initialSocioId = null, initialCuotaIds, 
     .then((cuenta) => setLoad((current) => (current.socioId === loadedSocioId ? { ...current, cuenta } : current)))
     .catch(() => {})
 
-  const assignBenefit = (cuota) => openBenefit({
+  const assignBenefit = () => openBenefit({
     socioId: load.socioId,
-    cuotaId: cuota.cuota_id,
     onSuccess: () => {
       reloadAccount(load.socioId)
       onSuccess?.()
@@ -73,9 +72,9 @@ function RegisterPaymentModal({ opened, initialSocioId = null, initialCuotaIds, 
           type="button"
           onClick={() => setSocioId(null)}
           disabled={!socioId}
-          className="inline-flex items-center gap-1 px-2 py-1 -ml-2 rounded-md text-sm font-semibold text-primary hover:bg-primary/5 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-default disabled:hover:bg-transparent"
+          className="inline-flex items-center gap-1 ml-2 rounded-md text-sm font-semibold text-primary hover:bg-primary/5 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-default disabled:hover:bg-transparent"
         >
-          <span className="material-symbols-outlined text-[18px]" aria-hidden="true">arrow_back</span>
+          <span className="material-symbols-outlined text-[18px] -ml-1" aria-hidden="true">arrow_back</span>
           Elegir otro socio
         </button>
       )}

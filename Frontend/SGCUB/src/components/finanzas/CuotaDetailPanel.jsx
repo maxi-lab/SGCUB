@@ -116,7 +116,7 @@ function CuotaDetailPanel({ cuota, colSpan, onPay, onAssignBenefit }) {
                 Pagar · {formatAmount(Number(cuota.saldo_pendiente ?? 0))}
               </PrimaryButton>
             )}
-            {onAssignBenefit && (
+            {onAssignBenefit && !isPaid(cuota) && (
               <SecondaryButton icon="redeem" onClick={() => onAssignBenefit(cuota)}>Asignar beca o descuento</SecondaryButton>
             )}
           </div>

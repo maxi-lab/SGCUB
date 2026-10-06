@@ -790,7 +790,7 @@ class BeneficioCuotaTests(APITestCase):
 
 	def test_validaciones_del_formulario(self):
 		casos = [
-			({"valor": "2500.00"}, None),
+			({"valor": "2500.01"}, None),
 			({"modalidad": "Porcentaje", "valor": "0.50"}, "valor"),
 			({"modalidad": "Porcentaje", "valor": "101"}, "valor"),
 			({"motivo": ""}, "motivo"),
@@ -840,19 +840,89 @@ class BeneficioCuotaTests(APITestCase):
 		self.assertTrue(Beca.objects.exists())
 		self.assertEqual(self.cargo(), Decimal("2500.00"))
 
-	def test_cuota_con_pagos_admite_beca_pero_no_descuento(self):
-		self.client.post(
+	def pay(self, amount):
+		response = self.client.post(
 			reverse("registrar-pago"),
 			{
 				"socio_id": self.socio.pk,
 				"cuota_ids": [self.cuota.pk],
-				"monto_total": "100.00",
-				"medios": [{"medio_de_pago": "Efectivo", "monto": "100.00"}],
+				"monto_total": amount,
+				"medios": [{"medio_de_pago": "Efectivo", "monto": amount}],
 			},
 			format="json",
 		)
+		self.assertEqual(response.status_code, 201, response.data)
 
-		descuento = self.asignar()
+	def add_late_fee(self, amount):
+		ItemCuota.objects.create(cuota=self.cuota, concepto="Mora", fecha_aplicacion=date(2026, 10, 11), monto=Decimal(amount))
+		sync_cuota_charge(self.cuota)
+
+	def state(self):
+		self.cuota.refresh_from_db()
+		return self.cuota.estado_cuota
+
+	def pending_without_fees(self):
+		response = self.client.get(reverse("estado-cuenta-socio", args=[self.socio.pk]))
+		return Decimal(str(response.data["cuotas"][0]["saldo_sin_recargo"]))
+
+	def test_partially_paid_cuota_accepts_a_discount(self):
+		self.pay("100.00")
+
+		response = self.asignar(valor="500.00")
+
+		self.assertEqual(response.status_code, 201, response.data)
+		self.assertEqual(self.cargo(), Decimal("2000.00"))
+		self.assertEqual(self.pending_without_fees(), Decimal("1900.00"))
+		self.assertNotEqual(self.state(), EstadoCuotaChoices.PAGA)
+
+	def test_discount_can_cover_the_whole_remaining_amount(self):
+		self.pay("1000.00")
+
+		too_much = self.asignar(valor="1500.01")
+		exact = self.asignar(valor="1500.00")
+
+		self.assertEqual(too_much.status_code, 400)
+		self.assertEqual(exact.status_code, 201, exact.data)
+		self.assertEqual(self.state(), EstadoCuotaChoices.PAGA)
+		self.assertEqual(self.pending_without_fees(), Decimal("0.00"))
+
+	def test_scholarship_larger_than_the_remaining_amount_covers_only_what_is_left(self):
+		self.pay("2000.00")
+
+		response = self.asignar(tipo="Beca", modalidad="Porcentaje", valor="100", fecha_fin="2026-12-31")
+
+		self.assertEqual(response.status_code, 201, response.data)
+		self.assertTrue(response.data["aplicado_a_cuota"])
+		self.assertEqual(Decimal(response.data["item"]["monto"]), Decimal("500.00"))
+		self.assertEqual(Beca.objects.get().porcentaje, Decimal("100.00"))
+		self.assertEqual(self.state(), EstadoCuotaChoices.PAGA)
+
+	def test_unpaid_late_fees_are_left_out_of_the_discountable_amount(self):
+		self.add_late_fee("300.00")
+
+		too_much = self.asignar(valor="2500.01")
+		response = self.asignar(valor="2500.00")
+
+		self.assertEqual(too_much.status_code, 400)
+		self.assertEqual(response.status_code, 201, response.data)
+		self.assertEqual(self.pending_without_fees(), Decimal("0.00"))
+		self.assertNotEqual(self.state(), EstadoCuotaChoices.PAGA)
+		self.assertEqual(self.cargo(), Decimal("300.00"))
+
+	def test_late_fees_already_paid_do_not_reduce_the_discountable_amount(self):
+		self.add_late_fee("300.00")
+		self.pay("1000.00")
+
+		self.assertEqual(self.pending_without_fees(), Decimal("1800.00"))
+		response = self.asignar(valor="1800.00")
+
+		self.assertEqual(response.status_code, 201, response.data)
+		self.assertEqual(self.state(), EstadoCuotaChoices.PAGA)
+
+	def test_paid_cuota_only_accepts_a_scholarship_for_next_periods(self):
+		self.pay("2500.00")
+
+		descuento = self.asignar(valor="100.00")
 		beca = self.asignar(tipo="Beca", fecha_fin="2026-12-31")
 
 		self.assertEqual(descuento.status_code, 400)
