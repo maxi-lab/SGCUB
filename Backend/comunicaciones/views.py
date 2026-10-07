@@ -1,3 +1,5 @@
+import logging
+
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import OpenApiExample, extend_schema
@@ -9,7 +11,8 @@ from rest_framework.exceptions import ValidationError
 from .models import CanalNotificacion, EnvioNotificacion, EstadoNotificacion, Notificacion
 from .serializers import EnvioNotificacionSerializer, NotificacionSerializer
 
-
+logger = logging.getLogger(__name__)
+    
 @extend_schema(
     tags=["Comunicaciones / Opciones"],
     summary="Listar opciones de comunicación",
@@ -232,7 +235,7 @@ def envio_notificacion_list_create(request):
                     destinatario=destinatario,
                     asunto=notificacion.asunto or notificacion.titulo,
                     contenido=notificacion.contenido,
-                    envio_id=envio.id,
+                    envio_id=envio.id
                 )
             else:
                 envio.estado = EstadoNotificacion.FALLIDA

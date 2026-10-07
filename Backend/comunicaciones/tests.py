@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 from django.test import TestCase
 
 from padron.models import Persona
@@ -55,3 +57,35 @@ class EnvioNotificacionSerializerTest(TestCase):
         self.assertTrue(serializer.is_valid(), serializer.errors)
         envio = serializer.save()
         self.assertEqual(envio.persona, self.persona)
+
+
+class DespacharEnviosEmailNotificacionTest(TestCase):
+    def test_pasa_el_nombre_y_apellido_al_enviar_email(self):
+        persona = Persona.objects.create(
+            nombre="Ana",
+            apellido="Pérez",
+            dni="87654321",
+            email="ana@example.com",
+        )
+        notificacion = Notificacion.objects.create(
+            titulo="Aviso",
+            contenido="Contenido",
+        )
+        envio = EnvioNotificacion.objects.create(
+            notificacion=notificacion,
+            persona=persona,
+            canal=CanalNotificacion.MAIL,
+        )
+
+        with patch("comunicaciones.services.enviar_email_individual", return_value=True) as enviar:
+            from .services import despachar_envios_email_notificacion
+
+            despachar_envios_email_notificacion(notificacion.pk)
+
+        enviar.assert_called_once_with(
+            destinatario="ana@example.com",
+            asunto="Aviso",
+            contenido="Contenido",
+            nombreApellido="Ana Pérez",
+            envio_id=envio.pk,
+        )

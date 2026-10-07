@@ -93,7 +93,7 @@ HTML_EMAIL_TEMPLATE = """<!DOCTYPE html>
       <div class="message-body">{{ contenido }}</div>
     </div>
     <div class="footer">
-      <p>Este es un comunicado institucional automático generado por el Sistema de Gestion Club Universitario Bereiso.</p>
+      <p>Este es un comunicado institucional automático generado por el Sistema de Gestion Club Universitario Beriso.</p>
       <p>Por favor, no responda directamente a este correo.</p>
     </div>
   </div>
@@ -102,7 +102,7 @@ HTML_EMAIL_TEMPLATE = """<!DOCTYPE html>
 """
 
 
-def enviar_email_individual(destinatario: str, asunto: str, contenido: str, envio_id: int = None) -> bool:
+def enviar_email_individual(destinatario: str, asunto: str, contenido: str, envio_id: int = None  ) -> bool:
     """
     Envía un correo electrónico institucional a través del servicio Brevo SMTP.
     Actualiza el estado y detalle_fallo del EnvioNotificacion si se proporciona su ID.
@@ -115,8 +115,7 @@ def enviar_email_individual(destinatario: str, asunto: str, contenido: str, envi
         template = Template(HTML_EMAIL_TEMPLATE)
         context = Context({
             "asunto": asunto,
-            "contenido":"¡Hola! \n" + contenido + "\nSaludos,\nClub Social y Deportivo - SGCUB",
-            
+            "contenido":"¡Hola! \n" + contenido + "\nSaludos,\nClub Social y Deportivo - SGCUB"
         })
         html_content = template.render(context)
         text_content = f"{asunto}\n\n{contenido}\n\n---\nClub Social y Deportivo - SGCUB"
