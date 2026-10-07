@@ -27,8 +27,8 @@ class Notificacion(models.Model):
 
 
 class EnvioNotificacion(models.Model):
+    persona=models.ForeignKey('padron.persona', related_name='personas', on_delete=models.CASCADE)
     notificacion = models.ForeignKey(Notificacion, related_name='envios', on_delete=models.CASCADE)
-    destinatario_contacto = models.CharField(max_length=150)
     canal = models.CharField(
         max_length=20,
         choices=CanalNotificacion.choices,

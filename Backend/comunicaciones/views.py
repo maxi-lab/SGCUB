@@ -1,8 +1,10 @@
+from django.db import transaction
 from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import OpenApiExample, extend_schema
 from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
+from rest_framework.exceptions import ValidationError
 
 from .models import CanalNotificacion, EnvioNotificacion, EstadoNotificacion, Notificacion
 from .serializers import EnvioNotificacionSerializer, NotificacionSerializer
@@ -76,32 +78,37 @@ def opciones_comunicacion(request):
 @api_view(["GET", "POST"])
 def notificacion_list_create(request):
     if request.method == "GET":
-        notificaciones = Notificacion.objects.prefetch_related("envios").all().order_by("-fecha_creacion")
+        notificaciones = Notificacion.objects.prefetch_related(
+            "envios__persona"
+        ).all().order_by("-fecha_creacion")
         serializer = NotificacionSerializer(notificaciones, many=True)
         return Response(serializer.data)
 
     serializer = NotificacionSerializer(data=request.data)
     if serializer.is_valid():
-        notificacion = serializer.save()
-
-        # Si el payload incluye envíos individuales o masivos, persistirlos en EnvioNotificacion
         envios_data = request.data.get("envios", [])
-        if isinstance(envios_data, list) and envios_data:
-            envios_to_create = []
-            for item in envios_data:
-                contacto = item.get("destinatario_contacto")
-                canal = item.get("canal", CanalNotificacion.WHATSAPP)
-                if contacto:
-                    envios_to_create.append(
-                        EnvioNotificacion(
-                            notificacion=notificacion,
-                            destinatario_contacto=contacto,
-                            canal=canal,
-                            estado=item.get("estado", EstadoNotificacion.ENVIADA),
+        if not isinstance(envios_data, list):
+            return Response(
+                {"envios": ["Se esperaba una lista de envíos."]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            with transaction.atomic():
+                notificacion = serializer.save()
+                for index, item in enumerate(envios_data):
+                    if not isinstance(item, dict):
+                        raise ValidationError(
+                            {"envios": {index: ["Cada envío debe ser un objeto."]}}
                         )
+                    envio_serializer = EnvioNotificacionSerializer(
+                        data={**item, "notificacion": notificacion.pk}
                     )
-            if envios_to_create:
-                EnvioNotificacion.objects.bulk_create(envios_to_create)
+                    if not envio_serializer.is_valid():
+                        raise ValidationError({"envios": {index: envio_serializer.errors}})
+                    envio_serializer.save()
+        except ValidationError as exc:
+            return Response(exc.detail, status=status.HTTP_400_BAD_REQUEST)
 
         # Despachar correos vía Brevo SMTP
         try:
@@ -154,7 +161,9 @@ def notificacion_list_create(request):
 )
 @api_view(["GET", "PUT", "PATCH", "DELETE"])
 def notificacion_detail(request, pk):
-    notificacion = get_object_or_404(Notificacion.objects.prefetch_related("envios"), pk=pk)
+    notificacion = get_object_or_404(
+        Notificacion.objects.prefetch_related("envios__persona"), pk=pk
+    )
 
     if request.method == "GET":
         serializer = NotificacionSerializer(notificacion)
@@ -192,7 +201,7 @@ def notificacion_detail(request, pk):
             "Envio de notificación",
             value={
                 "notificacion": 1,
-                "destinatario_contacto": "+5491123456789",
+        "persona": 1,
                 "canal": "WHATSAPP",
                 "estado": "ENVIADA",
                 "detalle_fallo": "",
@@ -204,25 +213,34 @@ def notificacion_detail(request, pk):
 @api_view(["GET", "POST"])
 def envio_notificacion_list_create(request):
     if request.method == "GET":
-        envios = EnvioNotificacion.objects.select_related("notificacion").all().order_by("-fecha_envio")
+        envios = EnvioNotificacion.objects.select_related(
+            "notificacion", "persona"
+        ).all().order_by("-fecha_envio")
         serializer = EnvioNotificacionSerializer(envios, many=True)
         return Response(serializer.data)
 
     serializer = EnvioNotificacionSerializer(data=request.data)
     if serializer.is_valid():
         envio = serializer.save()
-        if envio.canal == CanalNotificacion.MAIL and "@" in envio.destinatario_contacto:
-            try:
-                from .services import enviar_email_individual
-                notif = envio.notificacion
+        if envio.canal == CanalNotificacion.MAIL:
+            from .services import enviar_email_individual
+
+            notificacion = envio.notificacion
+            destinatario = (envio.persona.email or "").strip()
+            if "@" in destinatario:
                 enviar_email_individual(
-                    destinatario=envio.destinatario_contacto,
-                    asunto=notif.asunto or notif.titulo,
-                    contenido=notif.contenido,
+                    destinatario=destinatario,
+                    asunto=notificacion.asunto or notificacion.titulo,
+                    contenido=notificacion.contenido,
                     envio_id=envio.id,
                 )
-            except Exception:
-                pass
+            else:
+                envio.estado = EstadoNotificacion.FALLIDA
+                envio.detalle_fallo = (
+                    "La persona no tiene una dirección de correo electrónico válida"
+                )
+                envio.save(update_fields=["estado", "detalle_fallo"])
+            envio.refresh_from_db()
         return Response(EnvioNotificacionSerializer(envio).data, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -248,7 +266,7 @@ def envio_notificacion_list_create(request):
             "Actualizar envio",
             value={
                 "notificacion": 1,
-                "destinatario_contacto": "+5491198765432",
+                "persona": 1,
                 "canal": "MAIL",
                 "estado": "ENVIADA",
                 "detalle_fallo": "",
@@ -276,7 +294,9 @@ def envio_notificacion_list_create(request):
 )
 @api_view(["GET", "PUT", "PATCH", "DELETE"])
 def envio_notificacion_detail(request, pk):
-    envio = get_object_or_404(EnvioNotificacion, pk=pk)
+    envio = get_object_or_404(
+        EnvioNotificacion.objects.select_related("notificacion", "persona"), pk=pk
+    )
 
     if request.method == "GET":
         serializer = EnvioNotificacionSerializer(envio)

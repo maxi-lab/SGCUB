@@ -1,21 +1,29 @@
 from rest_framework import serializers
 
-from .models import EnvioNotificacion, Notificacion
+from .models import CanalNotificacion, EnvioNotificacion, Notificacion
 
 
 class EnvioNotificacionSerializer(serializers.ModelSerializer):
+    destinatario_contacto = serializers.SerializerMethodField()
+
+    def get_destinatario_contacto(self, envio):
+        if envio.canal == CanalNotificacion.MAIL:
+            return envio.persona.email or ""
+        return envio.persona.telefono
+
     class Meta:
         model = EnvioNotificacion
         fields = [
             "id",
             "notificacion",
+            "persona",
             "destinatario_contacto",
             "canal",
             "estado",
             "detalle_fallo",
             "fecha_envio",
         ]
-        read_only_fields = ["id", "fecha_envio"]
+        read_only_fields = ["id", "destinatario_contacto", "fecha_envio"]
 
 
 class NotificacionSerializer(serializers.ModelSerializer):
