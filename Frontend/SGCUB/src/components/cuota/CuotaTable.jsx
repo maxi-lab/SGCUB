@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import DataTable from '../shared/DataTable'
 import FilterSelect from '../shared/FilterSelect'
 import SortableHeader from '../shared/SortableHeader'
 import TableMessageRow from '../shared/TableMessageRow'
 import TablePagination from '../shared/TablePagination'
 import TableSearchInput from '../shared/TableSearchInput'
+import CuotaDetailPanel from '../finanzas/CuotaDetailPanel'
 import { formatPeriod, periodOptions } from '../shared/periodFormat'
 import useOrdenTabla from '../../hooks/useOrdenTabla'
 import usePagination from '../../hooks/usePagination'
@@ -26,8 +27,8 @@ const STATUS_ORDER = { Vencida: 0, EnFecha: 1, Paga: 2 }
 
 const FILTER_CLASS = 'bg-surface-container-low border border-outline-variant/40 rounded text-on-surface font-body-sm text-sm font-medium focus:outline-none focus:border-primary cursor-pointer'
 const HEADER_CLASS = 'py-3 px-4'
-const COLUMN_COUNT = 7
-import { formatAmount, formatDate } from '../personas/format'
+const COLUMN_COUNT = 8
+import { formatDate } from '../personas/format'
 
 const ALL = 'todos'
 
@@ -58,8 +59,14 @@ const SORT_VALUES = {
 // On load: most recent periods first.
 const INITIAL_SORT = { columna: 'period', direccion: 'desc' }
 
-function CuotaTable({ data = [], isLoading = false, error = null, onAdd, onEdit, onDelete }) {
+// Remounts the panel (and reloads its receipts) when a payment or benefit changes the cuota
+const panelKey = (cuota) => `${cuota.cuota_id}-${cuota.monto_total}-${cuota.saldo_pendiente}`
+
+const stopRowToggle = (event) => event.stopPropagation()
+
+function CuotaTable({ data = [], isLoading = false, error = null, onAdd, onEdit, onDelete, onPay, onAssignBenefit }) {
   const [search, setSearch] = useState('')
+  const [expandedId, setExpandedId] = useState(null)
   const [status, setStatus] = useState(ALL)
   const [period, setPeriod] = useState(ALL)
 
@@ -86,6 +93,16 @@ function CuotaTable({ data = [], isLoading = false, error = null, onAdd, onEdit,
   const { ordenadas: sorted, orden: sort, ordenarPor: sortBy } = useOrdenTabla(filtered, SORT_VALUES, INITIAL_SORT)
   const { visibleRows, start, withPageReset, paginationProps } = usePagination(sorted)
   const sortAndReset = withPageReset(sortBy)
+
+  const toggle = (cuotaId) => setExpandedId((current) => (current === cuotaId ? null : cuotaId))
+
+  const handleKeyDown = (event, cuotaId) => {
+    if (event.target !== event.currentTarget) return
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault()
+      toggle(cuotaId)
+    }
+  }
 
   return (
     <div className="min-w-0 bg-surface-container-lowest border border-outline-variant/30 rounded-lg shadow-sm">
@@ -120,11 +137,7 @@ function CuotaTable({ data = [], isLoading = false, error = null, onAdd, onEdit,
         </div>
 
         <div className="flex items-center justify-between sm:justify-end gap-3 xl:shrink-0">
-          <span className="text-base text-on-surface-variant whitespace-nowrap">
-            {sorted.length === 0
-              ? 'Sin resultados'
-              : `Mostrando ${start + 1}-${start + visibleRows.length} de ${sorted.length.toLocaleString('es-AR')} cuotas`}
-          </span>
+          
           <button
             type="button"
             onClick={onAdd}
@@ -141,6 +154,7 @@ function CuotaTable({ data = [], isLoading = false, error = null, onAdd, onEdit,
         bodyClassName="text-lg"
         headers={(
           <>
+            <th className="py-3 pl-4 pr-0 w-10" scope="col"><span className="sr-only">Detalle</span></th>
             <SortableHeader className={HEADER_CLASS} etiqueta="Período" columna="period" orden={sort} onOrdenar={sortAndReset} />
             <SortableHeader className={HEADER_CLASS} etiqueta="Socio" columna="socio" orden={sort} onOrdenar={sortAndReset} />
             <SortableHeader className={HEADER_CLASS} etiqueta="Venc. 1" columna="firstDue" orden={sort} onOrdenar={sortAndReset} />
@@ -161,42 +175,65 @@ function CuotaTable({ data = [], isLoading = false, error = null, onAdd, onEdit,
           emptyText="No hay cuotas que coincidan con el filtro."
         />
 
-        {!isLoading && visibleRows.map((cuota) => (
-          <tr key={cuota.cuota_id} className="hover:bg-surface-container-low/80 transition-colors">
-            <td className="py-3 px-4 font-medium">{cuota.periodo}</td>
-            <td className="py-3 px-4 text-on-surface-variant">{socioName(cuota)}</td>
-            <td className="py-3 px-4 text-on-surface-variant">{formatDate(cuota.fecha_venc1)}</td>
-            <td className="py-3 px-4 text-on-surface-variant">{formatDate(cuota.fecha_venc2)}</td>
-            <td className="py-3 px-4 text-right font-semibold">{cuotaAmount(cuota).toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}</td>
-            <td className="py-3 px-4">
-              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-semibold border ${STATUS_BADGE_CLASSES[cuota.estado_cuota] ?? DEFAULT_STATUS_BADGE_CLASS}`}>
-                {STATUS_LABELS[cuota.estado_cuota] ?? cuota.estado_cuota ?? '—'}
-              </span>
-            </td>
-            <td className="py-3 px-4 text-right">
-              <div className="flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  title="Editar cuota"
-                  aria-label={`Editar cuota ${cuota.periodo}`}
-                  onClick={() => onEdit?.(cuota)}
-                  className="w-8 h-8 flex items-center justify-center rounded border border-outline-variant/30 text-on-surface-variant hover:bg-surface-container-low transition-colors cursor-pointer"
-                >
-                  <span className="material-symbols-outlined text-[18px]" aria-hidden="true">edit</span>
-                </button>
-                <button
-                  type="button"
-                  title="Eliminar cuota"
-                  aria-label={`Eliminar cuota ${cuota.periodo}`}
-                  onClick={() => onDelete?.(cuota)}
-                  className="w-8 h-8 flex items-center justify-center rounded border border-red-200 text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
-                >
-                  <span className="material-symbols-outlined text-[18px]" aria-hidden="true">delete</span>
-                </button>
-              </div>
-            </td>
-          </tr>
-        ))}
+        {!isLoading && visibleRows.map((cuota) => {
+          const expanded = expandedId === cuota.cuota_id
+          return (
+            <Fragment key={cuota.cuota_id}>
+              <tr
+                tabIndex={0}
+                aria-expanded={expanded}
+                onClick={() => toggle(cuota.cuota_id)}
+                onKeyDown={(event) => handleKeyDown(event, cuota.cuota_id)}
+                className={`cursor-pointer transition-colors ${expanded ? 'bg-primary/5' : 'hover:bg-surface-container-low/80'}`}
+              >
+                <td className="py-3 pl-4 pr-0 text-outline">
+                  <span className={`material-symbols-outlined text-[22px] transition-transform ${expanded ? 'rotate-180 text-primary' : ''}`} aria-hidden="true">expand_more</span>
+                </td>
+                <td className="py-3 px-4 font-medium">{cuota.periodo}</td>
+                <td className="py-3 px-4 text-on-surface-variant">{socioName(cuota)}</td>
+                <td className="py-3 px-4 text-on-surface-variant">{formatDate(cuota.fecha_venc1)}</td>
+                <td className="py-3 px-4 text-on-surface-variant">{formatDate(cuota.fecha_venc2)}</td>
+                <td className="py-3 px-4 text-right font-semibold">{cuotaAmount(cuota).toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}</td>
+                <td className="py-3 px-4">
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-semibold border ${STATUS_BADGE_CLASSES[cuota.estado_cuota] ?? DEFAULT_STATUS_BADGE_CLASS}`}>
+                    {STATUS_LABELS[cuota.estado_cuota] ?? cuota.estado_cuota ?? '—'}
+                  </span>
+                </td>
+                <td className="py-3 px-4 text-right">
+                  <div className="flex items-center justify-end gap-2" onClick={stopRowToggle} onKeyDown={stopRowToggle}>
+                    <button
+                      type="button"
+                      title="Editar cuota"
+                      aria-label={`Editar cuota ${cuota.periodo}`}
+                      onClick={() => onEdit?.(cuota)}
+                      className="w-8 h-8 flex items-center justify-center rounded border border-outline-variant/30 text-on-surface-variant hover:bg-surface-container-low transition-colors cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-[18px]" aria-hidden="true">edit</span>
+                    </button>
+                    <button
+                      type="button"
+                      title="Eliminar cuota"
+                      aria-label={`Eliminar cuota ${cuota.periodo}`}
+                      onClick={() => onDelete?.(cuota)}
+                      className="w-8 h-8 flex items-center justify-center rounded border border-red-200 text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-[18px]" aria-hidden="true">delete</span>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              {expanded && (
+                <CuotaDetailPanel
+                  key={panelKey(cuota)}
+                  cuota={cuota}
+                  colSpan={COLUMN_COUNT}
+                  onPay={cuota.socio ? onPay : undefined}
+                  onAssignBenefit={cuota.socio ? onAssignBenefit : undefined}
+                />
+              )}
+            </Fragment>
+          )
+        })}
       </DataTable>
 
       <TablePagination id="cuotas-rows-per-page" {...paginationProps} />

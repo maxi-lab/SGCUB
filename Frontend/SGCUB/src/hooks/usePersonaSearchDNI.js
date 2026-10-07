@@ -6,9 +6,12 @@ const DEMORA_BUSQUEDA_MS = 300
 
 const CAMPOS_EDITABLES_SOCIO = ['telefono', 'email']
 
+// Contact data and the whole address can be updated even when the person is already a socio
+const isEditableField = (campo) => CAMPOS_EDITABLES_SOCIO.includes(campo) || campo.startsWith('domicilio_')
+
 export const campoBloqueadoPorSocio = (datosSocio, campo) => Boolean(datosSocio)
   && campo in datosSocio
-  && !CAMPOS_EDITABLES_SOCIO.includes(campo)
+  && !isEditableField(campo)
   && String(datosSocio[campo] ?? '').trim() !== ''
 
 function usePersonaSearchDNI({ habilitada }) {

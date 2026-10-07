@@ -19,6 +19,23 @@ def receipt_filename(receipt):
     return f"comprobante-{receipt_detail(receipt)['tipo']}-{receipt.numero:08d}.pdf"
 
 
+def render_period_label(period_str):
+    try:
+        y, m = period_str.split("-")
+        months = ["", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
+        return f"{months[int(m)]} de {y}"
+    except Exception:
+        return period_str
+
+def build_periodos_rows(periodos):
+    rows = []
+    for p in periodos:
+        rows.append([Paragraph(f"<b>{render_period_label(p['periodo'])}</b>"), format_amount(p["monto_aplicado"])])
+        for line in p.get("detalle", []):
+            rows.append([f"      • {line['concepto_nombre']}", format_amount(line["monto"])])
+    return rows
+
+
 def render_receipt_pdf(receipt):
     detail = receipt_detail(receipt)
     styles = getSampleStyleSheet()
@@ -68,14 +85,8 @@ def render_receipt_pdf(receipt):
         ),
         Paragraph("Períodos abonados", section),
         table(
-            [["Período", "Monto aplicado"]]
-            + [[period["periodo"], format_amount(period["monto_aplicado"])] for period in detail["periodos"]],
-            [width * 0.6, width * 0.4],
-        ),
-        Paragraph("Desglose", section),
-        table(
-            [["Concepto", "Importe"]]
-            + [[line["concepto_nombre"], format_amount(line["monto"])] for line in detail["desglose"]]
+            [["Período / Concepto", "Importe"]]
+            + build_periodos_rows(detail["periodos"])
             + [["Total abonado", format_amount(detail["monto_total"])]],
             [width * 0.6, width * 0.4],
             total_row=True,

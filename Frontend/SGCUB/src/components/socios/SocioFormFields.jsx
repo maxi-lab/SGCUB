@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import { claseInput } from './socioForm'
+import useBarrios from '../../hooks/useBarrios'
 
 export function Campo({ id, label, requerido = false, opcional = false, hint, extra, error, children, className = '' }) {
   return (
@@ -122,7 +124,119 @@ export function SeccionDatosPersonales({ campoDni, bindInput, errores, generos, 
   )
 }
 
-export function SeccionDomicilio({ bindInput, errores, localidades }) {
+const OPCION_NUEVA = '__nueva__'
+
+function SelectConAlta({ id, label, labelNuevo, requerido = false, opcional = false, error, bind, opciones, opcionVacia, textoAgregar, placeholderNuevo, onCrear, disabled = false }) {
+  const [agregando, setAgregando] = useState(false)
+  const [nombreNuevo, setNombreNuevo] = useState('')
+  const [guardando, setGuardando] = useState(false)
+  const [errorNuevo, setErrorNuevo] = useState('')
+  const seleccionar = (valor) => bind.onChange({ target: { value: valor } })
+
+  const cancelar = () => {
+    setAgregando(false)
+    setNombreNuevo('')
+    setErrorNuevo('')
+  }
+
+  const cambiarSeleccion = (event) => {
+    if (event.target.value === OPCION_NUEVA) {
+      setAgregando(true)
+      return
+    }
+    bind.onChange(event)
+  }
+
+  const agregar = async () => {
+    const nombre = nombreNuevo.trim()
+    if (!nombre) {
+      setErrorNuevo('Ingrese un nombre.')
+      return
+    }
+    setGuardando(true)
+    try {
+      seleccionar(await onCrear(nombre))
+      cancelar()
+    } catch {
+      setErrorNuevo('No se pudo agregar.')
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  const manejarTeclas = (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault()
+      agregar()
+    }
+    if (event.key === 'Escape') cancelar()
+  }
+
+  if (agregando) {
+    return (
+      <Campo id={id} label={labelNuevo} requerido={requerido} opcional={opcional} error={errorNuevo}>
+        <div className="flex gap-2">
+          <input
+            id={id}
+            type="text"
+            value={nombreNuevo}
+            onChange={(event) => { setNombreNuevo(event.target.value); setErrorNuevo('') }}
+            onKeyDown={manejarTeclas}
+            placeholder={placeholderNuevo}
+            maxLength={100}
+            autoFocus
+            className={claseInput(Boolean(errorNuevo))}
+          />
+          <button
+            type="button"
+            onClick={agregar}
+            disabled={guardando}
+            title="Agregar"
+            className="h-11 px-3 rounded bg-primary hover:bg-primary/90 text-surface-container-lowest flex items-center cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            <span className="material-symbols-outlined text-base">check</span>
+          </button>
+          <button
+            type="button"
+            onClick={cancelar}
+            disabled={guardando}
+            title="Cancelar"
+            className="h-11 px-3 rounded border border-outline-variant/50 text-on-surface-variant hover:bg-surface-container-low flex items-center cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            <span className="material-symbols-outlined text-base">close</span>
+          </button>
+        </div>
+      </Campo>
+    )
+  }
+
+  return (
+    <Campo id={id} label={label} requerido={requerido} opcional={opcional} error={error}>
+      <SelectConFlecha {...bind} onChange={cambiarSeleccion} disabled={bind.disabled || disabled} conError={Boolean(error)}>
+        {opcionVacia}
+        {opciones.map((opcion) => (
+          <option key={opcion.value} value={opcion.value}>{opcion.label}</option>
+        ))}
+        {!disabled && <option value={OPCION_NUEVA}>{textoAgregar}</option>}
+      </SelectConFlecha>
+    </Campo>
+  )
+}
+
+export function SeccionDomicilio({ bindInput, errores, localidades, onCrearLocalidad }) {
+  const localidadInput = bindInput('domicilio_localidad')
+  const barrioInput = bindInput('domicilio_barrio')
+  const localidadId = localidadInput.value
+  const { barrios, crearBarrio } = useBarrios(localidadId)
+
+  const localidadBind = {
+    ...localidadInput,
+    onChange: (event) => {
+      localidadInput.onChange(event)
+      if (barrioInput.value) barrioInput.onChange({ target: { value: '' } })
+    },
+  }
+
   return (
     <div className="flex flex-col gap-4 pt-4 border-t border-outline-variant/20">
       <SeccionTitulo icono="home_pin" titulo="Domicilio" />
@@ -152,17 +266,33 @@ export function SeccionDomicilio({ bindInput, errores, localidades }) {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
-        <Campo id="domicilio_barrio" label="Barrio" opcional>
-          <input {...bindInput('domicilio_barrio')} type="text" placeholder="Ej: Villa Zula / Barrio Universitario" className={claseInput(false)} />
-        </Campo>
-        <Campo id="domicilio_localidad" label="Localidad" requerido error={errores.domicilio_localidad}>
-          <SelectConFlecha {...bindInput('domicilio_localidad')} conError={Boolean(errores.domicilio_localidad)}>
-            <option value="" disabled>Seleccione localidad...</option>
-            {localidades.map((l) => (
-              <option key={l.localidad_id} value={String(l.localidad_id)}>{l.nombre}</option>
-            ))}
-          </SelectConFlecha>
-        </Campo>
+        <SelectConAlta
+          id="domicilio_localidad"
+          label="Localidad"
+          labelNuevo="Localidad nueva"
+          requerido
+          error={errores.domicilio_localidad}
+          bind={localidadBind}
+          opciones={localidades.map((l) => ({ value: String(l.localidad_id), label: l.nombre }))}
+          opcionVacia={<option value="" disabled>Seleccione localidad...</option>}
+          textoAgregar="+ Agregar localidad nueva..."
+          placeholderNuevo="Ej: Magdalena"
+          onCrear={async (nombre) => String((await onCrearLocalidad(nombre)).localidad_id)}
+        />
+        <SelectConAlta
+          id="domicilio_barrio"
+          label="Barrio"
+          labelNuevo="Barrio nuevo"
+          opcional
+          error={errores.domicilio_barrio}
+          bind={barrioInput}
+          opciones={barrios.map((b) => ({ value: String(b.barrio_id), label: b.nombre }))}
+          opcionVacia={<option value="">{localidadId ? 'Sin especificar' : 'Seleccione primero la localidad'}</option>}
+          textoAgregar="+ Agregar barrio nuevo..."
+          placeholderNuevo="Ej: Los Ombúes"
+          onCrear={async (nombre) => String((await crearBarrio(nombre)).barrio_id)}
+          disabled={!localidadId}
+        />
       </div>
     </div>
   )

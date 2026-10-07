@@ -519,8 +519,22 @@ def discount_base(items):
     )
 
 
-def total_discounts(items):
-    return sum((item.monto for item in items if item.es_descuento), Decimal("0.00"))
+def unpaid_late_fees(cuota, items, pending):
+    fees = sum(
+        (item.monto for item in items if not item.es_descuento and item.concepto == ConceptoItemChoices.MORA),
+        Decimal("0.00"),
+    )
+    if fees <= 0:
+        return Decimal("0.00")
+    if net_amount(items) - pending <= 0:
+        return fees
+    paid_fees = active_allocations(cuota).get(ConceptoItemChoices.MORA, Decimal("0.00"))
+    return max(fees - paid_fees, Decimal("0.00"))
+
+
+def discountable_pending(cuota, items, pending):
+    """What is left to pay on the cuota without its unpaid late fees: the most a benefit can take off it."""
+    return max(pending - unpaid_late_fees(cuota, items, pending), Decimal("0.00"))
 
 
 def cuota_period_start(cuota):
@@ -606,36 +620,35 @@ def benefit_amount(mode, value, base):
 
 
 @transaction.atomic
-def assign_benefit(cuota_id, kind, mode, value, concept, start_date, reason, end_date=None, user=None):
+def assign_benefit(cuota_id, kind, mode, value, start_date, reason, end_date=None, user=None):
     cuota = lock_cuota(cuota_id)
     items = list(cuota.items.all())
     base = discount_base(items)
-    if mode == ModalidadMontoChoices.MONTO_FIJO and value >= base:
-        raise BeneficioInvalidoError("El monto fijo debe ser menor al valor de la cuota.")
+    if mode == ModalidadMontoChoices.MONTO_FIJO and value > base:
+        raise BeneficioInvalidoError("El monto fijo no puede superar el valor de la cuota.")
 
-    locked = is_locked(cuota)
-    available = max(base - total_discounts(items), Decimal("0.00"))
+    paid = cuota.estado_cuota == EstadoCuotaChoices.PAGA
+    remaining = discountable_pending(cuota, items, pending_amounts([cuota])[cuota.pk])
     amount = min(benefit_amount(mode, value, base), base)
 
     if kind == BENEFIT_DISCOUNT:
-        if locked:
-            raise CuotaConPagosError("La cuota está paga o tiene pagos aplicados y no puede recibir un descuento.")
-        if amount > available:
-            raise BeneficioInvalidoError("El descuento supera el saldo de la cuota que todavía puede descontarse.")
+        if paid:
+            raise CuotaConPagosError("La cuota está paga y no puede recibir un descuento.")
+        if amount > remaining:
+            raise BeneficioInvalidoError("El descuento supera el saldo pendiente de la cuota, sin contar recargos.")
         item = ItemCuota.objects.create(
             cuota=cuota,
             concepto=ConceptoItemChoices.DESCUENTO_UNICO,
             es_descuento=True,
             fecha_aplicacion=start_date,
             monto=amount,
-            motivo=benefit_reason(concept, reason),
+            motivo=benefit_reason(reason),
         )
         sync_cuota_charge(cuota)
         return None, item
 
     scholarship = Beca.objects.create(
         socio_id=cuota.movimiento.cuenta_corriente.socio_id,
-        concepto=concept,
         monto=value if mode == ModalidadMontoChoices.MONTO_FIJO else None,
         porcentaje=value if mode == ModalidadMontoChoices.PORCENTAJE else None,
         fecha_aplicacion=start_date,
@@ -644,15 +657,16 @@ def assign_benefit(cuota_id, kind, mode, value, concept, start_date, reason, end
         usuario=user,
     )
     item = None
-    scholarship_amount = min(scholarship.discount_for(base), available)
-    if not locked and scholarship.covers_period(cuota_period_start(cuota)) and scholarship_amount > 0:
+    # A scholarship larger than what is left to pay only covers the remaining amount
+    scholarship_amount = min(scholarship.discount_for(base), remaining)
+    if not paid and scholarship.covers_period(cuota_period_start(cuota)) and scholarship_amount > 0:
         item = ItemCuota.objects.create(
             cuota=cuota,
             concepto=ConceptoItemChoices.BECA,
             es_descuento=True,
             fecha_aplicacion=start_date,
             monto=scholarship_amount,
-            motivo=benefit_reason(concept, reason),
+            motivo=benefit_reason(reason),
         )
         sync_cuota_charge(cuota)
     return scholarship, item

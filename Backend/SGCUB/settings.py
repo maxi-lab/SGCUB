@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     'drf_spectacular',
     'usuarios',
     'django_cleanup.apps.CleanupConfig',
+    'comet',
 ]
 Q_CLUSTER = {
     'name': 'django_q_cluster',
@@ -222,4 +223,9 @@ EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
 EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True').lower() in ('true', '1', 't')
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER or 'sgcub.notificaciones@gmail.com')
+
+COMET_MODE = os.getenv("COMET_MODE", "mock")
+COMET_BASE_URL = os.getenv("COMET_BASE_URL", "")
+COMET_API_KEY = os.getenv("COMET_API_KEY", "")
+COMET_TIMEOUT = int(os.getenv("COMET_TIMEOUT", "30"))
 

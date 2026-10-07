@@ -4,18 +4,23 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { activateJugador, deactivateJugador, getJugador, patchJugador } from '../api/jugadores'
 import ActivateJugadorModal from '../components/jugadores/ActivateJugadorModal'
 import DeactivateJugadorModal from '../components/jugadores/DeactivateJugadorModal'
-import PersonHeader, { EditButton, DeactivateButton, ActivateButton } from '../components/personas/HeaderPersona'
+import PersonHeader, { ActionsDivider, ActivateButton, BenefitButton, DeactivateButton, EditButton, PayButton } from '../components/personas/HeaderPersona'
 import PersonTabs from '../components/personas/TabsNavPersonas'
 import PersonalDataTab from '../components/personas/tabs/PersonalDataTab'
 import FamilyTab from '../components/personas/tabs/FamilyTab'
-import FinancialTab from '../components/personas/tabs/FinancialTab'
+import { FinancialStatement } from '../components/personas/tabs/FinancialTab'
 import DocumentationTab from '../components/personas/tabs/DocumentationTab'
 import { EmptyState } from '../components/personas/tabs/parts'
 import { LoadingFile, ErrorFile } from '../components/personas/FileStatus'
 import { isActiveStatus, formatDni, formatDate, formatNumber, getErrorMessage } from '../components/personas/format'
 import useLocalidades from '../hooks/useLocalidades'
+import useAssignBenefit from '../hooks/useAssignBenefit'
+import useRegisterPayment from '../hooks/useRegisterPayment'
 import useDocumentacion from "../hooks/useDocumentacion"
 import { buildDocumentBadges } from '../components/documental/documentBadges'
+import { buildCuotaBadges } from '../components/finanzas/cuotaBadges'
+import useSocioFinances from '../hooks/useSocioFinances'
+import CometJugadorCard from '../components/comet/CometJugadorCard'
 
 const getContacts = (player) => (player.vinculos_familiares ?? []).map((c) => ({
   vinculo_familiar_id: c.vinculo_familiar_id,
@@ -43,8 +48,14 @@ function JugadorDetail() {
   const setJugador = (datos) => setCarga((actual) => ({ ...actual, datos }))
 
   const { localidades } = useLocalidades()
+  const { openPayment } = useRegisterPayment()
+  const { openBenefit } = useAssignBenefit()
   const { documentosActivos: activos } = useDocumentacion(jugador?.socio?.persona)
   const badgeConfig = React.useMemo(() => buildDocumentBadges(activos), [activos])
+  // Loaded here so the tab badge and the financial tab share a single request
+  const finances = useSocioFinances(jugador?.socio?.socio_id)
+  const refreshFinances = finances.reload
+  const cuotaBadges = React.useMemo(() => buildCuotaBadges(finances.account), [finances.account])
 
 
   const [modalBajaAbierto, setModalBajaAbierto] = useState(false)
@@ -168,9 +179,16 @@ function JugadorDetail() {
       id: 'financiero',
       label: 'Financiero',
       icon: 'account_balance_wallet',
+      badge: cuotaBadges,
       content: socio.socio_id
-        ? <FinancialTab socio={socio} enableBenefits />
+        ? <FinancialStatement socio={socio} finances={finances} />
         : <EmptyState icon="account_balance_wallet" title="Sin datos de socio" description="El jugador no tiene un socio asociado." />,
+    },
+    {
+      id: 'comet',
+      label: 'COMET',
+      icon: 'cloud_sync',
+      content: <CometJugadorCard jugador={jugador} />,
     },
   ]
 
@@ -193,13 +211,20 @@ function JugadorDetail() {
         ]}
         actions={activo ? (
           <>
-            <EditButton onClick={() => navigate(`/padron/jugadores/${jugador.jugador_id}/editar`)} />
             <DeactivateButton
               onClick={() => {
                 setErrorBaja('')
                 setModalBajaAbierto(true)
               }}
             />
+            <EditButton onClick={() => navigate(`/padron/jugadores/${jugador.jugador_id}/editar`)} />
+            {socio.socio_id && (
+              <>
+                <ActionsDivider />
+                <BenefitButton onClick={() => openBenefit({ socioId: socio.socio_id, onSuccess: refreshFinances })} />
+                <PayButton onClick={() => openPayment({ socioId: socio.socio_id, onSuccess: refreshFinances })} />
+              </>
+            )}
           </>
         ) : (
           <ActivateButton

@@ -1,25 +1,38 @@
-import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { activateSocio, deactivateSocio, getSocio } from '../api/socios'
 import ActivateSocioModal from '../components/socios/ActivateSocioModal'
 import DeactivateSocioModal from '../components/socios/DeactivateSocioModal'
-import PersonHeader, { EditButton, DeactivateButton, ActivateButton } from '../components/personas/HeaderPersona'
+import PersonHeader, { ActionsDivider, ActivateButton, BenefitButton, DeactivateButton, EditButton, PayButton } from '../components/personas/HeaderPersona'
 import PersonTabs from '../components/personas/TabsNavPersonas'
 import PersonalDataTab from '../components/personas/tabs/PersonalDataTab'
-import FinancialTab from '../components/personas/tabs/FinancialTab'
+import { FinancialStatement } from '../components/personas/tabs/FinancialTab'
 import { LoadingFile, ErrorFile } from '../components/personas/FileStatus'
 import { yearsSince, isActiveStatus, formatDni, formatDate, formatNumber, yearsText } from '../components/personas/format'
+import { buildCuotaBadges } from '../components/finanzas/cuotaBadges'
 import useLocalidades from '../hooks/useLocalidades'
+import useAssignBenefit from '../hooks/useAssignBenefit'
+import useRegisterPayment from '../hooks/useRegisterPayment'
+import useSocioFinances from '../hooks/useSocioFinances'
 
 function SocioDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const requestedTab = searchParams.get('tab') ?? undefined
   const { localidades } = useLocalidades()
+  const { openPayment } = useRegisterPayment()
+  const { openBenefit } = useAssignBenefit()
 
   const [carga, setCarga] = useState({ id: null, datos: null, error: null })
   const loading = carga.id !== id
   const socio = carga.datos
   const error = carga.error
+
+  // Loaded here so the tab badge and the financial tab share a single request
+  const finances = useSocioFinances(socio?.socio_id)
+  const refreshFinances = finances.reload
+  const cuotaBadges = useMemo(() => buildCuotaBadges(finances.account), [finances.account])
 
   const [modaldeactivateAbierto, setModaldeactivateAbierto] = useState(false)
   const [deactivate, setdeactivate] = useState(false)
@@ -84,7 +97,8 @@ function SocioDetail() {
       id: 'financiero',
       label: 'Financiero',
       icon: 'account_balance_wallet',
-      content: <FinancialTab socio={socio} enableBenefits />,
+      badge: cuotaBadges,
+      content: <FinancialStatement socio={socio} finances={finances} />,
     },
   ]
 
@@ -107,13 +121,16 @@ function SocioDetail() {
         ]}
         actions={activo ? (
           <>
-            <EditButton onClick={() => navigate(`/padron/socios/${socio.socio_id}/editar`)} />
             <DeactivateButton
               onClick={() => {
                 setErrorEliminacion('')
                 setModaldeactivateAbierto(true)
               }}
             />
+            <EditButton onClick={() => navigate(`/padron/socios/${socio.socio_id}/editar`)} />
+            <ActionsDivider />
+            <BenefitButton onClick={() => openBenefit({ socioId: socio.socio_id, onSuccess: refreshFinances })} />
+            <PayButton onClick={() => openPayment({ socioId: socio.socio_id, onSuccess: refreshFinances })} />
           </>
         ) : (
           <ActivateButton
@@ -125,7 +142,7 @@ function SocioDetail() {
         )}
       />
 
-      <PersonTabs tabs={tabs} />
+      <PersonTabs key={`${id}-${requestedTab}`} tabs={tabs} defaultTab={requestedTab} />
 
       <ActivateSocioModal
         opened={modalActivarAbierto}
