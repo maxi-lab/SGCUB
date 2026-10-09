@@ -262,7 +262,6 @@ function PagoForm({ socio = null, cuenta = null, emptyHeader = null, initialCuot
 
   return (
     <form onSubmit={confirmPayment} className="flex flex-col gap-6" noValidate>
-      {/* Two fixed columns: the debt box can never wrap below the socio data */}
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 pb-4 border-b border-outline-variant/30">
         <div className="min-w-0">
           <p className="text-sm uppercase tracking-wider font-semibold text-primary">Registrar pago de</p>
