@@ -208,7 +208,7 @@ SPECTACULAR_SETTINGS = {
 }
 
 # Media files
-import os
+
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.environ.get('MEDIA_ROOT', os.path.join(BASE_DIR, 'media'))
 # Configuración de Correo Electrónico (Brevo SMTP)
@@ -227,4 +227,15 @@ COMET_MODE = os.getenv("COMET_MODE", "mock")
 COMET_BASE_URL = os.getenv("COMET_BASE_URL", "")
 COMET_API_KEY = os.getenv("COMET_API_KEY", "")
 COMET_TIMEOUT = int(os.getenv("COMET_TIMEOUT", "30"))
-
+#Conf de logging
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "console": {"class": "logging.StreamHandler"},
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": "INFO",
+    },
+}

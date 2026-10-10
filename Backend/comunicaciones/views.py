@@ -7,7 +7,7 @@ from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError
-
+from .services import enviar_email_individual
 from .models import CanalNotificacion, EnvioNotificacion, EstadoNotificacion, Notificacion
 from .serializers import EnvioNotificacionSerializer, NotificacionSerializer
 
@@ -215,6 +215,7 @@ def notificacion_detail(request, pk):
 )
 @api_view(["GET", "POST"])
 def envio_notificacion_list_create(request):
+    logger.info(f"Request method: {request.method}, Request data: {request.data}")
     if request.method == "GET":
         envios = EnvioNotificacion.objects.select_related(
             "notificacion", "socio__persona"
@@ -226,17 +227,19 @@ def envio_notificacion_list_create(request):
     if serializer.is_valid():
         envio = serializer.save()
         if envio.canal == CanalNotificacion.MAIL:
-            from .services import enviar_email_individual
+            
 
             notificacion = envio.notificacion
             destinatario = (envio.socio.persona.email or "").strip()
+            nombre_socio = envio.socio.persona.__str__()
+            logger.info(f"Enviando notificación por correo a {nombre_socio} ({destinatario})")    
             if "@" in destinatario:
-                enviar_email_individual(
+                """enviar_email_individual(
                     destinatario=destinatario,
                     asunto=notificacion.asunto or notificacion.titulo,
                     contenido=notificacion.contenido,
                     envio_id=envio.id
-                )
+                )"""
             else:
                 envio.estado = EstadoNotificacion.FALLIDA
                 envio.detalle_fallo = (
