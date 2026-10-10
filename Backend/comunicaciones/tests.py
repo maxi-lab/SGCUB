@@ -2,7 +2,7 @@ from unittest.mock import patch
 
 from django.test import TestCase
 
-from padron.models import Persona
+from padron.models import Persona, Socio
 
 from .models import CanalNotificacion, EnvioNotificacion, EstadoNotificacion, Notificacion
 from .serializers import EnvioNotificacionSerializer
@@ -28,35 +28,36 @@ class EnvioNotificacionSerializerTest(TestCase):
             telefono="+5491123456789",
             email="ana@example.com",
         )
+        self.socio = Socio.objects.create(persona=self.persona)
         self.notificacion = Notificacion.objects.create(
             titulo="Aviso",
             contenido="Contenido",
         )
 
-    def test_serializa_persona_y_contacto_segun_canal(self):
+    def test_serializa_socio_y_contacto_segun_canal(self):
         envio = EnvioNotificacion.objects.create(
             notificacion=self.notificacion,
-            persona=self.persona,
+            socio=self.socio,
             canal=CanalNotificacion.MAIL,
         )
 
         data = EnvioNotificacionSerializer(envio).data
 
-        self.assertEqual(data["persona"], self.persona.pk)
+        self.assertEqual(data["socio"], self.socio.pk)
         self.assertEqual(data["destinatario_contacto"], self.persona.email)
 
-    def test_valida_persona_en_el_payload(self):
+    def test_valida_socio_en_el_payload(self):
         serializer = EnvioNotificacionSerializer(
             data={
                 "notificacion": self.notificacion.pk,
-                "persona": self.persona.pk,
+                "socio": self.socio.pk,
                 "canal": CanalNotificacion.WHATSAPP,
             }
         )
 
         self.assertTrue(serializer.is_valid(), serializer.errors)
         envio = serializer.save()
-        self.assertEqual(envio.persona, self.persona)
+        self.assertEqual(envio.socio, self.socio)
 
 
 class DespacharEnviosEmailNotificacionTest(TestCase):
@@ -67,13 +68,14 @@ class DespacharEnviosEmailNotificacionTest(TestCase):
             dni="87654321",
             email="ana@example.com",
         )
+        socio = Socio.objects.create(persona=persona)
         notificacion = Notificacion.objects.create(
             titulo="Aviso",
             contenido="Contenido",
         )
         envio = EnvioNotificacion.objects.create(
             notificacion=notificacion,
-            persona=persona,
+            socio=socio,
             canal=CanalNotificacion.MAIL,
         )
 

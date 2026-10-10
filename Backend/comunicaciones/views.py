@@ -82,7 +82,7 @@ def opciones_comunicacion(request):
 def notificacion_list_create(request):
     if request.method == "GET":
         notificaciones = Notificacion.objects.prefetch_related(
-            "envios__persona"
+            "envios__socio__persona"
         ).all().order_by("-fecha_creacion")
         serializer = NotificacionSerializer(notificaciones, many=True)
         return Response(serializer.data)
@@ -165,7 +165,7 @@ def notificacion_list_create(request):
 @api_view(["GET", "PUT", "PATCH", "DELETE"])
 def notificacion_detail(request, pk):
     notificacion = get_object_or_404(
-        Notificacion.objects.prefetch_related("envios__persona"), pk=pk
+        Notificacion.objects.prefetch_related("envios__socio__persona"), pk=pk
     )
 
     if request.method == "GET":
@@ -204,7 +204,7 @@ def notificacion_detail(request, pk):
             "Envio de notificación",
             value={
                 "notificacion": 1,
-        "persona": 1,
+                "socio": 1,
                 "canal": "WHATSAPP",
                 "estado": "ENVIADA",
                 "detalle_fallo": "",
@@ -217,7 +217,7 @@ def notificacion_detail(request, pk):
 def envio_notificacion_list_create(request):
     if request.method == "GET":
         envios = EnvioNotificacion.objects.select_related(
-            "notificacion", "persona"
+            "notificacion", "socio__persona"
         ).all().order_by("-fecha_envio")
         serializer = EnvioNotificacionSerializer(envios, many=True)
         return Response(serializer.data)
@@ -229,7 +229,7 @@ def envio_notificacion_list_create(request):
             from .services import enviar_email_individual
 
             notificacion = envio.notificacion
-            destinatario = (envio.persona.email or "").strip()
+            destinatario = (envio.socio.persona.email or "").strip()
             if "@" in destinatario:
                 enviar_email_individual(
                     destinatario=destinatario,
@@ -240,7 +240,7 @@ def envio_notificacion_list_create(request):
             else:
                 envio.estado = EstadoNotificacion.FALLIDA
                 envio.detalle_fallo = (
-                    "La persona no tiene una dirección de correo electrónico válida"
+                    "El socio no tiene una dirección de correo electrónico válida"
                 )
                 envio.save(update_fields=["estado", "detalle_fallo"])
             envio.refresh_from_db()
@@ -269,7 +269,7 @@ def envio_notificacion_list_create(request):
             "Actualizar envio",
             value={
                 "notificacion": 1,
-                "persona": 1,
+                "socio": 1,
                 "canal": "MAIL",
                 "estado": "ENVIADA",
                 "detalle_fallo": "",
@@ -298,7 +298,10 @@ def envio_notificacion_list_create(request):
 @api_view(["GET", "PUT", "PATCH", "DELETE"])
 def envio_notificacion_detail(request, pk):
     envio = get_object_or_404(
-        EnvioNotificacion.objects.select_related("notificacion", "persona"), pk=pk
+        EnvioNotificacion.objects.select_related(
+            "notificacion", "socio__persona"
+        ),
+        pk=pk,
     )
 
     if request.method == "GET":

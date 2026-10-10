@@ -211,7 +211,6 @@ SPECTACULAR_SETTINGS = {
 import os
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.environ.get('MEDIA_ROOT', os.path.join(BASE_DIR, 'media'))
-
 # Configuración de Correo Electrónico (Brevo SMTP)
 EMAIL_BACKEND = os.environ.get(
     'EMAIL_BACKEND',

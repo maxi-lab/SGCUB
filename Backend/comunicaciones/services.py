@@ -170,7 +170,7 @@ def despachar_envios_email_notificacion(notificacion_id: int):
     exitosos = 0
 
     for envio in envios_mail:
-        contacto = (envio.persona.email or "").strip()
+        contacto = (envio.socio.persona.email or "").strip()
         if "@" in contacto:
             resultado = enviar_email_individual(
                 destinatario=contacto,

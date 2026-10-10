@@ -257,14 +257,14 @@ export default function Comunicaciones() {
       if (scope === 'individual' && selectedSocio) {
         if (selectedContactos.has('socio_tel') && selectedSocio.telefono) {
           envios.push({
-            persona: selectedSocio.persona,
+            socio: selectedSocio.socio_id,
             canal: 'WHATSAPP',
             estado: 'ENVIADA',
           })
         }
         if (selectedContactos.has('socio_email') && selectedSocio.email) {
           envios.push({
-            persona: selectedSocio.persona,
+            socio: selectedSocio.socio_id,
             canal: 'MAIL',
             estado: 'ENVIADA',
           })
@@ -275,14 +275,14 @@ export default function Comunicaciones() {
         ;(socios || []).forEach((s) => {
           if (hasWhatsApp && s.telefono) {
             envios.push({
-              persona: s.persona,
+              socio: s.socio_id,
               canal: 'WHATSAPP',
               estado: 'ENVIADA',
             })
           }
           if (hasEmail && s.email) {
             envios.push({
-              persona: s.persona,
+              socio: s.socio_id,
               canal: 'MAIL',
               estado: 'ENVIADA',
             })
