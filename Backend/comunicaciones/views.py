@@ -213,43 +213,6 @@ def notificacion_detail(request, pk):
         )
     ],
 )
-@api_view(["GET", "POST"])
-def envio_notificacion_list_create(request):
-    logger.info(f"Request method: {request.method}, Request data: {request.data}")
-    if request.method == "GET":
-        envios = EnvioNotificacion.objects.select_related(
-            "notificacion", "socio__persona"
-        ).all().order_by("-fecha_envio")
-        serializer = EnvioNotificacionSerializer(envios, many=True)
-        return Response(serializer.data)
-
-    serializer = EnvioNotificacionSerializer(data=request.data)
-    if serializer.is_valid():
-        envio = serializer.save()
-        if envio.canal == CanalNotificacion.MAIL:
-            
-
-            notificacion = envio.notificacion
-            destinatario = (envio.socio.persona.email or "").strip()
-            nombre_socio = envio.socio.persona.__str__()
-            logger.info(f"Enviando notificación por correo a {nombre_socio} ({destinatario})")    
-            if "@" in destinatario:
-                """enviar_email_individual(
-                    destinatario=destinatario,
-                    asunto=notificacion.asunto or notificacion.titulo,
-                    contenido=notificacion.contenido,
-                    envio_id=envio.id
-                )"""
-            else:
-                envio.estado = EstadoNotificacion.FALLIDA
-                envio.detalle_fallo = (
-                    "El socio no tiene una dirección de correo electrónico válida"
-                )
-                envio.save(update_fields=["estado", "detalle_fallo"])
-            envio.refresh_from_db()
-        return Response(EnvioNotificacionSerializer(envio).data, status=status.HTTP_201_CREATED)
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
 
 @extend_schema(
     methods=["GET"],
